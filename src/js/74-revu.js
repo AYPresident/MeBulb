@@ -317,7 +317,8 @@ function freeTextStyle(d) {
   const sz = /([\d.]+)\s+Tf/.exec(da); if (sz) style.fontSize = +sz[1]; const col = /([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+rg/.exec(da); const daRg = col ? hex3(col) : null;
   const bc = /([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+RG/.exec(da); if (bc) border = hex3(bc);
   const fn = /\/([A-Za-z0-9_.,+-]+)\s+[\d.]+\s+Tf/.exec(da); if (fn && /bold|bld/i.test(fn[1])) style.bold = true; if (fn && /italic|oblique|obl|it$/i.test(fn[1])) style.italic = true;
-  const css = cssDecl(ds); if (css['font-size']) style.fontSize = parseFloat(css['font-size']); if (css['text-align']) style.align = css['text-align'];
+  const css = cssDecl(ds); if (css['font-size']) style.fontSize = parseFloat(css['font-size']); if (css['text-align']) style.align = css['text-align']; else { const q = nOf(d.lookup(PDFName.of('Q'))); if (q === 1) style.align = 'center'; else if (q === 2) style.align = 'right'; }
+  if (/^(middle|bottom)$/.test(css['text-valign'] || '')) style.valign = css['text-valign'];
   if (css.font) { const f = /([\d.]+)pt/.exec(css.font); if (f) style.fontSize = +f[1]; const lead = css.font.replace(/[\d.]+pt.*$/, ''); if (/\bbold\b/i.test(lead)) style.bold = true; if (/\bitalic\b/i.test(lead)) style.italic = true; style.font = fontKeyFromName(lead.replace(/\b(bold|italic|normal|oblique)\b/gi, '').trim()); }
   if (css['font-family']) style.font = fontKeyFromName(css['font-family']); if (/bold|[6-9]00/.test(css['font-weight'] || '')) style.bold = true; if (/italic/.test(css['font-style'] || '')) style.italic = true;
   // text colour: DS, else DA; border: DA RG, else (when DS gives the text colour) DA rg

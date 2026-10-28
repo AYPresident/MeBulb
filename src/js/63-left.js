@@ -161,7 +161,8 @@ function bindLayers() {
 function saveToolsets() { store.set('toolsets', state.toolsets); }
 const _pvCache = new Map();
 function previewOf(it) { const k = JSON.stringify([it.tool, it.style, it.text, it.shape, it.depth, it.size, it.name]); let v = _pvCache.get(k); if (!v) { v = toolPreview(it); if (_pvCache.size > 400) _pvCache.clear(); _pvCache.set(k, v); } return v; }
-const tsKind = (it) => (TOOLS[it.tool] ? TOOLS[it.tool].short || TOOLS[it.tool].label : it.tool);
+const tsKind = (it) => (it.tool === 'group' ? `Group of ${it.shapes.length}` : TOOLS[it.tool] ? TOOLS[it.tool].short || TOOLS[it.tool].label : it.tool);
+const tsFixed = (it) => it.tool === 'group' || (it.tool === 'stamp' && it.asset); // only placed as drawn
 const tsSet = (s) => (s === 'r' ? { id: 'recent', name: 'Recent tools', items: state.recentTools || [], collapsed: state.recentCollapsed, view: state.recentView || 'grid', recent: true } : state.toolsets[+s]);
 function tsItemHtml(it, si, ii) {
   const tip = `${it.name} · ${tsKind(it)}${it.mode === 'drawing' ? ' · drawing mode (places this exact shape)' : ''}`;
@@ -202,10 +203,10 @@ function toolsetMenu(si, x, y) {
 }
 function toolItemMenu(si, ii, x, y) {
   const ts = tsSet(si); const it = ts.items[ii]; const save = () => { if (si === 'r') store.set('recentTools', state.recentTools); else saveToolsets(); renderToolsets(); };
-  const canDraw = !(it.tool === 'stamp' && it.stampId && !String(it.stampId).startsWith('txt:')) && !TOOLS[it.tool].shape;
-  const items = [['Use (properties mode)', () => useToolsetItem({ ...it, mode: 'properties' })]];
+  const canDraw = tsFixed(it) || (!(it.tool === 'stamp' && it.stampId && !String(it.stampId).startsWith('txt:')) && TOOLS[it.tool] && !TOOLS[it.tool].shape);
+  const items = tsFixed(it) ? [] : [['Use (properties mode)', () => useToolsetItem({ ...it, mode: 'properties' })]];
   if (canDraw) items.push(['Place a copy (drawing mode)', () => useToolsetItem({ ...it, mode: 'drawing' })]);
-  if (!ts.recent && canDraw) items.push([it.mode === 'drawing' ? 'Click uses properties mode' : 'Click uses drawing mode', () => { it.mode = it.mode === 'drawing' ? 'properties' : 'drawing'; save(); }]);
+  if (!ts.recent && canDraw && !tsFixed(it)) items.push([it.mode === 'drawing' ? 'Click uses properties mode' : 'Click uses drawing mode', () => { it.mode = it.mode === 'drawing' ? 'properties' : 'drawing'; save(); }]);
   items.push(['-'], ['Rename…', () => renameToolItem(si, ii)]);
   if (ts.recent) items.push(['Add to tool set…', async () => { const pick = await pickToolset(it.name); if (pick) { pick.set.items.push({ ...deep(it), name: pick.name }); saveToolsets(); renderToolsets(); } }]);
   else {
@@ -254,6 +255,7 @@ function bindToolsets() {
   });
 }
 function useToolsetItem(it) {
+  if (it && tsFixed(it)) { setTool('select'); state.placeItem = it; V.el.dataset.place = '1'; renderToolsets(); toast(`${it.name}: click the page to place it`); return; }
   if (!it || !TOOLS[it.tool]) return; const lock = it.tool === 'count' || MEASURE_TYPES.has(it.tool);
   state.toolStyles[it.tool] = { ...(TOOLS[it.tool].style || {}) };
   if (it.tool === 'stamp') state.stampId = it.stampId || 'txt:' + (it.text || 'APPROVED');
@@ -263,13 +265,23 @@ function useToolsetItem(it) {
   if (it.mode === 'drawing' && !TOOLS[it.tool].shape) { state.placeItem = it; V.el.dataset.place = '1'; renderToolsets(); toast(`${it.name}: click the page to place a copy`); return; }
   toast(`${it.name}: ${lock ? 'tool stays active until Esc' : 'draw on the page'}`);
 }
-// drawing mode: drop the saved markup, same size and look, centred where you click
+// drawing mode: drop the saved markup (or a grouped tool's markups), same size and look, centred where you click
 function placeToolItem(it, page, p) {
-  const doc = activeDoc(); const m = sampleMarkup(it); const c = G.bbox(m.pts); const dx = p[0] - (c.x + c.x2) / 2, dy = p[1] - (c.y + c.y2) / 2;
-  const x = newMarkup(m.type, page, m.pts.map(([a, b]) => [a + dx, b + dy]), { style: deep(m.style), subject: it.subject || it.name || m.subject });
-  if (m.text) x.text = m.text; if (m.runs) x.runs = deep(m.runs); if (it.depth != null) x.depth = it.depth; if (x.type === 'volume' && x.depth == null) x.depth = defaultDepth(scaleAt(doc, page, p));
-  addMarkup(x, doc); noteRecentTool(x); state.sel.clear(); state.sel.add(x.id); refreshSelection();
-  if (!state.toolLocked && !state.reuse) { endPlace(); setTool('select'); state.sel.add(x.id); refreshSelection(); }
+  const doc = activeDoc(); const ms = toolMarkups(it); const all = G.bbox(ms.flatMap((m) => m.pts)); const dx = p[0] - (all.x + all.x2) / 2, dy = p[1] - (all.y + all.y2) / 2;
+  const gid = ms.length > 1 ? uid('G-') : null; const A = toolAssets(); const placed = [];
+  pushUndo(doc);
+  for (const m of ms) {
+    const x = newMarkup(m.type, page, m.pts.map(([a, b]) => [a + dx, b + dy]), { style: deep(m.style), subject: m.subject || it.subject || it.name });
+    if (m.text) x.text = m.text; if (m.runs) x.runs = deep(m.runs); if (m.depth != null) x.depth = m.depth; if (x.type === 'volume' && x.depth == null) x.depth = defaultDepth(scaleAt(doc, page, p));
+    if (m.asset && A[m.asset]) { doc.assets = doc.assets || {}; doc.assets[m.asset] = doc.assets[m.asset] || A[m.asset]; if (TOOL_ASSETS.img[m.asset]) { doc.assetImg = doc.assetImg || {}; doc.assetImg[m.asset] = TOOL_ASSETS.img[m.asset]; } x.asset = m.asset; }
+    if (m.ext && (m.ext.it || m.ext.bsi)) x.ext = { it: m.ext.it, bsi: m.ext.bsi };
+    if (gid) { x.group = gid; x.ext = { ...(x.ext || {}), groupPrimary: !!(m.ext && m.ext.groupPrimary), groupName: m.ext && m.ext.groupName || undefined }; }
+    doc.markups.push(x); placed.push(x);
+  }
+  renderMarks(doc, page); refreshPanels(); if (placed.length === 1) noteRecentTool(placed[0]);
+  state.sel.clear(); placed.forEach((x) => state.sel.add(x.id));
+  if (!state.toolLocked && !state.reuse) { endPlace(); if (state.tool !== 'select') setTool('select'); placed.forEach((x) => state.sel.add(x.id)); }
+  refreshSelection();
 }
 function endPlace() { if (!state.placeItem) return; state.placeItem = null; if (V.el) delete V.el.dataset.place; renderToolsets(); }
 async function pickToolset(defName) {

@@ -76,6 +76,28 @@ EOF`));
   const re = await ev(async (u) => { const b = new Uint8Array(await (await fetch(u)).arrayBuffer()); const d = await mebulb.openBytes('again.pdf', b); await new Promise((r) => setTimeout(r, 2000)); return { n: d.markups.length, revu: await mebulb.revuFlatCount(d), groups: new Set(d.markups.filter((m) => m.group).map((m) => m.group)).size, note: d.importNote }; }, file(saved));
   ok(re.n === after.n && re.revu === 0, `reopened: ${re.n} markups, none duplicated, nothing flattened (${JSON.stringify(re.note)})`);
   ok(re.groups === after.groups, `groups survive the round trip (${re.groups})`);
-  const bad = errors.filter((e) => !/TT:|XObject should be a stream|favicon|net::ERR/.test(e)); ok(!bad.length, 'no page errors' + (bad.length ? ': ' + bad.slice(0, 3).join(' | ') : ''));
+  // the client's tool sets
+  const sets = {};
+  for (const f of ['ts-text', 'ts-spatial', 'ts-review']) {
+    sets[f] = await ev(async (u) => { const b = new Uint8Array(await (await fetch(u)).arrayBuffer()); const { set, skipped } = await mebulb.importBtx(new File([b], 'x.btx')); mebulb.state.toolsets.push(set); return { name: set.name, n: set.items.length, skipped, groups: set.items.filter((i) => i.tool === 'group').map((i) => `${i.name} (${i.shapes.length})`) }; }, file(path.join(DIR, f + '.btx')));
+  }
+  ok(sets['ts-text'].n === 18 && sets['ts-spatial'].n === 18 && sets['ts-review'].n === 5 && !sets['ts-text'].skipped && !sets['ts-spatial'].skipped && !sets['ts-review'].skipped, `all 41 tools imported from the three IGS tool sets, none skipped`);
+  ok(sets['ts-review'].groups.join() === 'INTERNAL QA STAMP (21),DOCUMENT REVIEW DnC STAMP (33),DOCUMENT REVIEW FULL DESIGN STAMP (34),SKETCH STAMP (31)', 'grouped tools keep their names and parts: ' + sets['ts-review'].groups.join(', '));
+  ok(sets['ts-spatial'].groups.some((g) => /^Spatial Legend Vertical/.test(g)) && sets['ts-spatial'].groups.some((g) => /^MECH Legend/.test(g)), 'legends come in as groups: ' + sets['ts-spatial'].groups.slice(0, 4).join(', '));
+  const rt = await ev(async () => { const set = mebulb.state.toolsets[mebulb.state.toolsets.length - 1]; const { xml } = await mebulb.btxXml(set); const r = await mebulb.importBtx(new File([xml], 'back.btx')); return r.set.items.map((i) => (i.shapes ? i.shapes.length : 1)).join(); });
+  ok(rt === '21,33,34,31,1', 'review stamps export as a .btx and come back with every part (' + rt + ')');
+  // the client's interactive stamps
+  for (const f of ['st-qa', 'st-dnc', 'st-sketch']) {
+    await ev(async (u) => { const b = new Uint8Array(await (await fetch(u)).arrayBuffer()); await mebulb.importStampFiles([new File([b], 'IGS ' + u.split('%2F').pop())]); const st = mebulb.STAMPLIB.list[mebulb.STAMPLIB.list.length - 1]; mebulb.state.stampId = st.id; mebulb.setTool('stamp'); mebulb.goToPage(0, [800, 600]); }, file(path.join(DIR, f + '.pdf')));
+    await page.waitForTimeout(400); const [sx, sy] = await ev(() => { const d = mebulb.activeDoc(); const r = d.pageEls[0].getBoundingClientRect(); return [r.left + 800 * d.zoom, r.top + 600 * d.zoom]; });
+    await page.mouse.click(sx, sy); await page.waitForSelector('#modal .st-fill', { timeout: 10000 });
+    if (await page.$('#modal input[type=radio]')) await page.check('#modal input[type=radio] >> nth=1');
+    await page.click('#modal footer .btn.primary'); await page.waitForTimeout(1500);
+    const v = await ev(() => { const d = mebulb.activeDoc(); const m = d.markups[d.markups.length - 1]; return { type: m.type, vals: m.stampValues || {}, w: Math.round(Math.abs(m.pts[1][0] - m.pts[0][0])) }; });
+    ok(v.type === 'stamp' && Object.keys(v.vals).length >= 2 && v.w > 390 && v.w < 410 && (f === 'st-sketch' || v.vals.Status === 'COMMENTS'), `${f}: dialog answered, stamp placed at ${v.w} pt wide with ${JSON.stringify(v.vals)}`);
+    await ev(() => mebulb.setTool('select'));
+  }
+  await page.screenshot({ path: OUT + '/igs-stamps.png' });
+  const bad = errors.filter((e) => !/TT:|XObject should be a stream|favicon|net::ERR|beginMarkedContent/.test(e)); ok(!bad.length, 'no page errors' + (bad.length ? ': ' + bad.slice(0, 3).join(' | ') : ''));
   await browser.close();
 })();

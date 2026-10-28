@@ -68,9 +68,10 @@ function layoutRich(runs, s, maxW) {
 }
 // display-list primitives for laid-out rich text inside box L
 function richPrims(L, s, out) {
+  const free = Math.max(0, L.h - 2 * L.pad - L.lay.height); const vo = s.valign === 'middle' ? free / 2 : s.valign === 'bottom' ? free : 0;
   L.lay.lines.forEach((ln) => {
     let x0 = L.x + L.pad; if (s.align === 'center') x0 = L.x + (L.w - ln.w) / 2; else if (s.align === 'right') x0 = L.x + L.w - L.pad - ln.w;
-    const yb = L.y + L.pad + ln.base;
+    const yb = L.y + L.pad + vo + ln.base;
     ln.pieces.forEach((pc) => {
       const e = pc.e; const sz = rtSize(e); const y = yb + (e.sup ? -e.z * 0.36 : e.sub ? e.z * 0.16 : 0); const x = x0 + pc.x;
       if (pc.str.trim()) out.push({ k: 'text', x, y, size: sz, str: pc.str, color: e.c, bold: e.b, italic: e.i, font: e.f, anchor: 'start', opacity: s.opacity });

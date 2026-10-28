@@ -1,6 +1,6 @@
 // Runs the main browser test suites one after another and prints a summary.
 const { spawnSync } = require('child_process'); const path = require('path');
-const SUITES = ['flow', 'flow2', 'flow3', 'r4', 'r5', 'label', 'incr', 'textmark', 'revu', 'stamps', 'btx', 'ocr'];
+const SUITES = ['flow', 'flow2', 'flow3', 'r4', 'r5', 'label', 'incr', 'textmark', 'revu', 'stamps', 'btx', 'ocr', 'igs']; // igs skips itself without the client files
 const only = process.argv.slice(2); let failed = 0; const t0 = Date.now();
 for (const s of only.length ? only : SUITES) {
   const r = spawnSync(process.execPath, [path.join(__dirname, s + '.js')], { encoding: 'utf8', timeout: 300000 });

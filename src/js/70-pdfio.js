@@ -265,7 +265,7 @@ async function annotsForPage(pdfDoc, fonts, imgCache, doc, i, pageRef, ms) {
       const rgb3 = (c) => (hexToRgb(c) || [0, 0, 0]).map((v) => num(v / 255, 3)).join(' '); const z = s.fontSize || 12;
       const pad = s.pad != null ? s.pad : Math.max(3, z * 0.4); const margin = Math.max(0, pad - 1 - (s.width || 0) / 2);
       A.DA = PDFString.of(`${rgb3(s.stroke && s.stroke !== 'none' ? s.stroke : s.fontColor || '#000000')} rg /${FONT_FAMILIES[famOf(s.font)].da} ${num(z, 2)} Tf`);
-      A.RC = xmlAsciiHex(rtXhtml(m)); A.DS = PDFString.of(`font: ${s.bold ? 'bold ' : ''}${s.italic ? 'italic ' : ''}${cssFontName(s.font)} ${num(z, 2)}pt; text-align:${s.align || 'left'}; margin:${num(margin, 3)}pt; line-height:${num(z * (s.lineH || 1.2), 3)}pt; color:${cssColor(s.fontColor || s.stroke)}`);
+      A.RC = xmlAsciiHex(rtXhtml(m)); A.DS = PDFString.of(`font: ${s.bold ? 'bold ' : ''}${s.italic ? 'italic ' : ''}${cssFontName(s.font)} ${num(z, 2)}pt; text-align:${s.align || 'left'};${s.valign ? ` text-valign:${s.valign};` : ''} margin:${num(margin, 3)}pt; line-height:${num(z * (s.lineH || 1.2), 3)}pt; color:${cssColor(s.fontColor || s.stroke)}`);
     }
     if (sub === 'Text') A.Name = 'Comment';
     if (sub === 'Stamp') A.Name = m.type === 'image' ? 'Image' : (m.text || 'Approved').replace(/[^A-Za-z0-9]+/g, '') || 'Approved';
