@@ -1,0 +1,9 @@
+# build output
+out/
+dist/
+# test output
+test/out/
+node_modules/
+*.tmp
+.DS_Store
+Thumbs.db

@@ -1,0 +1,118 @@
+<div id="app">
+  <header id="menubar">
+    <div class="brand" title="MeBulb · Not the brightest, but it gets the job done." aria-label="MeBulb"><svg viewBox="0 0 32 32" class="mark" aria-hidden="true"><path class="bulb-glass" d="M16 3.5a9 9 0 00-5.2 16.4c1 .8 1.6 1.9 1.6 3.1v.5h7.2V23c0-1.2.6-2.3 1.6-3.1A9 9 0 0016 3.5z"/><path class="bulb-fil" d="M13.2 23.3v-5.6l1.4-2.2 1.4 2.2 1.4-2.2 1.4 2.2v5.6"/><path class="bulb-base" d="M12.4 25.6h7.2M12.9 27.8h6.2M14.3 30h3.4"/><path class="bulb-ray" d="M27.2 7.4l1.7-1M28.6 13h2"/></svg><span>Me<b>Bulb</b></span></div>
+    <nav id="menus" role="menubar" aria-label="Main menu"></nav>
+    <div id="titlearea"><span id="doc-title"></span></div>
+    <div class="quick">
+      <button class="icon-btn" id="btn-panels" title="Panels" aria-label="Panels"><span class="ic-wrap" data-ic="menu"></span></button>
+    </div>
+  </header>
+
+  <nav id="toolbars" aria-label="Toolbars"></nav>
+  <div id="propbar" aria-label="Properties toolbar"></div>
+
+  <main id="main">
+    <nav id="lstrip" class="pstrip" aria-label="Left panels"></nav>
+    <aside id="left" aria-label="Left panel">
+      <header class="phead"><h2 id="left-title"></h2><button class="icon-btn sm" data-close-panel="left" aria-label="Close panel"><span class="ic-wrap" data-ic="close"></span></button></header>
+      <div class="pbody" id="left-body"></div>
+      <div class="presize" title="Drag to resize"></div>
+    </aside>
+
+    <section id="viewer-wrap">
+      <div id="tabs" role="tablist" aria-label="Open documents"></div>
+      <div id="viewer-box">
+        <div id="draftbar" hidden></div>
+        <div id="viewer" tabindex="-1" data-tool="select"><div id="pages"></div>
+          <div id="empty" hidden>
+            <div class="empty-card">
+              <svg viewBox="0 0 32 32" class="empty-mark mark" aria-hidden="true"><path class="bulb-glass" d="M16 3.5a9 9 0 00-5.2 16.4c1 .8 1.6 1.9 1.6 3.1v.5h7.2V23c0-1.2.6-2.3 1.6-3.1A9 9 0 0016 3.5z"/><path class="bulb-fil" d="M13.2 23.3v-5.6l1.4-2.2 1.4 2.2 1.4-2.2 1.4 2.2v5.6"/><path class="bulb-base" d="M12.4 25.6h7.2M12.9 27.8h6.2M14.3 30h3.4"/><path class="bulb-ray" d="M27.2 7.4l1.7-1M28.6 13h2"/></svg>
+              <div class="empty-brand">Me<b>Bulb</b></div>
+              <p class="tagline">Not the brightest, but it gets the job done.</p>
+              <h1>Open a drawing to start marking up</h1>
+              <p>Drop PDFs anywhere on this window, or choose files.</p>
+              <div class="btn-row center"><button class="btn primary" id="empty-open">Open PDF</button><button class="btn" id="empty-sample">Load sample drawings</button></div>
+              <div id="recent-files"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="navbar" aria-label="Navigation"></div>
+    </section>
+
+    <aside id="right" aria-label="Right panel">
+      <div class="presize" title="Drag to resize"></div>
+      <header class="phead"><h2 id="right-title"></h2><button class="icon-btn sm" data-close-panel="right" aria-label="Close panel"><span class="ic-wrap" data-ic="close"></span></button></header>
+      <div class="pbody" id="right-body"></div>
+    </aside>
+    <nav id="rstrip" class="pstrip" aria-label="Right panels"></nav>
+  </main>
+
+  <section id="list" aria-label="Markups list">
+    <div class="list-grip" id="list-grip" title="Drag to resize"></div>
+    <div class="list-bar">
+      <button class="list-title" id="list-toggle" aria-expanded="true"><span class="ic-wrap" data-ic="list"></span> Markups list</button>
+      <input type="search" id="list-q" placeholder="Filter" aria-label="Filter markups">
+      <select id="list-type" aria-label="Type"></select>
+      <select id="list-status" aria-label="Status"><option value="all">Any status</option><option>None</option><option>Accepted</option><option>Rejected</option><option>Completed</option><option>Cancelled</option></select>
+      <label class="chip"><input type="checkbox" id="list-page"> This page</label>
+      <span class="grow"></span>
+      <button class="btn sm" id="list-selall">Select listed</button>
+      <button class="btn sm" id="list-csv"><span class="ic-wrap" data-ic="csv"></span> Export CSV</button>
+    </div>
+    <div class="list-scroll">
+      <table>
+        <thead><tr><th data-sort="subject">Subject</th><th data-sort="page" class="num">Page</th><th data-sort="label">Label</th><th data-sort="measure" class="num">Measurement</th><th data-sort="comment">Comment</th><th data-sort="status">Status</th><th data-sort="author">Author</th><th data-sort="date">Modified</th><th data-sort="layer">Layer</th></tr></thead>
+        <tbody id="list-body"></tbody>
+      </table>
+    </div>
+    <div class="list-foot" id="list-foot"></div>
+  </section>
+
+  <footer id="status">
+    <span id="status-text" class="st-text">Ready</span>
+    <button id="session-badge" class="session-badge" hidden></button>
+    <span class="grow"></span>
+    <span id="seldims" class="num"></span>
+    <div class="sgroup toggles" role="group" aria-label="Snap and drawing aids"></div>
+    <span id="coords" class="num"></span>
+  </footer>
+</div>
+
+<div id="pane-store" hidden>
+  <section class="pane" data-pane="pages">
+    <div class="pane-tools" id="page-ops">
+      <button class="icon-btn sm" data-op="rotccw" title="Rotate page left" aria-label="Rotate page left"><span class="ic-wrap" data-ic="rotccw"></span></button>
+      <button class="icon-btn sm" data-op="rotcw" title="Rotate page right" aria-label="Rotate page right"><span class="ic-wrap" data-ic="rotcw"></span></button>
+      <button class="icon-btn sm" data-op="up" title="Move page up" aria-label="Move page up"><span class="ic-wrap" data-ic="up"></span></button>
+      <button class="icon-btn sm" data-op="down" title="Move page down" aria-label="Move page down"><span class="ic-wrap" data-ic="down"></span></button>
+      <button class="icon-btn sm" data-op="blank" title="Insert blank page after" aria-label="Insert blank page"><span class="ic-wrap" data-ic="plus"></span></button>
+      <button class="icon-btn sm" data-op="insert" title="Insert pages from a PDF" aria-label="Insert pages from file"><span class="ic-wrap" data-ic="insert"></span></button>
+      <button class="icon-btn sm" data-op="extract" title="Extract pages" aria-label="Extract pages"><span class="ic-wrap" data-ic="extract"></span></button>
+      <button class="icon-btn sm danger" data-op="delete" title="Delete page" aria-label="Delete page"><span class="ic-wrap" data-ic="trash"></span></button>
+    </div>
+    <div id="thumbs"></div>
+  </section>
+  <section class="pane" data-pane="bookmarks"><div id="bookmarks"></div></section>
+  <section class="pane" data-pane="layers"><div id="layers"></div></section>
+  <section class="pane" data-pane="toolsets"><div id="toolsets"></div></section>
+  <section class="pane" data-pane="search">
+    <form id="search-form" class="pane-tools search-row"><input type="search" id="search-q" placeholder="Search text" aria-label="Search text"><label class="chip" title="Match case"><input type="checkbox" id="search-case"> Aa</label></form>
+    <div id="search-results"></div>
+  </section>
+  <section class="pane" data-pane="props"><div id="props"></div></section>
+  <section class="pane" data-pane="measure"><div id="measure-panel"></div></section>
+  <section class="pane" data-pane="linked"><div id="linked-panel"></div></section>
+  <section class="pane" data-pane="session"><div id="session-panel"></div></section>
+</div>
+
+<div id="menu-pop" class="menu-pop" hidden role="menu"></div>
+<div id="pop" class="pop" hidden></div>
+<div id="ctx" class="ctx" hidden role="menu"></div>
+<div id="modal-back" class="modal-back" hidden><div id="modal" class="modal" role="dialog" aria-modal="true"></div></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<div id="busy" class="busy" hidden></div>
+<div id="drop" class="drop" hidden><div>Drop PDFs to open them</div></div>
+<input type="file" id="file-open" accept="application/pdf,.pdf" multiple hidden>
+<input type="file" id="file-insert" accept="application/pdf,.pdf" hidden>
+<input type="file" id="file-image" accept="image/*" hidden>

@@ -1,0 +1,26 @@
+const { launch } = require('./harness');
+(async () => {
+  const { browser, page, errors } = await launch({ viewport: { width: 1440, height: 1100 } });
+  const ev = (fn, arg) => page.evaluate(fn, arg);
+  await ev(() => planmark.runSearch('BEDROOM 2')); await page.waitForTimeout(600);
+  const hit = await ev(() => planmark.state.search.hits[0]);
+  const xs = hit.rects.flat().map(p => p[0]), ys = hit.rects.flat().map(p => p[1]);
+  const x1 = Math.min(...xs) + 1, x2 = Math.max(...xs) - 1, y = (Math.min(...ys) + Math.max(...ys)) / 2;
+  await ev(([x, y]) => { planmark.setZoom(1.5); planmark.goToPage(0, [x, y]); planmark.runSearch(''); }, [x1, y]); await page.waitForTimeout(600);
+  const P = async (x, y) => ev(([x, y]) => { const d = planmark.activeDoc(); const r = d.pageEls[0].getBoundingClientRect(); return [r.left + x * d.zoom, r.top + y * d.zoom]; }, [x, y]);
+  const drag = async (a, b) => { await page.mouse.move(a[0], a[1]); await page.mouse.down(); for (let k = 1; k <= 8; k++) await page.mouse.move(a[0] + (b[0] - a[0]) * k / 8, a[1] + (b[1] - a[1]) * k / 8); await page.mouse.up(); await page.waitForTimeout(80); };
+  await page.keyboard.press('h'); await page.waitForTimeout(400);
+  await drag(await P(x1, y), await P(x2, y));
+  let last = await ev(() => { const d = planmark.activeDoc(); const m = d.markups[d.markups.length - 1]; return { type: m.type, n: m.pts.length, subj: m.subject }; });
+  console.log('highlight over text ->', JSON.stringify(last), last.type === 'texthl' && last.n === 4 ? 'PASS' : 'FAIL');
+  await page.keyboard.press('u'); await page.waitForTimeout(300);
+  await drag(await P(x1, y), await P(x2, y));
+  last = await ev(() => { const d = planmark.activeDoc(); const m = d.markups[d.markups.length - 1]; return { type: m.type, n: m.pts.length, subj: m.subject }; });
+  console.log('strikeout ->', JSON.stringify(last), last.type === 'strikeout' ? 'PASS' : 'FAIL');
+  await page.keyboard.press('h'); await drag(await P(x1, y + 60), await P(x2, y + 70));
+  last = await ev(() => { const d = planmark.activeDoc(); return d.markups[d.markups.length - 1].type; }); console.log('highlight off text ->', last, last === 'highlight' ? 'PASS' : 'FAIL');
+  const callout = await ev(() => { const m = planmark.activeDoc().markups.find(m => m.type === 'callout'); return Math.abs(m.pts[2][1] - m.pts[1][1]); }); console.log('sample callout height', callout.toFixed(1));
+  await page.screenshot({ path: 'test/out/textmark.png' });
+  console.log('ERRORS:', errors.filter(e => !e.includes('ERR_FAILED')).join('\n') || 'none');
+  await browser.close();
+})();
