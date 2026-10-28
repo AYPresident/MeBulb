@@ -7,7 +7,13 @@ async function init(base) {
   if (api) return;
   importScripts(base + 'tesseract-core-simd-lstm.wasm.js');
   Mod = await TesseractCore({ print: () => {}, printErr: () => {} });
-  const data = new Uint8Array(await (await fetch(base + 'eng.traineddata')).arrayBuffer());
+  // some web hosts only serve known file types, so the model may also be published as base64 text
+  let data; const res = await fetch(base + 'eng.traineddata');
+  if (res.ok) data = new Uint8Array(await res.arrayBuffer());
+  else {
+    const r2 = await fetch(base + 'eng.traineddata.b64.txt'); if (!r2.ok) throw new Error('The OCR model (eng.traineddata) is missing');
+    const bin = atob((await r2.text()).replace(/\s+/g, '')); data = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) data[i] = bin.charCodeAt(i);
+  }
   Mod.FS.writeFile('/eng.traineddata', data);
   api = new Mod.TessBaseAPI();
   if (api.Init(null, 'eng', 1) !== 0) throw new Error('Tesseract could not load the English model');

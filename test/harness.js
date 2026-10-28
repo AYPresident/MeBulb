@@ -12,7 +12,7 @@ async function launch(opts = {}) {
   page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errors.push(m.type() + ': ' + m.text()); });
   await page.route('**/*', async (route) => {
     const url = route.request().url();
-    if (url.startsWith('http://planmark.test/ocr/')) { const f = url.split('/ocr/')[1].split('?')[0]; return route.fulfill({ contentType: f.endsWith('.js') ? 'text/javascript' : 'application/octet-stream', body: fs.readFileSync(path.join(__dirname, '../vendor/ocr', f)) }); }
+    if (url.startsWith('http://planmark.test/ocr/')) { const f = url.split('/ocr/')[1].split('?')[0]; if (process.env.OCR_B64 && f === 'eng.traineddata') return route.fulfill({ status: 404, body: '' }); if (f === 'eng.traineddata.b64.txt') return route.fulfill({ contentType: 'text/plain', body: fs.readFileSync(path.join(__dirname, '../vendor/ocr/eng.traineddata')).toString('base64') }); return route.fulfill({ contentType: f.endsWith('.js') ? 'text/javascript' : 'application/octet-stream', body: fs.readFileSync(path.join(__dirname, '../vendor/ocr', f)) }); }
     if (url.startsWith('http://planmark.test/font/')) { const f = decodeURIComponent(url.split('/font/')[1]); return route.fulfill({ contentType: 'font/ttf', body: fs.readFileSync(f) }); }
     if (url.startsWith('http://planmark.test/file/')) { const f = decodeURIComponent(url.split('/file/')[1]); return route.fulfill({ contentType: 'application/pdf', body: fs.readFileSync(f) }); }
     if (url.startsWith('http://planmark.test/')) return route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head></head><body>' + fs.readFileSync(path.join(__dirname, '../dist/mebulb.html'), 'utf8') + '</body></html>' });
