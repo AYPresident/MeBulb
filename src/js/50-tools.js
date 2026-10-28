@@ -84,8 +84,8 @@ function selectDown(e, i) {
     if (!state.sel.has(m.id)) { state.sel.clear(); state.sel.add(m.id); refreshSelection(); }
     const L = sketchLabelBox(m, doc); I.drag = { kind: 'label', id: m.id, page: i, start: clientToPage(e, i), orig: L ? [L.x - m.pts[0][0], L.y - m.pts[0][1]] : [0, 0], had: m.labelOff ? m.labelOff.slice() : null, moved: false, sx: e.clientX, sy: e.clientY }; capture(e); e.preventDefault(); return; } }
   if (mEl && i >= 0) {
-    const id = mEl.dataset.id; const additive = e.shiftKey || e.ctrlKey || e.metaKey;
-    if (additive) { if (state.sel.has(id)) state.sel.delete(id); else state.sel.add(id); } else if (!state.sel.has(id)) { state.sel.clear(); state.sel.add(id); }
+    const id = mEl.dataset.id; const additive = e.shiftKey || e.ctrlKey || e.metaKey; const mates = e.altKey ? [id] : groupMates(doc, id); // Alt+click: one member of a group
+    if (additive) { if (state.sel.has(id)) mates.forEach((x) => state.sel.delete(x)); else mates.forEach((x) => state.sel.add(x)); } else if (!state.sel.has(id)) { state.sel.clear(); mates.forEach((x) => state.sel.add(x)); }
     refreshSelection();
     if (state.sel.has(id)) { const orig = {}; const movers = withLinked(doc, selected(doc).filter((m) => !isLocked(m, doc))); movers.forEach((m) => { orig[m.id] = markupGeom(m); }); I.drag = { kind: 'move', page: i, start: clientToPage(e, i), orig, movers: movers.map((m) => m.id), moved: false, sx: e.clientX, sy: e.clientY }; capture(e); }
     e.preventDefault(); return;
@@ -252,7 +252,7 @@ function onPointerUp(e) {
       // left to right (blue): only markups entirely inside; right to left (green): anything the window touches
       const crossing = q.b[0] < q.a[0];
       if (b.w > 2 || b.h > 2) doc.markups.forEach((m) => { if (m.page !== q.page || !layerVisible(doc, m.layer)) return; const mb = markupBBox(m, doc); if (crossing ? markupTouchesRect(m, doc, b, mb) : mb.x >= b.x && mb.y >= b.y && mb.x2 <= b.x + b.w && mb.y2 <= b.y + b.h) state.sel.add(m.id); });
-      renderDraft(); refreshSelection(); return;
+      expandGroups(doc); renderDraft(); refreshSelection(); return;
     }
     if (g.kind === 'label') { const m = getMarkup(g.id); if (g.moved && m) { touch(m); refreshPanels(); finishLabelDrag(m, g.had); } return; }
     if (g.moved) { selected(doc).forEach(touch); refreshPanels(); }
@@ -422,6 +422,7 @@ function onContextMenu(e) {
     }
     if (CUTOUT_TYPES.has(m.type)) { items.push(['Add cutout', () => startCutout(m)]); if (m.holes && m.holes.length) items.push(['Remove cutouts', () => applyToSelection((x) => { x.holes = []; })]); items.push(['-']); }
     items.push(['Copy', () => copySelected(false)], ['Duplicate', duplicateSelected], ['Bring to front', () => reorderSelected(true)], ['Send to back', () => reorderSelected(false)]);
+    if (selected(doc).some((x) => x.group)) items.push(['Ungroup', ungroupSelected]); else if (state.sel.size > 1) items.push(['Group', groupSelected]);
     items.push(['Add to tool set…', () => addSelectionToToolset()]);
     items.push(['-'], ...STATUSES.map((s) => [`Status: ${s}`, () => applyToSelection((x) => { x.status = s; })]));
     items.push(['-'], [isLocked(m) ? 'Unlock' : 'Lock', () => applyToSelection((x) => { x.locked = !m.locked; }, { ignoreLock: true })], ['Delete', deleteSelected, 'danger']);
@@ -436,6 +437,18 @@ function showMenu(x, y, items) {
   const menu = $('#ctx'); menu.innerHTML = items.map((it, k) => (it[0] === '-' ? '<hr>' : `<button data-k="${k}" class="${it[2] || ''}">${esc(it[0])}</button>`)).join('');
   menu.hidden = false; const r = menu.getBoundingClientRect(); menu.style.left = Math.min(x, innerWidth - r.width - 8) + 'px'; menu.style.top = Math.min(y, innerHeight - r.height - 8) + 'px';
   menu.onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return; hideMenu(); items[+b.dataset.k][1](); };
+}
+// ----- groups: clicking one member selects the whole group, as in Revu (Alt+click picks one) -------------
+function groupMates(doc, id) { const m = getMarkup(id); if (!m || !m.group) return [id]; return doc.markups.filter((x) => x.group === m.group && x.page === m.page).map((x) => x.id); }
+function expandGroups(doc = activeDoc()) { for (const id of [...state.sel]) groupMates(doc, id).forEach((g) => state.sel.add(g)); }
+function groupSelected() {
+  const doc = activeDoc(); const ms = selected(doc).filter((m) => m.type !== 'textedit'); if (ms.length < 2) { toast('Select two or more markups to group them'); return; }
+  if (new Set(ms.map((m) => m.page)).size > 1) { toast('Markups on different pages cannot be grouped'); return; }
+  pushUndo(doc); const g = uid('G-'); ms.forEach((m, k) => { m.group = g; m.ext = { ...(m.ext || {}), groupPrimary: k === 0 }; touch(m); }); refreshSelection(); refreshPanels(); toast(`Grouped ${ms.length} markups`);
+}
+function ungroupSelected() {
+  const doc = activeDoc(); const ms = selected(doc).filter((m) => m.group); if (!ms.length) { toast('No grouped markups are selected'); return; }
+  pushUndo(doc); ms.forEach((m) => { m.group = null; if (m.ext) { delete m.ext.groupPrimary; delete m.ext.groupName; } touch(m); }); refreshSelection(); refreshPanels(); toast(`Ungrouped ${ms.length} markups`);
 }
 function hideMenu() { const m = $('#ctx'); if (m) m.hidden = true; }
 

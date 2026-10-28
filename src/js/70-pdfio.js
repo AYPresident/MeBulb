@@ -238,7 +238,7 @@ const ANNOT_SUBTYPE = { rect: 'Square', ellipse: 'Circle', radius: 'Circle', lin
 function xmlAsciiHex(x) { const a = x.replace(/[^\x20-\x7e]/gu, (c) => `&#${c.codePointAt(0)};`); let h = ''; for (let i = 0; i < a.length; i++) h += a.charCodeAt(i).toString(16).padStart(2, '0'); return PDFHexString.of(h); }
 // annotation objects for one page's markups, in whichever pdf-lib document is being written
 async function annotsForPage(pdfDoc, fonts, imgCache, doc, i, pageRef, ms) {
-  const ctx = pdfDoc.context; const pg = doc.pages[i]; const M = invertT(pg.T); const cm = `${M.map((v) => num(v, 6)).join(' ')} cm`; const refs = [];
+  const ctx = pdfDoc.context; const pg = doc.pages[i]; const M = invertT(pg.T); const cm = `${M.map((v) => num(v, 6)).join(' ')} cm`; const refs = []; const groups = new Map();
   for (const m of ms) {
     const s = m.style; const base = { Type: 'Annot', F: 4, P: pageRef, C: (hexToRgb(s.stroke) || [0, 0, 0]).map((v) => +(v / 255).toFixed(4)), CA: s.opacity == null ? 1 : s.opacity, T: PDFHexString.fromText(m.author || ''), Subj: PDFHexString.fromText(m.subject || ''), M: PDFString.of(pdfDate(m.modified)), CreationDate: PDFString.of(pdfDate(m.created)) };
     if (m.type === 'count' && m.pts.length) { refs.push(...(await countAnnots(pdfDoc, fonts, imgCache, doc, i, pageRef, m, base))); continue; }
@@ -261,17 +261,25 @@ async function annotsForPage(pdfDoc, fonts, imgCache, doc, i, pageRef, ms) {
     if (sub === 'Ink') A.InkList = [pdfPts.flat(), ...((m.ext && m.ext.extraInk) || []).map((st) => st.map((p) => applyT(M, p)).flat())];
     if (QUAD_TYPES.has(m.type)) { if (m.type === 'strikeout' && s.variant === 'under') A.Subtype = 'Underline'; const q = []; for (let k = 0; k + 3 < pdfPts.length; k += 4) { const [tl, tr, br, bl] = pdfPts.slice(k, k + 4); q.push(...tl, ...tr, ...bl, ...br); } A.QuadPoints = q; }
     if (sub === 'FreeText') {
-      // the border colour goes in the DA as a stroke colour (RG), the way Acrobat and Revu read it; /C is the fill
-      const brd = s.width > 0 && s.stroke && s.stroke !== 'none' ? `${(hexToRgb(s.stroke) || [0, 0, 0]).map((v) => num(v / 255, 3)).join(' ')} RG ` : '';
-      A.DA = PDFString.of(`${brd}/${FONT_FAMILIES[famOf(s.font)].da} ${num(s.fontSize || 12, 2)} Tf ${(hexToRgb(s.fontColor || s.stroke) || [0, 0, 0]).map((v) => num(v / 255, 3)).join(' ')} rg`);
-      A.RC = xmlAsciiHex(rtXhtml(m)); A.DS = PDFString.of(`font: ${cssFontName(s.font)} ${num(s.fontSize || 12, 2)}pt; text-align:${s.align || 'left'}; margin:0pt; line-height:${num((s.fontSize || 12) * 1.15, 2)}pt; color:${cssColor(s.fontColor || s.stroke)}`);
+      // as Revu writes them: DA rg is the border and leader colour, DS gives the text (font, colour, spacing), /C the fill
+      const rgb3 = (c) => (hexToRgb(c) || [0, 0, 0]).map((v) => num(v / 255, 3)).join(' '); const z = s.fontSize || 12;
+      const pad = s.pad != null ? s.pad : Math.max(3, z * 0.4); const margin = Math.max(0, pad - 1 - (s.width || 0) / 2);
+      A.DA = PDFString.of(`${rgb3(s.stroke && s.stroke !== 'none' ? s.stroke : s.fontColor || '#000000')} rg /${FONT_FAMILIES[famOf(s.font)].da} ${num(z, 2)} Tf`);
+      A.RC = xmlAsciiHex(rtXhtml(m)); A.DS = PDFString.of(`font: ${s.bold ? 'bold ' : ''}${s.italic ? 'italic ' : ''}${cssFontName(s.font)} ${num(z, 2)}pt; text-align:${s.align || 'left'}; margin:${num(margin, 3)}pt; line-height:${num(z * (s.lineH || 1.2), 3)}pt; color:${cssColor(s.fontColor || s.stroke)}`);
     }
     if (sub === 'Text') A.Name = 'Comment';
     if (sub === 'Stamp') A.Name = m.type === 'image' ? 'Image' : (m.text || 'Approved').replace(/[^A-Za-z0-9]+/g, '') || 'Approved';
     revuDecorate(A, m, doc, ctx, M, info);
     // markups that came from another app keep their object number, so replies and links to them survive
     const reuse = m.ext && m.ext.ref && /^\d+ \d+$/.test(m.ext.ref) && doc.imported && doc.imported.has(m.ext.ref) ? PDFRef.of(+m.ext.ref.split(' ')[0], +m.ext.ref.split(' ')[1]) : null;
-    if (reuse) { ctx.assign(reuse, ctx.obj(A)); refs.push(reuse); } else refs.push(ctx.register(ctx.obj(A)));
+    let ref; if (reuse) { ctx.assign(reuse, ctx.obj(A)); ref = reuse; } else ref = ctx.register(ctx.obj(A)); refs.push(ref);
+    if (m.group) { if (!groups.has(m.group)) groups.set(m.group, []); groups.get(m.group).push({ m, ref }); }
+  }
+  // groups the way Revu writes them: the first markup lists the group, the others point at it
+  for (const mem of groups.values()) {
+    if (mem.length < 2) continue; const prim = mem.find((x) => x.m.ext && x.m.ext.groupPrimary) || mem[0]; const nmOf = (x) => String((x.m.ext && x.m.ext.nm) || x.m.id).replace(/[^A-Za-z0-9_.-]/g, '_');
+    ctx.lookup(prim.ref).set(PDFName.of('GroupNesting'), ctx.obj([PDFHexString.fromText((prim.m.ext && prim.m.ext.groupName) || 'Group'), ...mem.map((x) => PDFName.of(nmOf(x)))]));
+    for (const x of mem) if (x !== prim) { const d = ctx.lookup(x.ref); d.set(PDFName.of('IRT'), prim.ref); d.set(PDFName.of('RT'), PDFName.of('Group')); }
   }
   return refs;
 }

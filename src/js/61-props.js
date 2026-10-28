@@ -62,7 +62,7 @@ function renderProps() {
     html += '<section class="psec"><h3>Text</h3>';
     const F = fmtFlags(T); const rich = [...types].every((t) => TEXT_TYPES.has(t));
     html += field('Font', `<select data-k="style.font">${fontOptions(F.f)}</select>`);
-    html += `<div class="field two"><div><label>Font size</label><input type="number" class="num" min="3" max="144" step="0.5" data-k="style.fontSize" value="${s.fontSize}"></div>${has('text', 'callout') ? `<div><label>Align</label><select data-k="style.align">${['left', 'center', 'right'].map((a) => `<option${s.align === a ? ' selected' : ''}>${a}</option>`).join('')}</select></div>` : `<div><label>Label box</label><label class="check"><input type="checkbox" data-k="style.labelBg"${s.labelBg !== false ? ' checked' : ''}> Show</label></div>`}</div>`;
+    html += `<div class="field two"><div><label>Font size</label><input type="number" class="num" min="3" max="144" step="0.5" data-k="style.fontSize" value="${num(s.fontSize || 12, 2)}"></div>${has('text', 'callout') ? `<div><label>Align</label><select data-k="style.align">${['left', 'center', 'right'].map((a) => `<option${s.align === a ? ' selected' : ''}>${a}</option>`).join('')}</select></div>` : `<div><label>Label box</label><label class="check"><input type="checkbox" data-k="style.labelBg"${s.labelBg !== false ? ' checked' : ''}> Show</label></div>`}</div>`;
     html += field('Text colour', swatchRow('style.fontColor', s.fontColor || s.stroke));
     html += `<div class="field"><label>Style</label><div class="fmt-row">${fmtButtons(F, rich)}</div>${rich ? '<p class="muted sm">These apply to the whole markup. To format part of the text, double-click it and select the words first.</p>' : ''}</div>`;
     html += '</section>';

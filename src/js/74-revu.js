@@ -87,6 +87,11 @@ function revuDecorate(A, m, doc, ctx, M, info) {
     const box = G.bbox([[L.x, L.y], [L.x + L.w, L.y + L.h]].map(P)); A.RD = [box.x - A.Rect[0], box.y - A.Rect[1], A.Rect[2] - box.x2, A.Rect[3] - box.y2].map((v) => +Math.max(0, v).toFixed(3));
   }
   if (TEXT_TYPES.has(m.type)) { A.C = filled ? rgb01(s.fill) : []; if (filled) A.FillOpacity = +(s.fillOpacity == null ? 1 : s.fillOpacity).toFixed(3); }
+  if (m.type === 'stamp' && m.ext) {
+    if (m.ext.it === 'SquareImage' && m.ext.imageRef && m.ext.ref && doc.imported && doc.imported.has(m.ext.ref)) { const [n, gn] = m.ext.imageRef.split(' ').map(Number); A.Subtype = 'Square'; A.IT = 'SquareImage'; A.Image = PDFRef.of(n, gn); delete A.Name; A.BS = { Type: 'Border', W: 0, S: 'S' }; }
+    else if (m.ext.it === 'StampSnapshot') { A.IT = 'StampSnapshot'; delete A.Name; }
+    else if (m.ext.stampName) A.Name = m.ext.stampName;
+  }
 }
 
 // ----- layers as optional content (Revu's layers) ------------------------------------------------------
@@ -130,9 +135,9 @@ async function countAnnots(pdfDoc, fonts, imgCache, doc, i, pageRef, m, base) {
 // returns { markups, hide: Map(page -> Set(refKey)), imported: Set(refKey) }
 async function importAnnotations(doc, payload) {
   // read the file as saved, not the on-screen copy (that one has MeBulb's own content stripped out)
-  const R = doc.reader && doc.base && doc.reader.src === doc.base.src ? doc.reader : doc.viewReader; if (!R) return null; const P = await R.pages(); const out = []; const hide = new Map(); const imported = new Set(); const byNm = new Map();
+  const R = doc.reader && doc.base && doc.reader.src === doc.base.src ? doc.reader : doc.viewReader; if (!R) return null; const P = await R.pages(); const out = []; const hide = new Map(); const imported = new Set();
   const known = new Map(); (doc.markups || []).forEach((m) => { known.set(m.id, m); if (m.ext && m.ext.nm) known.set(m.ext.nm, m); });
-  const written = new Set((payload && payload.written) || []); const seen = new Set(); const now = Date.now(); const layerByName = new Map((doc.layers || []).map((l) => [l.name, l]));
+  const written = new Set((payload && payload.written) || []); const seen = new Set(); const layerByName = new Map((doc.layers || []).map((l) => [l.name, l]));
   for (let i = 0; i < P.length && i < doc.numPages; i++) {
     const pd = await R.get(P[i].ref); const T = doc.pages[i].T;
     // page scale and viewports from /VP (Revu calibration), unless MeBulb's own data already has them
@@ -142,34 +147,106 @@ async function importAnnotations(doc, payload) {
           const bb = V.lookup(PDFName.of('BBox')); const b = bb ? G.bbox([[nOf(bb.lookup(0)), nOf(bb.lookup(1))], [nOf(bb.lookup(2)), nOf(bb.lookup(3))]].map(([x, y]) => applyT(T, [x, y]))) : { x: 0, y: 0, w: pg.w, h: pg.h };
           if (b.w * b.h > 0.85 * pg.w * pg.h) doc.scales[i] = sc; else { doc.viewports = doc.viewports || {}; (doc.viewports[i] = doc.viewports[i] || []).push({ id: uid('VP'), name: sc.label, x: b.x, y: b.y, w: b.w, h: b.h, scale: sc }); } } } catch (e) { console.warn('viewport import', e); }
     }
-    const arr = await R.resolve(pd.get(PDFName.of('Annots'))); if (!(arr instanceof PDFArray)) continue; const groups = new Map(); const pageHide = new Set(); const items = [];
+    const arr = await R.resolve(pd.get(PDFName.of('Annots'))); if (!(arr instanceof PDFArray)) continue; const pageHide = new Set(); const items = [];
     for (const ref of arr.asArray()) { if (!(ref instanceof PDFRef)) continue; let d; try { d = await R.get(ref); } catch { continue; } if (!(d instanceof PDFDict)) continue; items.push({ ref, d }); }
-    const byRef = new Map(items.map((x) => [refKey(x.ref), x]));
+    const byRef = new Map(items.map((x) => [refKey(x.ref), x])); const foreign = [];
     for (const { ref, d } of items) {
       const sub = (d.get(PDFName.of('Subtype')) || { asString: () => '' }).asString().slice(1); const nm = pdfText(d.get(PDFName.of('NM'))); const mid = pdfText(d.get(PDFName.of('MeBulbId')));
-      if (sub === 'Popup') { const par = d.get(PDFName.of('Parent')); if (par && byRef.has(refKey(par))) { const pp = byRef.get(refKey(par)).d; const ps = pdfText(pp.get(PDFName.of('Subtype'))); if (convertible(pp)) { pageHide.add(refKey(ref)); imported.add(refKey(ref)); } } continue; }
+      if (sub === 'Popup') { const par = d.get(PDFName.of('Parent')); if (par && byRef.has(refKey(par)) && convertible(byRef.get(refKey(par)).d)) { pageHide.add(refKey(ref)); imported.add(refKey(ref)); } continue; }
       if (isOurs(d)) {
-        pageHide.add(refKey(ref)); const id = (mid || nm).split('#')[0]; const m = known.get(id) || known.get(nm); if (m) seen.add(m.id);
+        pageHide.add(refKey(ref)); const id = (mid || nm).split('#')[0]; const m = known.get(id) || known.get(nm); if (m) seen.add(m.id); if (m && m.ext && m.ext.ref === refKey(ref)) imported.add(refKey(ref)); // keeps its object number
         // edited in Revu since MeBulb saved it? take the change
         const mod = pdfDate2ms(pdfText(d.get(PDFName.of('M')))); if (m && !mid.includes('#') && mod && mod > (Date.parse(m.modified || 0) || 0) + 2000) { const c = await toMarkup(R, d, ref, i, T, layerByName, doc); if (c) mergeExternal(m, c); }
         continue;
       }
-      if (!convertible(d)) continue;
-      const irt = d.get(PDFName.of('IRT')); const rt = d.get(PDFName.of('RT'));
-      if (irt && rt && rt.asString && rt.asString() === '/Group') { const k = refKey(irt); if (!groups.has(k)) groups.set(k, []); groups.get(k).push({ ref, d }); pageHide.add(refKey(ref)); imported.add(refKey(ref)); continue; }
-      if (irt) continue; // replies and review states stay as they are
-      const m = await toMarkup(R, d, ref, i, T, layerByName, doc); if (!m) continue;
-      if (known.has(nm)) { seen.add(known.get(nm).id); pageHide.add(refKey(ref)); imported.add(refKey(ref)); continue; } // already imported earlier (saved by MeBulb with its NM)
-      out.push(m); byNm.set(refKey(ref), m); pageHide.add(refKey(ref)); imported.add(refKey(ref));
+      foreign.push({ ref, d });
     }
-    // count groups: members join their primary
-    groups.forEach((members, k) => { const prim = byNm.get(k); if (!prim || prim.type !== 'count') return; members.forEach(({ d, ref }) => { const r = d.lookup(PDFName.of('Rect')); if (!r) return; const a = r.asArray().map(nOf); prim.pts.push(applyT(T, [(a[0] + a[2]) / 2, (a[1] + a[3]) / 2])); prim.ext.nms.push(pdfText(d.get(PDFName.of('NM')))); prim.ext.refs.push(refKey(ref)); }); });
+    const res = await convertAnnots(R, foreign, i, T, layerByName, doc, known);
+    out.push(...res.out); res.done.forEach((x) => { pageHide.add(refKey(x.ref)); imported.add(refKey(x.ref)); if (x.seen) seen.add(x.seen); });
     if (pageHide.size) hide.set(i, pageHide);
   }
   // markups MeBulb wrote that are gone from the file were deleted in another app
   const removed = (doc.markups || []).filter((m) => written.has(m.id) && !seen.has(m.id));
   return { markups: out, hide, imported, removed };
 }
+// Annotations from another app -> MeBulb markups. Revu groups (members point at the first one with
+// /IRT and /RT /Group) stay together as a MeBulb group; count groups become one count markup.
+// done: the annotations now represented by markups (hidden on screen, rewritten in place on save).
+async function convertAnnots(R, items, i, T, layerByName, doc, known) {
+  const out = []; const byRef = new Map(); const groups = new Map(); const done = [];
+  const nmOf = (d) => pdfText(d.get(PDFName.of('NM')));
+  for (const { ref, d } of items) {
+    if (!convertible(d)) continue;
+    const irt = d.get(PDFName.of('IRT')); const rt = d.get(PDFName.of('RT'));
+    if (irt && rt && rt.asString && rt.asString() === '/Group') { const k = refKey(irt); if (!groups.has(k)) groups.set(k, []); groups.get(k).push({ ref, d }); continue; }
+    if (irt) continue; // replies and review states stay as they are
+    const nm = nmOf(d); if (known && nm && known.has(nm)) { done.push({ ref, seen: known.get(nm).id }); continue; } // imported earlier, saved by MeBulb with its NM
+    const m = await toMarkup(R, d, ref, i, T, layerByName, doc); if (!m) continue;
+    out.push(m); byRef.set(refKey(ref), m); done.push({ ref });
+  }
+  for (const [k, members] of groups) {
+    const prim = byRef.get(k);
+    if (prim && prim.type === 'count') { // count groups: members join their primary
+      members.forEach(({ d, ref }) => { const r = d.lookup(PDFName.of('Rect')); if (!r) return; const a = r.asArray().map(nOf); prim.pts.push(applyT(T, [(a[0] + a[2]) / 2, (a[1] + a[3]) / 2])); prim.ext.nms.push(nmOf(d)); prim.ext.refs.push(refKey(ref)); done.push({ ref }); });
+      continue;
+    }
+    let gid = prim ? prim.group : null;
+    if (prim) { gid = gid || uid('G-'); prim.group = gid; prim.ext.groupPrimary = true; const gn = byRefDict(items, k); const nest = gn && gn.lookup(PDFName.of('GroupNesting')); if (nest instanceof PDFArray && nest.size()) prim.ext.groupName = pdfText(nest.lookup(0)) || 'Group'; }
+    gid = gid || uid('G-');
+    for (const { ref, d } of members) {
+      const nm = nmOf(d); if (known && nm && known.has(nm)) { done.push({ ref, seen: known.get(nm).id }); continue; }
+      const m = await toMarkup(R, d, ref, i, T, layerByName, doc); if (!m) continue; m.group = gid; out.push(m); byRef.set(refKey(ref), m); done.push({ ref });
+    }
+  }
+  return { out, done };
+}
+const byRefDict = (items, k) => { const x = items.find((it) => refKey(it.ref) === k); return x ? x.d : null; };
+
+// ----- markups flattened by Revu with "Allow markup recovery" -----------------------------------------
+// Revu adds one content stream per flatten, marked /BBType /Melted. It draws each markup's appearance
+// (XObjects named BBA…) and keeps the original annotation dictionaries in its own /Annots. Unflatten
+// takes that stream out of the page and turns the annotations back into editable markups; on save they
+// go back into the page's /Annots under their original object numbers.
+const baseReader = (doc) => doc.reader || doc.viewReader; // doc.reader always reads the file as saved
+// what to take out of a page that was unflattened: its melted streams and their appearance XObjects
+async function meltedDrop(R, i) {
+  const ms = await R.meltedStreams(i).catch(() => []); if (!ms.length) return null; const streams = new Set(); const xobjects = new Set();
+  for (const s of ms) { streams.add(refKey(s.ref)); for (const a of s.annots) { try { const d = await R.get(a); const ap = d instanceof PDFDict && (await R.resolve(d.get(PDFName.of('AP')))); const n = ap instanceof PDFDict && ap.get(PDFName.of('N')); if (n instanceof PDFRef) xobjects.add(refKey(n)); } catch { } } }
+  return { streams, xobjects };
+}
+async function revuFlatCount(doc) {
+  const R = baseReader(doc); if (!R) return 0; let n = 0; const un = new Set(doc.unmelt || []);
+  for (let i = 0; i < doc.numPages; i++) { if (un.has(i)) continue; for (const s of await R.meltedStreams(i).catch(() => [])) n += s.annots.length; }
+  return n;
+}
+async function revuFlatPages(doc) { const R = baseReader(doc); if (!R) return []; const un = new Set(doc.unmelt || []); const out = []; for (let i = 0; i < doc.numPages; i++) if (!un.has(i) && (await R.meltedStreams(i).catch(() => [])).length) out.push(i); return out; }
+// pages: page indexes, or null for all. Returns { count, pages } (pages whose view needs patching)
+async function unflattenRevu(doc, pages) {
+  const R = baseReader(doc); if (!R) return { count: 0, pages: [] };
+  doc.unmelt = [...(doc.unmelt || [])]; doc.unmeltKeep = { ...(doc.unmeltKeep || {}) }; doc.imported = doc.imported || new Set();
+  const layerByName = new Map((doc.layers || []).map((l) => [l.name, l])); const known = new Map(); doc.markups.forEach((m) => { if (m.ext && m.ext.nm) known.set(m.ext.nm, m); });
+  let count = 0; const done = [];
+  for (const i of pages || [...Array(doc.numPages).keys()]) {
+    if (doc.unmelt.includes(i) || !doc.pages[i]) continue; const melted = await R.meltedStreams(i).catch(() => []); if (!melted.length) continue;
+    const items = []; for (const s of melted) for (const ref of s.annots) { try { const d = await R.get(ref); if (d instanceof PDFDict) items.push({ ref, d }); } catch { } }
+    const res = await convertAnnots(R, items, i, doc.pages[i].T, layerByName, doc, known);
+    res.out.forEach((m) => { m.page = i; }); doc.markups.push(...res.out); count += res.out.length;
+    const conv = new Set(res.done.map((x) => refKey(x.ref))); res.done.forEach((x) => doc.imported.add(refKey(x.ref)));
+    // anything MeBulb cannot edit goes back on the page as the annotation it was
+    const keep = items.filter((x) => !conv.has(refKey(x.ref))).map((x) => refKey(x.ref)); if (keep.length) doc.unmeltKeep[i] = keep;
+    doc.unmelt.push(i); done.push(i);
+  }
+  return { count, pages: done };
+}
+// a live-session peer unflattened Revu markups: their markups arrive as usual; this copy takes the
+// flattened drawing off those pages and knows the annotation objects the markups came from
+async function applyRemoteUnmelt(doc, before) {
+  const R = baseReader(doc); if (!R) return; const had = new Set(before || []); const fresh = (doc.unmelt || []).filter((i) => !had.has(i)); if (!fresh.length) return;
+  doc.imported = doc.imported || new Set();
+  for (const i of fresh) for (const s of await R.meltedStreams(i).catch(() => [])) s.annots.forEach((a) => doc.imported.add(refKey(a)));
+  await patchView(doc, fresh);
+}
+
 function convertible(d) { const sub = (d.get(PDFName.of('Subtype')) || { asString: () => '' }).asString().slice(1); return ['Square', 'Circle', 'Line', 'PolyLine', 'Polygon', 'Ink', 'FreeText', 'Text', 'Highlight', 'StrikeOut', 'Underline', 'Squiggly', 'Stamp'].includes(sub); }
 function pdfDate2ms(s) { const m = /D:(\d{4})(\d{2})?(\d{2})?(\d{2})?(\d{2})?(\d{2})?([Z+-])?(\d{2})?'?(\d{2})?/.exec(s || ''); if (!m) return 0; const t = Date.UTC(+m[1], (+m[2] || 1) - 1, +m[3] || 1, +m[4] || 0, +m[5] || 0, +m[6] || 0); const off = m[7] === '+' || m[7] === '-' ? (m[7] === '+' ? 1 : -1) * ((+m[8] || 0) * 60 + (+m[9] || 0)) * 60000 : 0; return t - off; }
 function pdfDateIso(s) { const t = pdfDate2ms(s); return t ? new Date(t).toISOString() : nowISO(); }
@@ -192,7 +269,13 @@ async function toMarkup(R, d, ref, i, T, layerByName, doc) {
   const Mz = L('Measure') || L('BBMeasure');
   if (Mz) { const sc = scaleFromMeasure(Mz); if (sc && !doc.scales[i]) doc.scales[i] = sc; }
   switch (sub) {
-    case 'Square': m.type = 'rect'; m.pts = [tp(inner[0], inner[3]), tp(inner[2], inner[1])]; break;
+    case 'Square': {
+      if (it === 'SquareImage') { // Revu image markup: shown from its appearance, written back as an image markup
+        const asset = await stampFromAP(R, d, doc); if (!asset) return null; m.type = 'stamp'; m.asset = asset; m.pts = [tp(rect[0], rect[3]), tp(rect[2], rect[1])]; m.text = m.subject || 'Image'; m.comment = contents;
+        const im = d.get(PDFName.of('Image')); if (im instanceof PDFRef) ext.imageRef = refKey(im); break;
+      }
+      m.type = 'rect'; m.pts = [tp(inner[0], inner[3]), tp(inner[2], inner[1])]; break;
+    }
     case 'Circle': if (it === 'CircleDimension') { m.type = 'radius'; const c = tp((inner[0] + inner[2]) / 2, (inner[1] + inner[3]) / 2); m.pts = [c, tp(inner[2], (inner[1] + inner[3]) / 2)]; break; } m.type = 'ellipse'; m.pts = [tp(inner[0], inner[3]), tp(inner[2], inner[1])]; break;
     case 'Line': { const l = nums('L') || []; m.pts = pairs(l); m.type = it === 'LineDimension' || Mz ? 'length' : it === 'LineArrow' ? 'arrow' : 'line'; style.arrowStart = LE_FROM_PDF[leNames[0]] || 'none'; style.arrowEnd = LE_FROM_PDF[leNames[1]] || 'none'; if (m.type === 'arrow' && style.arrowEnd === 'none') style.arrowEnd = 'arrow'; m.text = m.type === 'length' ? label : ''; if (m.type !== 'length') m.comment = contents; break; }
     case 'PolyLine': { m.pts = pairs(nums('Vertices')); if (it === 'PolyLineAngle') { m.type = 'angle'; m.pts = m.pts.slice(0, 3); } else if (it === 'PolyLineDimension' || Mz) { const closed = /perimeter/i.test(m.subject) || (m.pts.length > 3 && G.dist(m.pts[0], m.pts[m.pts.length - 1]) < 0.5); m.type = closed ? 'perimeter' : 'polylength'; if (closed && G.dist(m.pts[0], m.pts[m.pts.length - 1]) < 0.5) m.pts.pop(); m.text = label; } else { m.type = 'polyline'; style.arrowStart = LE_FROM_PDF[leNames[0]] || 'none'; style.arrowEnd = LE_FROM_PDF[leNames[1]] || 'none'; m.comment = contents; } break; }
@@ -208,7 +291,9 @@ async function toMarkup(R, d, ref, i, T, layerByName, doc) {
     case 'Ink': { const ink = L('InkList'); const strokes = ink instanceof PDFArray ? ink.asArray().map((a) => pairs((a instanceof PDFArray ? a : PDFArray.withContext(R.ctx)).asArray().map(nOf))) : []; m.pts = strokes[0] || []; m.type = /highlight/i.test(m.subject) || (ca < 0.9 && w >= 6) ? 'highlight' : 'pen'; if (m.type === 'highlight') { style.blend = 'multiply'; } m.comment = contents; if (strokes.length > 1) m.ext.extraInk = strokes.slice(1); break; }
     case 'FreeText': {
       m.type = it === 'FreeTextCallout' ? 'callout' : 'text'; const ft = freeTextStyle(d); Object.assign(style, ft.style); style.width = w; style.stroke = ft.border || ft.style.fontColor || stroke; style.fill = pdfRgbHex(L('C')) || 'none'; style.fillOpacity = L('FillOpacity') ? nOf(L('FillOpacity')) : 1;
-      const box = [tp(inner[0], inner[3]), tp(inner[2], inner[1])];
+      // Revu insets the text by the margin, one point and half the border; the border runs inside the rectangle
+      style.pad = +((style._margin || 0) + 1 + w / 2).toFixed(3); delete style._margin; const h2 = w / 2;
+      const box = [tp(inner[0] + h2, inner[3] - h2), tp(inner[2] - h2, inner[1] + h2)];
       if (m.type === 'callout') { const cl = nums('CL') || []; const tip = cl.length >= 2 ? tp(cl[0], cl[1]) : box[0]; m.pts = [tip, ...box]; style.arrowEnd = LE_FROM_PDF[leNames[0]] || 'open'; } else m.pts = box;
       m.text = contents; const runs = parseRC(pdfText(g('RC')), style); if (runs) setRuns(m, runs); break;
     }
@@ -217,21 +302,28 @@ async function toMarkup(R, d, ref, i, T, layerByName, doc) {
       const q = nums('QuadPoints') || []; const pts = []; for (let k = 0; k + 7 < q.length; k += 8) { const [x1, y1, x2, y2, x3, y3, x4, y4] = q.slice(k, k + 8); pts.push(tp(x1, y1), tp(x2, y2), tp(x4, y4), tp(x3, y3)); }
       m.pts = pts; if (sub === 'Highlight') { m.type = 'texthl'; style.blend = 'multiply'; style.opacity = ca < 1 ? ca : 0.5; } else { m.type = 'strikeout'; style.variant = sub === 'StrikeOut' ? 'strike' : 'under'; } m.comment = contents; break;
     }
-    case 'Stamp': { const asset = await stampFromAP(R, d, doc); if (!asset) return null; m.type = 'stamp'; m.pts = [tp(rect[0], rect[3]), tp(rect[2], rect[1])]; m.asset = asset; m.text = pdfText(g('Name')).replace(/^\//, '') || 'Stamp'; m.comment = contents; break; }
+    case 'Stamp': { const asset = await stampFromAP(R, d, doc); if (!asset) return null; m.type = 'stamp'; m.pts = [tp(rect[0], rect[3]), tp(rect[2], rect[1])]; m.asset = asset; m.text = pdfText(g('Name')).replace(/^\//, '') || m.subject || 'Stamp'; m.comment = contents; ext.stampName = pdfText(g('Name')).replace(/^\//, '') || null; break; }
     default: return null;
   }
   if (!m.pts.length) return null;
-  if (BOX_TYPES.has(m.type) || TEXT_TYPES.has(m.type)) { /* already corner points */ }
+  m.style = { ...BASE_STYLE, ...((TOOLS[m.type] && TOOLS[m.type].style) || {}), ...m.style }; // every property the panels show has a value
   return m;
 }
 // DA / DS defaults of a text box
+// DA / DS of a text box. Revu: DS color is the text, DA rg is the border and leader line, /C the fill.
 function freeTextStyle(d) {
   const da = pdfText(d.get(PDFName.of('DA'))); const ds = pdfText(d.get(PDFName.of('DS'))); const style = {}; let border = null;
-  const sz = /([\d.]+)\s+Tf/.exec(da); if (sz) style.fontSize = +sz[1]; const col = /([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+rg/.exec(da); if (col) style.fontColor = '#' + col.slice(1, 4).map((v) => Math.round(+v * 255).toString(16).padStart(2, '0')).join('');
-  const bc = /([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+RG/.exec(da); if (bc) border = '#' + bc.slice(1, 4).map((v) => Math.round(+v * 255).toString(16).padStart(2, '0')).join('');
-  const css = cssDecl(ds); if (css['font-size']) style.fontSize = parseFloat(css['font-size']); if (css.color) style.fontColor = normColor(css.color); if (css['text-align']) style.align = css['text-align'];
-  if (css.font) { const f = /([\d.]+)pt/.exec(css.font); if (f) style.fontSize = +f[1]; style.font = fontKeyFromName(css.font.replace(/[\d.]+pt.*$/, '').replace(/^(bold|italic|normal)\s+/i, '').trim()); }
-  if (css['font-family']) style.font = fontKeyFromName(css['font-family']); if (/bold/.test(css['font-weight'] || '')) style.bold = true; if (/italic/.test(css['font-style'] || '')) style.italic = true;
+  const hex3 = (m) => '#' + m.slice(1, 4).map((v) => Math.round(+v * 255).toString(16).padStart(2, '0')).join('');
+  const sz = /([\d.]+)\s+Tf/.exec(da); if (sz) style.fontSize = +sz[1]; const col = /([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+rg/.exec(da); const daRg = col ? hex3(col) : null;
+  const bc = /([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+RG/.exec(da); if (bc) border = hex3(bc);
+  const fn = /\/([A-Za-z0-9_.,+-]+)\s+[\d.]+\s+Tf/.exec(da); if (fn && /bold|bld/i.test(fn[1])) style.bold = true; if (fn && /italic|oblique|obl|it$/i.test(fn[1])) style.italic = true;
+  const css = cssDecl(ds); if (css['font-size']) style.fontSize = parseFloat(css['font-size']); if (css['text-align']) style.align = css['text-align'];
+  if (css.font) { const f = /([\d.]+)pt/.exec(css.font); if (f) style.fontSize = +f[1]; const lead = css.font.replace(/[\d.]+pt.*$/, ''); if (/\bbold\b/i.test(lead)) style.bold = true; if (/\bitalic\b/i.test(lead)) style.italic = true; style.font = fontKeyFromName(lead.replace(/\b(bold|italic|normal|oblique)\b/gi, '').trim()); }
+  if (css['font-family']) style.font = fontKeyFromName(css['font-family']); if (/bold|[6-9]00/.test(css['font-weight'] || '')) style.bold = true; if (/italic/.test(css['font-style'] || '')) style.italic = true;
+  // text colour: DS, else DA; border: DA RG, else (when DS gives the text colour) DA rg
+  const dsCol = css.color ? normColor(css.color) : null; style.fontColor = dsCol || daRg || style.fontColor; if (!border && dsCol && daRg) border = daRg;
+  const size = style.fontSize || 12; const lh = parseFloat(css['line-height']); if (lh > 0) style.lineH = +(lh / size).toFixed(4);
+  const mg = parseFloat(css.margin); style._margin = isFinite(mg) ? mg : 0;
   return { style, border };
 }
 function cssDecl(s) { const o = {}; String(s || '').split(';').forEach((p) => { const k = p.indexOf(':'); if (k > 0) o[p.slice(0, k).trim().toLowerCase()] = p.slice(k + 1).trim(); }); return o; }
@@ -244,7 +336,7 @@ function fontKeyFromName(n) {
 // rich text (XHTML in /RC) -> MeBulb runs
 function parseRC(rc, base) {
   if (!rc || typeof DOMParser === 'undefined') return null; let doc; try { doc = new DOMParser().parseFromString(rc.replace(/^﻿/, ''), 'application/xml'); } catch { return null; } if (doc.querySelector('parsererror')) return null;
-  const runs = []; const D = rtDefaults(base);
+  const runs = []; const D = rtDefaults(base); let paras = 0;
   const walk = (node, st) => {
     for (const c of node.childNodes) {
       if (c.nodeType === 3) { if (c.nodeValue) runs.push({ t: c.nodeValue, ...st }); continue; } if (c.nodeType !== 1) continue;
@@ -253,7 +345,10 @@ function parseRC(rc, base) {
       const deco = css['text-decoration'] || ''; if (/underline/.test(deco) || tag === 'u') n.u = true; if (/line-through/.test(deco) || tag === 's') n.s = true;
       if (/super/.test(css['vertical-align'] || '')) n.sup = true; if (/sub/.test(css['vertical-align'] || '')) n.sub = true;
       if (css['font-size']) n.z = parseFloat(css['font-size']); if (css['font-family']) n.f = fontKeyFromName(css['font-family']); if (css.color && normColor(css.color)) n.c = normColor(css.color);
-      if (tag === 'p' || tag === 'div') { if (runs.length && !/\n$/.test(runs[runs.length - 1].t)) runs.push({ t: '\n' }); walk(c, n); } else if (tag === 'br') runs.push({ t: '\n' }); else walk(c, n);
+      // every paragraph is a line (an empty <p/> is a blank line); a <br/> that ends a paragraph adds nothing
+      if (tag === 'p' || tag === 'div') { if (paras++ > 0 || runs.length) runs.push({ t: '\n' }); walk(c, n); }
+      else if (tag === 'br') { const par = c.parentNode; if (!(par && /^(p|div)$/i.test(par.localName || '') && !c.nextSibling)) runs.push({ t: '\n' }); }
+      else walk(c, n);
     }
   };
   const body = doc.documentElement; const css0 = cssDecl(body.getAttribute('style')); const st0 = {}; if (css0['font-size']) st0.z = parseFloat(css0['font-size']);
@@ -268,7 +363,7 @@ async function stampFromAP(R, d, doc) {
     await load(ap.dict, 0); const copy = PDFLib.PDFObjectCopier.for(R.ctx, out.context).copy(ap);
     const bb = (ap.dict.lookup(PDFName.of('BBox')) || PDFArray.withContext(R.ctx)).asArray().map(nOf); const mt = ap.dict.lookup(PDFName.of('Matrix')); const Mx = mt ? mt.asArray().map(nOf) : [1, 0, 0, 1, 0, 0];
     const tb = G.bbox([[bb[0], bb[1]], [bb[2], bb[1]], [bb[2], bb[3]], [bb[0], bb[3]]].map(([x, y]) => [Mx[0] * x + Mx[2] * y + Mx[4], Mx[1] * x + Mx[3] * y + Mx[5]])); if (!tb.w || !tb.h) return null;
-    const page = out.addPage([tb.w, tb.h]); const ref = out.context.register(copy); page.node.newXObject('St', ref); page.pushOperators(PDFLib.pushGraphicsState(), PDFLib.concatTransformationMatrix(1, 0, 0, 1, -tb.x, -tb.y), PDFLib.drawObject('St'), PDFLib.popGraphicsState());
+    const page = out.addPage([tb.w, tb.h]); const ref = out.context.register(copy); const key = page.node.newXObject('St', ref); page.pushOperators(PDFLib.pushGraphicsState(), PDFLib.concatTransformationMatrix(1, 0, 0, 1, -tb.x, -tb.y), PDFLib.drawObject(key), PDFLib.popGraphicsState());
     return addStampAsset(doc, await out.save());
   } catch (e) { console.warn('stamp import', e); return null; }
 }
@@ -279,5 +374,3 @@ function mergeExternal(m, c) {
   else { const a = G.bbox(m.pts), b = G.bbox(c.pts); const dx = (b.x + b.x2) / 2 - (a.x + a.x2) / 2, dy = (b.y + b.y2) / 2 - (a.y + a.y2) / 2; if (Math.hypot(dx, dy) > 0.5) m.pts = m.pts.map((p) => [p[0] + dx, p[1] + dy]); }
   m.modified = c.modified; m.ext = { ...(m.ext || {}), editedOutside: true };
 }
-async function revuFlatCount() { return 0; }
-async function unflattenRevu() { return 0; }

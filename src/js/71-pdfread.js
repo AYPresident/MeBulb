@@ -172,6 +172,29 @@ class PdfReader {
   }
   // is this content stream one of MeBulb's own additions? (ours are tiny: big streams are never read)
   async isOwnedStream(ref) { const e = this.xref.get(ref.objectNumber); if (!e || e.t !== 1) return false; if (this.nextOffset(e.off) - e.off > 65536) return false; try { const o = await this.get(ref); return !!(o && o.dict && o.dict.get(PDFName.of('MeBulb'))); } catch { return false; } }
+  // a stream's dictionary without its data (content streams of big drawings can be many MB)
+  async streamHead(ref) {
+    this.heads = this.heads || new Map(); const k = refKey(ref); if (this.heads.has(k)) return this.heads.get(k);
+    const p = (async () => { const e = this.xref.get(ref.objectNumber); if (!e || e.t !== 1) { const o = await this.get(ref); return o && o.dict ? o.dict : null; } return (await this.readStreamHeadAt(e.off)); })().catch(() => null);
+    this.heads.set(k, p); return p;
+  }
+  async readStreamHeadAt(off) {
+    let head = await this.src.read(off, 4096); const h = afterObjHeader(head); if (h < 0) return null;
+    let s = indexOfStr(head, 'stream', h); let tries = 0;
+    while (s < 0 && tries++ < 6 && head.length < this.src.size - off) { head = await this.src.read(off, head.length * 4); s = indexOfStr(head, 'stream', h); }
+    if (s < 0) return null; const d = PDFLib.PDFObjectParser.forBytes(head.subarray(h, s), this.ctx).parseObject(); return d instanceof PDFDict ? d : null;
+  }
+  // Revu's flattened markups ("Allow markup recovery"): content streams marked /BBType /Melted that keep
+  // the original annotations in their own /Annots
+  async meltedStreams(i) {
+    const P = await this.pages(); if (!P[i]) return []; const pd = await this.get(P[i].ref); const c = pd.get(PDFName.of('Contents')); const arr = await this.resolve(c);
+    const refs = arr instanceof PDFArray ? arr.asArray() : c instanceof PDFRef ? [c] : []; const out = [];
+    for (const r of refs) {
+      if (!(r instanceof PDFRef)) continue; const d = await this.streamHead(r); const t = d && d.get(PDFName.of('BBType')); if (!t || !t.asString || t.asString() !== '/Melted') continue;
+      const a = await this.resolve(d.get(PDFName.of('Annots'))); out.push({ ref: r, annots: a instanceof PDFArray ? a.asArray().filter((x) => x instanceof PDFRef) : [] });
+    }
+    return out;
+  }
   // drop big streams once used (content of huge drawings is re-read on demand)
   evictBig(limit = 1 << 19) { for (const [num, p] of this.cache) p.then((o) => { if (o && o.contents && o.contents.length > limit) { this.cache.delete(num); const e = this.xref.get(num); this.ctx.delete(PDFRef.of(num, e && e.t === 1 ? e.gen : 0)); } }); }
   async load(num) {
@@ -283,16 +306,21 @@ async function incrementalUpdate(doc, opts = {}) {
       await ensureFlatKnown(doc, i);
       const mb = P[i].inh.MediaBox ? (await R.resolve(P[i].inh.MediaBox)).asArray().map(nOf) : [0, 0, 612, 792];
       const pieces = opts.stripOwned ? [] : await ownedPieces(out, doc, i, mb, fonts, imgCache, opts.flatten ? exportFlat(doc, i) : null);
-      const sig = pieceSig(pieces);
-      if (opts.flatten || opts.forceContent || sig !== (newSig[i] || '')) { if (await rebuildPageContent(out, pageDict, P[i].inh.Resources, (o) => R.resolve(o), (r) => R.isOwnedStream(r), pieces)) changed = true; }
+      const sig = pieceSig(pieces); const melt = doc.unmelt && doc.unmelt.includes(i) ? await meltedDrop(R, i) : null;
+      if (opts.flatten || opts.forceContent || melt || sig !== (newSig[i] || '')) { if (await rebuildPageContent(out, pageDict, P[i].inh.Resources, (o) => R.resolve(o), async (r) => (melt && melt.streams.has(refKey(r))) || R.isOwnedStream(r), pieces, melt && melt.xobjects)) changed = true; }
       if (!opts.flatten && !opts.contentOnly) newSig[i] = sig;
     }
-    // annotations
+    // annotations (plus any from a Revu unflatten that MeBulb cannot edit: they go back as they were)
+    const back = (doc.unmeltKeep && doc.unmeltKeep[i] || []).map((k) => { const [n, g] = k.split(' ').map(Number); return PDFRef.of(n, g); });
     if (!opts.contentOnly) {
       const { list, arrRef } = await R.pageAnnots(i); const gone = (a) => a.ours || (doc.imported && a.ref instanceof PDFRef && doc.imported.has(refKey(a.ref))); const keep = list.filter((a) => !gone(a)).map((a) => a.ref);
+      const have = new Set(keep.filter((r) => r instanceof PDFRef).map(refKey)); const add = back.filter((r) => !have.has(refKey(r)));
       const ms = opts.flatten ? [] : doc.markups.filter((m) => m.page === i && m.type !== 'textedit');
       const fresh = await annotsForPage(out, fonts, imgCache, doc, i, P[i].ref, ms);
-      if (fresh.length || list.some(gone)) { const arr = ctx.obj([...keep, ...fresh]); if (arrRef) rewritten.push([arrRef, arr]); else { pageDict.set(PDFName.of('Annots'), arr); changed = true; } }
+      if (fresh.length || add.length || list.some(gone)) { const arr = ctx.obj([...keep, ...add, ...fresh]); if (arrRef) rewritten.push([arrRef, arr]); else { pageDict.set(PDFName.of('Annots'), arr); changed = true; } }
+    } else if (back.length) { // on-screen copy: show them where they were
+      const { list, arrRef } = await R.pageAnnots(i); const have = new Set(list.filter((a) => a.ref instanceof PDFRef).map((a) => refKey(a.ref))); const add = back.filter((r) => !have.has(refKey(r)));
+      if (add.length) { const arr = ctx.obj([...list.map((a) => a.ref), ...add]); if (arrRef) rewritten.push([arrRef, arr]); else { pageDict.set(PDFName.of('Annots'), arr); changed = true; } }
     }
     // page scale and viewports as standard /VP (Revu reads and writes these)
     if (!opts.contentOnly && !opts.flatten) { const sig = vpSig(doc, i); if (sig !== (newVp[i] || '')) { const vp = viewportArray(ctx, doc, i); if (vp.length) pageDict.set(PDFName.of('VP'), ctx.obj(vp)); else pageDict.delete(PDFName.of('VP')); changed = true; newVp[i] = sig; } }

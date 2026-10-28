@@ -39,8 +39,35 @@ const open = (page, file, name) => page.evaluate(async ([b64, name]) => { const 
   const c3 = await open(page, OUT + '/revu-markups-saved.pdf', 'counts again.pdf');
   ok(c3.filter((m) => m.type === 'count').map((c) => c.n).join() === counts.map((c) => c.n).join(), 'count groups survive a round trip');
   await page.screenshot({ path: OUT + '/revu-counts.png' });
-  // 3. MeBulb's own sample, written for Revu
-  const b3 = await page.evaluate(async () => { mebulb.state.docs.forEach(() => {}); const d = mebulb.state.docs.find((x) => x.sample); await mebulb.state.docs.indexOf(d); return null; });
+  // 3. Markups flattened in Revu with "Allow markup recovery": a content stream marked /BBType /Melted
+  //    draws their appearances and keeps the annotations in its own /Annots (layout taken from a Revu 20 file)
+  const melted = await page.evaluate(async () => {
+    const { PDFDocument, PDFName, PDFString, PDFHexString } = PDFLib; const pdf = await PDFDocument.create(); const pg = pdf.addPage([600, 400]); const ctx = pdf.context;
+    pg.drawText('DRAWING', { x: 40, y: 360, size: 14 });
+    const ap1 = ctx.register(ctx.stream('1 0.4 0 RG 3 w 1 1 1 rg 101.5 101.5 197 97 re B', { Type: 'XObject', Subtype: 'Form', BBox: [100, 100, 300, 200], Matrix: [1, 0, 0, 1, -100, -100], Resources: {} }));
+    const font = pdf.context.obj({ Type: 'Font', Subtype: 'Type1', BaseFont: 'Helvetica', Encoding: 'WinAnsiEncoding' }); const fref = ctx.register(font);
+    const ap2 = ctx.register(ctx.stream('BT 0 0 0 rg /Helv 10 Tf 1 0 0 1 112 180 Tm (DATE RECEIVED:) Tj 1 0 0 1 112 168 Tm (25/05/2026) Tj ET', { Type: 'XObject', Subtype: 'Form', BBox: [110, 120, 290, 190], Matrix: [1, 0, 0, 1, -110, -120], Resources: { Font: { Helv: fref } } }));
+    const sq = ctx.register(ctx.obj({ Type: 'Annot', Subtype: 'Square', Rect: [100, 100, 300, 200], RD: [1.5, 1.5, 1.5, 1.5], C: [1, 0.4, 0], IC: [1, 1, 1], BS: { Type: 'Border', W: 3, S: 'S' }, NM: PDFString.of('UDSVTLWNQEIQJYSC'), Subj: PDFString.of('Rectangle'), T: PDFString.of('Revu User'), F: 4, AP: { N: ap1 } }));
+    const rc = '<?xml version="1.0"?><body xmlns="http://www.w3.org/1999/xhtml" xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 10pt; text-align:left; margin:0.6pt; line-height:11.5pt; color:#000000"><p>DATE RECEIVED:</p><p>25/05/2026</p><p/><p>APPROVED:</p></body>';
+    const tx = ctx.register(ctx.obj({ Type: 'Annot', Subtype: 'FreeText', Rect: [110, 120, 290, 190], C: [1, 1, 1], DA: PDFString.of('1 0 0 rg /Helv 10 Tf'), DS: PDFString.of('font: Helvetica 10pt; text-align:left; margin:0.6pt; line-height:11.5pt; color:#000000'), RC: PDFString.of(rc), Contents: PDFHexString.fromText('DATE RECEIVED:\r25/05/2026\r\rAPPROVED:'), NM: PDFString.of('CLUEBEJZPPYLFMOG'), IRT: sq, RT: PDFName.of('Group'), BS: { Type: 'Border', W: 0, S: 'S' }, F: 4, AP: { N: ap2 } }));
+    ctx.lookup(sq).set(PDFName.of('GroupNesting'), ctx.obj([PDFString.of('Group'), PDFName.of('UDSVTLWNQEIQJYSC'), PDFName.of('CLUEBEJZPPYLFMOG')]));
+    const xo = pg.node.normalizedEntries().XObject; xo.set(PDFName.of('BBA'), ap1); xo.set(PDFName.of('BBA1'), ap2);
+    const mref = ctx.register(ctx.stream('q 1 0 0 1 0 0 cm q 1 0 0 1 100 100 cm /BBA Do Q q 1 0 0 1 110 120 cm /BBA1 Do Q Q ', { BBType: 'Melted', Annots: [sq, tx] }));
+    const c = pg.node.get(PDFName.of('Contents')); pg.node.set(PDFName.of('Contents'), ctx.obj([...(c instanceof PDFLib.PDFArray ? c.asArray() : [c]), mref]));
+    const bytes = await pdf.save({ useObjectStreams: false }); let s = ''; for (let i = 0; i < bytes.length; i += 32768) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768)); return btoa(s);
+  });
+  fs.writeFileSync(OUT + '/revu-melted.pdf', Buffer.from(melted, 'base64'));
+  const m0 = await open(page, OUT + '/revu-melted.pdf', 'revu-melted.pdf');
+  const found = await page.evaluate(() => mebulb.revuFlatCount(mebulb.activeDoc()));
+  ok(m0.length === 0 && found === 2, `Revu-flattened markups found, not shown as live markups (${found})`);
+  const un = await page.evaluate(async () => { const d = mebulb.activeDoc(); const rv = await mebulb.unflattenRevu(d, null); await mebulb.patchView(d, rv.pages); const t = d.markups.find((m) => m.type === 'text'); return { rv, n: d.markups.length, groups: new Set(d.markups.map((m) => m.group)).size, text: t && (t.runs ? t.runs.map((r) => r.t).join('') : t.text), stroke: t && t.style.stroke }; });
+  ok(un.rv.count === 2 && un.groups === 1 && un.text === 'DATE RECEIVED:\n25/05/2026\n\nAPPROVED:', `unflatten gives an editable group of ${un.n}: text box reads ${JSON.stringify(un.text)}`);
+  const b4 = await save(page); fs.writeFileSync(OUT + '/revu-unmelted.pdf', Buffer.from(b4, 'base64'));
+  const q4 = execSync(`qpdf --qdf --object-streams=disable ${OUT}/revu-unmelted.pdf - | strings`, { encoding: 'latin1', maxBuffer: 64e6 });
+  const cont = (q4.match(/\/Contents \[([^\]]*)\]/g) || []).pop() || '';
+  ok(!/BBType \/Melted[\s\S]*?endstream[\s\S]*?\/Contents/.test(q4.slice(q4.lastIndexOf('/Type /Page'))) && /\/IRT \d+ 0 R/.test(q4) && /\/RT \/Group/.test(q4) && q4.includes('/NM (UDSVTLWNQEIQJYSC)') && /No syntax/.test(execSync(`qpdf --check ${OUT}/revu-unmelted.pdf 2>&1 || true`, { encoding: 'utf8' })), 'saved: melted content gone from the page, annotations back with Revu ids and group links');
+  const m5 = await open(page, OUT + '/revu-unmelted.pdf', 'unmelted again.pdf'); const left = await page.evaluate(() => mebulb.revuFlatCount(mebulb.activeDoc()));
+  ok(m5.length === 2 && left === 0, `reopened: ${m5.length} markups, nothing left flattened`);
   console.log(errors.filter((e) => !/XFA/.test(e)).join('\n') || 'no errors');
   await browser.close();
 })();

@@ -59,14 +59,14 @@ function pieceSig(pieces) { return pieces.map((p) => p.sig).join('|'); }
 // Rebuild a page's /Contents and /Resources with the wanted pieces. `pd` is a map-like copy of
 // the page dictionary (it is changed in place); `resolve` follows references (sync or async);
 // `isOwned(ref)` says whether a content stream is ours. Returns true if the page changed.
-async function rebuildPageContent(pdfDoc, pd, inhResources, resolve, isOwned, pieces) {
+async function rebuildPageContent(pdfDoc, pd, inhResources, resolve, isOwned, pieces, dropXObjects) {
   const ctx = pdfDoc.context; const C = PDFName.of('Contents'), RS = PDFName.of('Resources'), XO = PDFName.of('XObject');
   const c0 = pd.get(C); const cr = await resolve(c0); const refs = cr instanceof PDFArray ? cr.asArray() : c0 ? [c0] : [];
   const orig = []; let had = 0; for (const r of refs) { if (r instanceof PDFRef && (await isOwned(r))) had++; else orig.push(r); }
   if (!had && !pieces.length) return false;
   const r0 = await resolve(pd.get(RS) || inhResources); const rmap = r0 instanceof PDFDict ? new Map(r0.entries()) : new Map();
   const x0 = await resolve(rmap.get(XO)); const xmap = x0 instanceof PDFDict ? new Map(x0.entries()) : new Map();
-  for (const k of [...xmap.keys()]) if (/^\/MBo\d+$/.test(k.asString())) xmap.delete(k);
+  for (const [k, v] of [...xmap.entries()]) if (/^\/MBo\d+$/.test(k.asString()) || (dropXObjects && v instanceof PDFRef && dropXObjects.has(refKey(v)))) xmap.delete(k);
   // colour processing blends with what is below it, so the page gets an explicit white backdrop first
   const paper = pieces.some((p) => p.kind === 'Color') && pieces[0].box ? `q 1 g ${pieces[0].box.map((v) => num(v, 2)).join(' ')} re f Q\n` : '';
   const list = pieces.length ? [ctx.register(ctx.stream(paper + 'q\n', { MeBulb: 'Wrap' })), ...orig, ctx.register(ctx.stream('\nQ\n', { MeBulb: 'Wrap' }))] : orig;
@@ -85,11 +85,16 @@ async function ownedContentFull(pdfDoc, doc, fonts, imgCache) {
   const ctx = pdfDoc.context; const pages = pdfDoc.getPages(); const sigs = {};
   const resolve = async (o) => (o instanceof PDFRef ? ctx.lookup(o) : o);
   const isOwned = async (r) => { const s = ctx.lookup(r); return !!(s && s.dict && s.dict.get(OWN_KEY)); };
+  const isMelted = (r) => { const s = ctx.lookup(r); const t = s && s.dict && s.dict.get(PDFName.of('BBType')); return !!(t && t.asString && t.asString() === '/Melted'); };
   for (let i = 0; i < pages.length; i++) {
     if (!doc.pages[i]) continue; const page = pages[i]; const mb = page.getMediaBox(); const box = [mb.x, mb.y, mb.x + mb.width, mb.y + mb.height];
     const pieces = await ownedPieces(pdfDoc, doc, i, box, fonts, imgCache); sigs[i] = pieceSig(pieces);
     const inh = page.node.getInheritableAttribute ? page.node.getInheritableAttribute(PDFName.of('Resources')) : null;
-    await rebuildPageContent(pdfDoc, page.node, inh, resolve, isOwned, pieces);
+    // pages unflattened from Revu: the melted stream and its appearance XObjects come out
+    let drop = null; const unmelt = doc.unmelt && doc.unmelt.includes(i);
+    if (unmelt) { drop = new Set(); const c = ctx.lookup(page.node.get(PDFName.of('Contents'))); for (const r of c instanceof PDFArray ? c.asArray() : []) { if (!(r instanceof PDFRef) || !isMelted(r)) continue; const a = ctx.lookup(r).dict.lookup(PDFName.of('Annots')); for (const ar of a instanceof PDFArray ? a.asArray() : []) { const ad = ctx.lookup(ar); const ap = ad instanceof PDFDict && ad.lookup(PDFName.of('AP')); const n = ap instanceof PDFDict && ap.get(PDFName.of('N')); if (n instanceof PDFRef) drop.add(refKey(n)); } } }
+    await rebuildPageContent(pdfDoc, page.node, inh, resolve, async (r) => (await isOwned(r)) || (unmelt && isMelted(r)), pieces, drop);
+    if (unmelt) { const have = new Set(); const an = ctx.lookup(page.node.get(PDFName.of('Annots'))); (an instanceof PDFArray ? an.asArray() : []).forEach((r) => { if (r instanceof PDFRef) have.add(refKey(r)); }); for (const k of (doc.unmeltKeep && doc.unmeltKeep[i]) || []) if (!have.has(k)) { const [n, g] = k.split(' ').map(Number); page.node.addAnnot(PDFRef.of(n, g)); } }
   }
   return sigs;
 }
@@ -174,21 +179,22 @@ async function flattenDialog() {
 async function unflattenDialog() {
   const doc = activeDoc(); if (!doc) return; const busy = $('#busy'); busy.hidden = false; busy.textContent = 'Looking for flattened markups…'; await raf();
   try { await scanFlat(doc); } finally { busy.hidden = true; }
-  const all = doc.flat || []; const cur = currentPage(); const revu = await revuFlatCount(doc).catch(() => 0);
-  if (!all.length && !revu) { toast('No flattened markups that can be unflattened were found'); return; }
+  const all = doc.flat || []; const cur = currentPage(); busy.hidden = false; busy.textContent = 'Looking for markups flattened in Revu…'; await raf();
+  let revu = { all: 0, page: 0 }; try { const R = baseReader(doc); const un = new Set(doc.unmelt || []); if (R) for (let i = 0; i < doc.numPages; i++) { if (un.has(i)) continue; const k = (await R.meltedStreams(i).catch(() => [])).reduce((s, x) => s + x.annots.length, 0); revu.all += k; if (i === cur) revu.page = k; } } finally { busy.hidden = true; }
+  if (!all.length && !revu.all) { toast('No flattened markups that can be unflattened were found'); return; }
   const n = (fs) => fs.reduce((s, f) => s + f.markups.length, 0); const locked = all.filter((f) => f.allowUnflatten === false);
   const r = await openDialog({ title: 'Unflatten markups', body: `
     <p class="muted">Turns flattened markups back into markups you can select and edit. Text boxes come back as real text boxes.</p>
-    <div class="field"><label>Pages</label><select name="which"><option value="page">This page (${cur + 1}) · ${n(all.filter((f) => f.page === cur))} markups</option><option value="all">All pages · ${n(all)} markups</option></select></div>
-    ${revu ? `<p class="muted sm">${revu} markup${revu === 1 ? '' : 's'} flattened in Bluebeam Revu ${revu === 1 ? 'is' : 'are'} included.</p>` : ''}${locked.length ? `<p class="muted sm">${n(locked)} markups were flattened with unflatten not allowed and stay flattened.</p>` : ''}`,
+    <div class="field"><label>Pages</label><select name="which"><option value="page">This page (${cur + 1}) · ${n(all.filter((f) => f.page === cur)) + revu.page} markups</option><option value="all"${revu.all && !revu.page ? ' selected' : ''}>All pages · ${n(all) + revu.all} markups</option></select></div>
+    ${revu.all ? `<p class="muted sm">Includes ${revu.all} markup${revu.all === 1 ? '' : 's'} flattened in Bluebeam Revu with markup recovery allowed.</p>` : ''}${locked.length ? `<p class="muted sm">${n(locked)} markups were flattened with unflatten not allowed and stay flattened.</p>` : ''}`,
     buttons: [{ label: 'Cancel', value: false }, { label: 'Unflatten', value: true, primary: true }] });
   if (!r || !r.value) return;
   const pick = all.filter((f) => f.allowUnflatten !== false && (r.form.which === 'all' || f.page === cur));
   pushUndo(doc); doc.flatGone = doc.flatGone || new Set(); let count = 0;
   pick.forEach((f) => { f.markups.forEach((m) => { m.page = f.page; if (!doc.markups.some((x) => x.id === m.id)) { doc.markups.push(m); count++; } }); doc.flatGone.add(f.id); });
   doc.flat = all.filter((f) => !pick.includes(f));
-  count += await unflattenRevu(doc, r.form.which === 'all' ? null : [cur]).catch((e) => { console.warn(e); return 0; });
-  const pages = [...new Set(pick.filter((f) => f.inView).map((f) => f.page))];
+  const rv = await unflattenRevu(doc, r.form.which === 'all' ? null : [cur]).catch((e) => { console.warn(e); return { count: 0, pages: [] }; }); count += rv.count;
+  const pages = [...new Set([...pick.filter((f) => f.inView).map((f) => f.page), ...rv.pages])];
   if (pages.length) { doc.flat.filter((f) => pages.includes(f.page)).forEach((f) => { f.inView = false; }); await patchView(doc, pages); }
   renderAllMarks(doc); refreshAll(); toast(`Unflattened ${count} markup${count === 1 ? '' : 's'}`);
 }

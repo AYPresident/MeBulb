@@ -165,11 +165,11 @@ function uprightAngle(a) { if (a > Math.PI / 2 - 1e-6) a -= Math.PI; if (a < -Ma
 // ----- text layout (text box, callout) ---------------------------------------
 function boxRect(a, b) { return { x: Math.min(a[0], b[0]), y: Math.min(a[1], b[1]), w: Math.abs(b[0] - a[0]), h: Math.abs(b[1] - a[1]) }; }
 function textLayout(m) {
-  const s = m.style; const size = s.fontSize || 12; const pad = Math.max(3, size * 0.4);
+  const s = m.style; const size = s.fontSize || 12; const pad = s.pad != null ? s.pad : Math.max(3, size * 0.4);
   const b = m.type === 'callout' ? boxRect(m.pts[1], m.pts[2]) : boxRect(m.pts[0], m.pts[1]);
   const lay = layoutRich(runsOf(m), s, Math.max(b.w - 2 * pad, size));
   const h = Math.max(b.h, lay.height + 2 * pad);
-  return { x: b.x, y: b.y, w: b.w, h, lay, lh: size * 1.2, pad, size };
+  return { x: b.x, y: b.y, w: b.w, h, lay, lh: size * (s.lineH || 1.2), pad, size };
 }
 function fitTextBox(m) {
   const L = textLayout(m); const h = Math.max(L.lay.height + 2 * L.pad, L.size + 2 * L.pad);

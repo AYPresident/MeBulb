@@ -65,13 +65,13 @@ function newDoc(name, src) {
 }
 
 // ----- undo / redo (whole-state snapshots; bytes are shared references) -------
-function snapshot(doc) { return { markups: JSON.stringify(doc.markups), scales: JSON.stringify(doc.scales), layers: JSON.stringify(doc.layers), viewports: JSON.stringify(doc.viewports || {}), links: JSON.stringify(doc.links || {}), formValues: JSON.stringify(doc.formValues || {}), align: JSON.stringify(doc.align || null), colorAdj: JSON.stringify(doc.colorAdj || null), flat: JSON.stringify(doc.flat || []), src: doc.src, rc: doc.sess ? doc.sess.rc : 0 }; }
+function snapshot(doc) { return { markups: JSON.stringify(doc.markups), scales: JSON.stringify(doc.scales), layers: JSON.stringify(doc.layers), viewports: JSON.stringify(doc.viewports || {}), links: JSON.stringify(doc.links || {}), formValues: JSON.stringify(doc.formValues || {}), align: JSON.stringify(doc.align || null), colorAdj: JSON.stringify(doc.colorAdj || null), flat: JSON.stringify(doc.flat || []), unmelt: JSON.stringify([doc.unmelt || [], doc.unmeltKeep || {}]), src: doc.src, rc: doc.sess ? doc.sess.rc : 0 }; }
 function pushUndo(doc = activeDoc()) { if (!doc) return; doc.undo.push(snapshot(doc)); if (doc.undo.length > 150) doc.undo.shift(); doc.redo = []; markDirty(doc); }
 function markDirty(doc = activeDoc()) { if (!doc) return; SESS.hint = true; doc.dirty = true; renderTabs(); updateUndoUI(); }
 async function restoreSnap(doc, s) {
   const bytesChanged = s.src !== doc.src;
   const R = sessKeepRemote(doc, s.rc || 0, { markups: JSON.parse(s.markups), scales: JSON.parse(s.scales), layers: JSON.parse(s.layers), viewports: JSON.parse(s.viewports || '{}'), links: JSON.parse(s.links || '{}'), align: JSON.parse(s.align || 'null'), colorAdj: JSON.parse(s.colorAdj || 'null'), flat: JSON.parse(s.flat || '[]') });
-  Object.assign(doc, R); doc.formValues = JSON.parse(s.formValues || '{}'); SESS.hint = true; renderColorAdj(doc); renderFormLayers && renderFormLayers();
+  Object.assign(doc, R); doc.formValues = JSON.parse(s.formValues || '{}'); if (s.unmelt) { const [u, k] = JSON.parse(s.unmelt); doc.unmelt = u; doc.unmeltKeep = k; } SESS.hint = true; renderColorAdj(doc); renderFormLayers && renderFormLayers();
   if (bytesChanged) { setDocSource(doc, s.src); await loadPdfInto(doc); mountDoc(doc); }
   state.sel.clear(); doc.dirty = true; refreshAll();
 }
@@ -96,9 +96,12 @@ function pasteClipboard(dup, inPlace) {
   const doc = activeDoc(); if (!doc || !state.clipboard) return; const cur = currentPage();
   const sourcePage = state.clipboard.page;
   const off = inPlace ? 0 : dup || cur === sourcePage ? 12 : 0;
-  pushUndo(doc); state.sel.clear();
+  pushUndo(doc); state.sel.clear(); const gmap = new Map();
   state.clipboard.items.forEach((src) => {
-    const m = detachCopy(doc, deep(src)); m.id = uid(); m.page = clamp(dup ? src.page : cur + (src.page - sourcePage), 0, doc.numPages - 1); mapMarkupPoints(m, (p) => [p[0] + off, p[1] + off]);
+    const m = detachCopy(doc, deep(src)); m.id = uid();
+    // a copy is a new markup: its own PDF identity, and its own group if it came from one
+    if (m.ext) { m.ext = { ...m.ext }; ['ref', 'nm', 'nms', 'refs', 'imageRef'].forEach((k) => delete m.ext[k]); }
+    if (m.group) { if (!gmap.has(m.group)) gmap.set(m.group, uid('G-')); m.group = gmap.get(m.group); } m.page = clamp(dup ? src.page : cur + (src.page - sourcePage), 0, doc.numPages - 1); mapMarkupPoints(m, (p) => [p[0] + off, p[1] + off]);
     m.created = m.modified = nowISO(); m.author = state.author; doc.markups.push(m); state.sel.add(m.id);
   });
   if (!dup && off) state.clipboard.items = state.clipboard.items.map((x) => ({ ...x, pts: x.pts.map((p) => [p[0] + off, p[1] + off]) }));

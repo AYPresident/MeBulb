@@ -62,7 +62,7 @@ function layoutRich(runs, s, maxW) {
     }
     let w = x; for (let k = ln.cs.length - 1; k >= 0 && ln.cs[k].ch === ' '; k--) w -= ln.cs[k].w;
     pieces.forEach((pc) => { pc.wt = Math.max(0, Math.min(pc.w, w - pc.x)); });
-    const h = z * 1.2; const L = { pieces, w, z, top, base: top + z * 0.82, h }; top += h; width = Math.max(width, w); return L;
+    const f = s.lineH || 1.2; const h = z * f; const L = { pieces, w, z, top, base: top + z * (f - 0.38), h }; top += h; width = Math.max(width, w); return L;
   });
   return { lines: out, height: top, width };
 }
@@ -84,11 +84,11 @@ function richPrims(L, s, out) {
 // ----- rich text as XHTML for the PDF /RC entry (so other PDF apps keep the formatting)
 function cssColor(c) { return String(c || '#000000').toUpperCase(); }
 function rtXhtml(m) {
-  const D = rtDefaults(m.style); const runs = runsOf(m); const pdfFam = { helv: 'Helvetica', times: 'Times', courier: 'Courier' };
+  const D = rtDefaults(m.style); const runs = runsOf(m); const fam0 = { helv: 'Helvetica', times: 'Times', courier: 'Courier' }; const pdfFam = new Proxy({}, { get: (_, f) => fam0[f] || (String(f).startsWith('sys:') ? String(f).slice(4) : 'Helvetica') });
   const spanStyle = (e) => [`font-family:${pdfFam[e.f]}`, `font-size:${num(rtSize(e), 2)}pt`, `color:${cssColor(e.c)}`, `font-weight:${e.b ? 'bold' : 'normal'}`, `font-style:${e.i ? 'italic' : 'normal'}`, (e.u || e.s) ? `text-decoration:${[e.u ? 'underline' : '', e.s ? 'line-through' : ''].filter(Boolean).join(' ')}` : '', e.sup ? 'vertical-align:super' : e.sub ? 'vertical-align:sub' : ''].filter(Boolean).join(';');
   const paras = [[]]; runsToChars(runs).forEach((c) => { if (c.ch === '\n') paras.push([]); else if (c.ch !== ZW) paras[paras.length - 1].push(c); });
   const body = paras.map((p) => { const rs = charsToRuns(p, {}); return `<p dir="ltr">${rs.map((r) => `<span style="${spanStyle(rtEff(r, D))}">${esc(r.t)}</span>`).join('')}</p>`; }).join('');
-  return `<?xml version="1.0"?><body xmlns="http://www.w3.org/1999/xhtml" xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:APIVersion="Acrobat:11.0.0" xfa:spec="2.0.2" style="font-size:${num(D.z, 2)}pt;text-align:${m.style.align || 'left'};color:${cssColor(D.c)};font-family:${pdfFam[D.f]}">${body}</body>`;
+  return `<?xml version="1.0"?><body xmlns="http://www.w3.org/1999/xhtml" xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:APIVersion="Acrobat:11.0.0" xfa:spec="2.0.2" style="font-size:${num(D.z, 2)}pt;text-align:${m.style.align || 'left'};color:${cssColor(D.c)};font-family:${pdfFam[D.f]};line-height:${num(D.z * (m.style.lineH || 1.2), 3)}pt">${body}</body>`;
 }
 
 // ----- editor -------------------------------------------------------------------------

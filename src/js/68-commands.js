@@ -34,6 +34,8 @@ function buildCommands() {
   add('edit.paste', 'Paste', () => pasteClipboard(false), { ...G_EDIT, icon: 'paste', enabled: () => !!state.clipboard && hasDoc() });
   add('edit.pasteInPlace', 'Paste in place', () => pasteClipboard(false, true), { ...G_EDIT, icon: 'paste', enabled: () => !!state.clipboard && hasDoc() });
   add('edit.duplicate', 'Duplicate', duplicateSelected, { ...G_EDIT, enabled: anySel });
+  add('edit.group', 'Group', groupSelected, { ...G_EDIT, enabled: () => selected().length > 1 });
+  add('edit.ungroup', 'Ungroup', ungroupSelected, { ...G_EDIT, enabled: () => selected().some((m) => m.group) });
   add('edit.delete', 'Delete', deleteSelected, { ...G_EDIT, icon: 'trash', enabled: anySel });
   add('edit.selectAll', 'Select all on page', () => { const d = activeDoc(); const p = currentPage(); setTool('select'); state.sel = new Set(d.markups.filter((m) => m.page === p && layerVisible(d, m.layer)).map((m) => m.id)); refreshSelection(); }, { ...G_EDIT, enabled: hasDoc });
   add('edit.copyProps', 'Copy properties', copyProperties, { ...G_EDIT, icon: 'copyprops', enabled: () => state.sel.size === 1, hint: 'Style, font and layer of the selected markup' });
@@ -140,7 +142,7 @@ const DEFAULT_SHORTCUTS = {
   'tool.line': ['L'], 'tool.arrow': ['A'], 'tool.rect': ['R'], 'tool.ellipse': ['E'], 'tool.polygon': ['Shift+P'], 'tool.polyline': ['Shift+N'], 'tool.cloud': ['C'],
   'tool.length': ['Shift+Alt+L'], 'tool.polylength': ['Shift+Alt+Q'], 'tool.area': ['Shift+Alt+A'], 'tool.perimeter': ['Shift+Alt+P'], 'tool.volume': ['Shift+Alt+V'], 'tool.count': ['Shift+Alt+C'], 'tool.angle': ['Shift+Alt+G'], 'tool.radius': ['Shift+Alt+U'],
   'tool.calibrate': ['Shift+K'], 'tool.viewport': ['Shift+W'], 'tool.sketchrect': ['B'], 'tool.sketchcircle': ['O'], 'tool.edittext': ['X'],
-  'edit.undo': ['Ctrl+Z'], 'edit.redo': ['Ctrl+Y', 'Ctrl+Shift+Z'], 'edit.cut': ['Ctrl+X'], 'edit.copy': ['Ctrl+C'], 'edit.paste': ['Ctrl+V'], 'edit.pasteInPlace': ['Ctrl+Alt+Shift+V'], 'edit.duplicate': ['Ctrl+D'], 'edit.delete': ['Delete'],
+  'edit.undo': ['Ctrl+Z'], 'edit.redo': ['Ctrl+Y', 'Ctrl+Shift+Z'], 'edit.cut': ['Ctrl+X'], 'edit.copy': ['Ctrl+C'], 'edit.paste': ['Ctrl+V'], 'edit.pasteInPlace': ['Ctrl+Alt+Shift+V'], 'edit.duplicate': ['Ctrl+D'], 'edit.group': ['Ctrl+G'], 'edit.ungroup': ['Ctrl+Shift+G'], 'edit.delete': ['Delete'],
   'edit.selectAll': ['Ctrl+A'], 'edit.find': ['Ctrl+F'], 'edit.copyProps': ['Ctrl+Shift+C'], 'edit.pasteProps': ['Ctrl+Shift+V'], 'edit.fitText': ['Alt+Z'], 'edit.lock': ['Ctrl+Shift+L'],
   'edit.front': ['Ctrl+Shift+J'], 'edit.back': ['Ctrl+Shift+['], 'edit.prefs': ['Ctrl+K'],
   'arr.alignLeft': ['Ctrl+Alt+L'], 'arr.alignCenter': ['Ctrl+Alt+E'], 'arr.alignRight': ['Ctrl+Alt+R'], 'arr.alignTop': ['Ctrl+Alt+T'], 'arr.alignMiddle': ['Ctrl+Alt+M'], 'arr.alignBottom': ['Ctrl+Alt+B'],

@@ -7,7 +7,7 @@
 // a recovery copy is kept in the MeBulb folder under AppData.
 // The transport is a class, so a server-based one can replace FolderTransport later (for
 // consultants without Egnyte access) without touching the merge logic.
-const SESS_META = ['scales', 'layers', 'links', 'viewports', 'align', 'colorAdj', 'flat'];
+const SESS_META = ['scales', 'layers', 'links', 'viewports', 'align', 'colorAdj', 'flat', 'unmelt', 'unmeltKeep'];
 const PEER_COLORS = ['#e8590c', '#2b8a3e', '#1971c2', '#c2255c', '#6741d9', '#0c8599', '#e67700', '#5c940d'];
 const SESS = { hint: false };
 const sanit = (s) => String(s || '').replace(/[\\/:*?"<>|~\x00-\x1f]/g, '_').replace(/[. ]+$/, '').slice(0, 80) || 'user';
@@ -101,7 +101,7 @@ function sessApply(doc, ops) {
       S.mt.set(op.id, op.t); (S.mby || (S.mby = new Map())).set(op.id, op.by); S.rlog.set(op.id, ++S.rc); n++; if (op.by !== S.uid) who.add(op.name || op.by);
     } else if (op.k === 'meta' && SESS_META.includes(op.key)) {
       if (!wins(op.t, op.by, S.metaT[op.key] || 0)) continue;
-      doc[op.key] = op.v; S.metaT[op.key] = op.t; S.metaKnown[op.key] = JSON.stringify(op.v ?? null); S.rlogMeta.set(op.key, ++S.rc); meta = true; n++;
+      const was = doc[op.key]; doc[op.key] = op.v; S.metaT[op.key] = op.t; if (op.key === 'unmelt') applyRemoteUnmelt(doc, was).catch((e) => console.warn('unflatten from peer', e)); S.metaKnown[op.key] = JSON.stringify(op.v ?? null); S.rlogMeta.set(op.key, ++S.rc); meta = true; n++;
     }
   }
   if (!n) return; S.recv += n; S.lastRecv = Date.now();
