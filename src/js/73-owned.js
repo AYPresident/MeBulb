@@ -46,7 +46,7 @@ async function ownedPieces(pdfDoc, doc, i, mb, fonts, imgCache, extraFlat) {
   const v = doc.colorAdj && doc.colorAdj.save !== false ? colorAdjFor(doc, i) : null;
   if (v) { const c = colorOps(v, mb); out.push({ kind: 'Color', content: c.s, resources: ctx.obj({ ExtGState: c.gs }), sig: `c${v.sat.toFixed(3)}/${v.lum.toFixed(3)}`, box: [mb[0] - 2, mb[1] - 2, mb[2] - mb[0] + 4, mb[3] - mb[1] + 4] }); }
   for (const F of [...(doc.flat || []).filter((f) => f.page === i), ...(extraFlat || [])]) {
-    const M = invertT(doc.pages[i].T); const ops = new Ops(); ops.s.push(`${M.map((x) => num(x, 6)).join(' ')} cm`);
+    const M = invertT(doc.pages[i].T); const ops = new Ops(doc); ops.s.push(`${M.map((x) => num(x, 6)).join(' ')} cm`);
     F.markups.forEach((m) => dl(m, doc).forEach((p) => ops.prim(p)));
     const res = await resourcesFor(pdfDoc, ops, fonts, imgCache);
     const data = true ? ctx.register(ctx.flateStream(new TextEncoder().encode(JSON.stringify({ v: 1, app: 'MeBulb', id: F.id, allowUnflatten: F.allowUnflatten !== false, flattenedBy: F.by || null, flattened: F.at || null, markups: F.markups })), {})) : null;

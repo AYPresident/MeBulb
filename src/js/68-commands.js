@@ -80,6 +80,7 @@ function buildCommands() {
   add('doc.deletePage', 'Delete page', () => pageOpCurrent('delete'), { ...G_DOC, icon: 'trash', enabled: hasDoc });
   add('doc.compare', 'Overlay compare…', compareDialog, { ...G_DOC, icon: 'compare', enabled: hasDoc });
   add('doc.ocr', 'Recognize text (OCR)…', ocrDialog, { ...G_DOC, icon: 'ocr', enabled: hasDoc, short: 'OCR' });
+  add('tool.stamps', 'Stamps…', stampsDialog, { group: 'Markup', icon: 'stamp' });
   add('doc.color', 'Colour processing…', colorDialog, { ...G_DOC, icon: 'colorproc', enabled: hasDoc });
   add('doc.flatten', 'Flatten markups…', flattenDialog, { ...G_DOC, icon: 'flatten', enabled: hasDoc });
   add('doc.unflatten', 'Unflatten markups…', unflattenDialog, { ...G_DOC, icon: 'unflatten', enabled: hasDoc });

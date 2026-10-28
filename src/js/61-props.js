@@ -67,7 +67,11 @@ function renderProps() {
     html += `<div class="field"><label>Style</label><div class="fmt-row">${fmtButtons(F, rich)}</div>${rich ? '<p class="muted sm">These apply to the whole markup. To format part of the text, double-click it and select the words first.</p>' : ''}</div>`;
     html += '</section>';
   }
-  if (has('stamp')) {
+  if (has('stamp') && (T.kind === 'tool' || (one && one.asset))) {
+    const lib = STAMPLIB.list.length ? STAMPLIB.list : STAMPS.map((t) => ({ id: 'txt:' + t, name: t, kind: 'text' }));
+    if (!STAMPLIB.list.length) loadStampLibrary().then(() => { if (rightShown('props')) renderProps(); });
+    html += `<section class="psec"><h3>Stamp</h3>${one && one.asset ? `<div class="note-box">${esc(one.text || 'Stamp')}${Object.entries(one.stampValues || {}).filter(([, v]) => v).map(([k, v]) => `<br><span class="muted">${esc(k)}:</span> ${esc(v)}`).join('')}</div><div class="btn-row"><button type="button" class="btn sm" data-act="stamp-fields">Change fields…</button></div>` : field('Stamp', `<select data-k="stamplib">${lib.map((x) => `<option value="${esc(x.id)}"${x.id === state.stampId ? ' selected' : ''}>${esc(x.name)}${x.kind === 'pdf' ? ' (PDF)' : ''}</option>`).join('')}</select>`)}<div class="btn-row"><button type="button" class="btn sm" data-act="stamps">${icon('stamp')} Stamps…</button></div></section>`;
+  } else if (has('stamp')) {
     const cur = one ? one.text : state.stampText;
     html += `<section class="psec"><h3>Stamp</h3>${field('Stamp text', `<select data-k="stamppick">${STAMPS.map((x) => `<option${x === cur ? ' selected' : ''}>${esc(x)}</option>`).join('')}<option value="__custom"${STAMPS.includes(cur) ? '' : ' selected'}>Custom…</option></select><input type="text" id="prop-text" data-k="text" value="${esc(cur)}" maxlength="40" aria-label="Stamp text">`)}${one ? `<label class="check"><input type="checkbox" data-k="stampSub"${one.stampSub !== false ? ' checked' : ''}> Show name and date</label>` : ''}</section>`;
   }
@@ -140,6 +144,7 @@ function applyProp(k, v, live) {
   if (k === 'author') { state.author = v.trim() || 'Reviewer'; store.set('author', state.author); return; }
   if (k === 'toollock') { state.toolLocked = v; $$('.tool-btn').forEach((b) => b.classList.toggle('locked', b.dataset.tool === state.tool && v)); return; }
   if (k === 'toolsubject') { state.toolSubjects[state.tool] = v; return; }
+  if (k === 'stamplib') { state.stampId = v; store.set('stampId', v); const st = STAMPLIB.list.find((s) => s.id === v); if (st && st.kind === 'text') state.stampText = st.text; return; }
   if (k === 'stamppick') { if (v === '__custom') { const t = $('#prop-text'); if (t) { t.focus(); t.select(); } return; } k = 'text'; }
   if (k === 'depth') { const sc = scaleFor(doc, T.kind === 'sel' ? T.ms[0].page : currentPage()); const d = parseLength(v, sc.unit); if (isNaN(d)) return; v = d; if (T.kind === 'tool') { state.volDepth = d; return; } }
   if (k === 'layer' && v === '__keep') return;
@@ -181,6 +186,8 @@ function bindProps() {
     const a = e.target.closest('[data-act]'); if (!a) return;
     const act = a.dataset.act; const ms = selected();
     if (act === 'del-sel') deleteSelected();
+    else if (act === 'stamps') stampsDialog();
+    else if (act === 'stamp-fields' && ms[0]) editStampFields(ms[0]);
     else if (act === 'zoom-sel' && ms[0]) zoomToBox(ms[0].page, markupBBox(ms[0], activeDoc()));
     else if (act === 'toolset-sel') addSelectionToToolset();
     else if (act === 'toolset-tool') addToolToToolset();

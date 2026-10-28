@@ -143,8 +143,7 @@ function drawDown(e, i) {
     case 'point':
       if (state.tool === 'note') { const m = newDraftMarkup('note', i, [[p[0] - 9, p[1] - 9]]); addMarkup(m); state.sel.clear(); state.sel.add(m.id); refreshSelection(); toolDone(); setTimeout(() => { const c = $('#prop-comment'); if (c) c.focus(); }, 30); }
       else if (state.tool === 'stamp') {
-        const txt = state.stampText; const size = 20; const w = textWidth(txt, size, true) + 30, h = size * 2.1;
-        const m = newDraftMarkup('stamp', i, [[p[0] - w / 2, p[1] - h / 2], [p[0] + w / 2, p[1] + h / 2]]); addMarkup(m); state.sel.clear(); state.sel.add(m.id); refreshSelection(); toolDone();
+        placeStamp(doc, i, p).then((m) => { if (!m) return; addMarkup(m); state.sel.clear(); state.sel.add(m.id); refreshSelection(); toolDone(); }).catch((err) => { console.error(err); toast('Could not place the stamp: ' + err.message, 'error'); });
       }
       break;
   }
@@ -283,6 +282,7 @@ function onDblClick(e) {
   if (TEXT_TYPES.has(m.type)) editText(m, false);
   else if (m.type === 'textedit') editPdfText(m);
   else if (m.type === 'sketch') { openRight('props'); setTimeout(() => { const c = $('#props [data-k="sz.w"], #props [data-k="sz.d"]'); if (c) { c.focus(); c.select(); } }, 20); }
+  else if (m.type === 'stamp' && m.asset && m.stampId) editStampFields(m);
   else if (m.type === 'note' || MEASURE_TYPES.has(m.type) || m.type === 'stamp') { setTimeout(() => { const c = $(m.type === 'stamp' ? '#prop-text' : '#prop-comment'); if (c) c.focus(); }, 20); }
 }
 

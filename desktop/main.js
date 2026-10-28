@@ -155,6 +155,17 @@ ipcMain.handle('sess:watch', (_e, dir) => {
 ipcMain.handle('sess:unwatch', (_e, dir) => { const d = path.resolve(dir); const w = watchers.get(d); if (w) { w.close(); watchers.delete(d); } return true; });
 ipcMain.handle('outbox:dir', async () => { await fsp.mkdir(OUTBOX(), { recursive: true }); return OUTBOX(); });
 
+// ----- stamp library: AppData\MeBulb\stamps plus an optional shared team folder ----------------------
+const STAMPS_DIR = () => path.join(DATA(), 'stamps');
+async function listStampDir(dir, shared) { let ents = []; try { ents = await fsp.readdir(dir, { withFileTypes: true }); } catch { return []; } const out = []; for (const e of ents) { if (!e.isFile() || !/\.(pdf|brx)$/i.test(e.name)) continue; const p = path.join(dir, e.name); try { const st = await fsp.stat(p); out.push({ path: p, name: e.name, size: st.size, shared }); } catch { } } return out.sort((a, b) => a.name.localeCompare(b.name)); }
+const stampRoots = new Set();
+ipcMain.handle('stamps:list', async (_e, team) => { await fsp.mkdir(STAMPS_DIR(), { recursive: true }); stampRoots.clear(); stampRoots.add(path.resolve(STAMPS_DIR())); if (team) stampRoots.add(path.resolve(team)); return [...(await listStampDir(STAMPS_DIR(), false)), ...(team ? await listStampDir(team, true) : [])]; });
+const inStampRoots = (p) => [...stampRoots].some((r) => path.resolve(p).toLowerCase().startsWith(r.toLowerCase() + path.sep.toLowerCase()) || path.dirname(path.resolve(p)).toLowerCase() === r.toLowerCase());
+ipcMain.handle('stamps:read', async (_e, p) => { if (!inStampRoots(p)) throw new Error('not a stamp folder'); return fsp.readFile(p); });
+ipcMain.handle('stamps:add', async (_e, name, bytes) => { await fsp.mkdir(STAMPS_DIR(), { recursive: true }); let base = path.basename(String(name)).replace(/[\\/:*?"<>|]/g, '_'); if (!/\.pdf$/i.test(base)) base += '.pdf'; let p = path.join(STAMPS_DIR(), base); let k = 1; while (fs.existsSync(p)) p = path.join(STAMPS_DIR(), base.replace(/\.pdf$/i, ` (${++k}).pdf`)); await fsp.writeFile(p, Buffer.from(bytes)); return p; });
+ipcMain.handle('stamps:remove', async (_e, p) => { if (path.dirname(path.resolve(p)).toLowerCase() !== path.resolve(STAMPS_DIR()).toLowerCase()) throw new Error('only your own stamps can be removed'); await fsp.unlink(p); return true; });
+ipcMain.handle('dialog:folder', async (_e, title) => { const r = await dialog.showOpenDialog(win, { title: title || 'Choose folder', properties: ['openDirectory'] }); return r.canceled ? null : r.filePaths[0]; });
+
 // ----- printing: straight to the chosen printer, paper size from MeBulb's print dialog ------------------
 ipcMain.handle('print:printers', async () => { if (!win) return []; try { return (await win.webContents.getPrintersAsync()).map((p) => ({ name: p.name, displayName: p.displayName || p.name, isDefault: !!p.isDefault, status: p.status, description: p.description })); } catch { return []; } });
 ipcMain.handle('print:run', async (_e, job) => {

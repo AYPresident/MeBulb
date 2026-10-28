@@ -325,7 +325,7 @@ function payloadJson(doc, editApplied) {
   const markups = doc.markups.map((m) => (m.type === 'textedit' ? { ...m, applied: !!(editApplied && editApplied.get(m.id)) } : m));
   const ownSig = doc.ownSigPending || doc.ownSig || {}; const flat = (doc.flat || []).map((f) => ({ id: f.id, page: f.page }));
   const S = doc.sess; const tomb = S ? Object.fromEntries([...S.tomb].filter(([, t]) => Date.now() - t < 30 * 864e5)) : doc.tomb || undefined;
-  return JSON.stringify({ v: 3, app: 'MeBulb', saved: nowISO(), savedBy: state.author, savedById: S ? S.uid : undefined, tomb, markups, scales: doc.scales, layers: doc.layers, links: doc.links || {}, viewports: doc.viewports || {}, align: doc.align || null, colorAdj: doc.colorAdj || null, ownSig, flat });
+  return JSON.stringify({ v: 3, app: 'MeBulb', saved: nowISO(), savedBy: state.author, savedById: S ? S.uid : undefined, tomb, markups, scales: doc.scales, layers: doc.layers, links: doc.links || {}, viewports: doc.viewports || {}, align: doc.align || null, colorAdj: doc.colorAdj || null, ownSig, flat, assets: usedAssets(doc) });
 }
 // can this save be an append, or does it need the whole file rewritten?
 function needsRewrite(doc) {
@@ -336,3 +336,6 @@ function needsRewrite(doc) {
   if (doc.srcChanged) return 'page changes';
   return '';
 }
+
+// stamp artwork still used by a markup (or a flattened one)
+function usedAssets(doc) { const A = doc.assets || {}; const used = {}; [...doc.markups, ...(doc.flat || []).flatMap((f) => f.markups)].forEach((m) => { if (m.asset && A[m.asset]) used[m.asset] = A[m.asset]; }); return Object.keys(used).length ? used : undefined; }

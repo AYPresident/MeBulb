@@ -90,7 +90,7 @@ async function bakeTextEdits(pdfDoc, doc, fonts, imgCache) {
   const byPage = new Map(); doc.markups.forEach((m) => { if (m.type === 'textedit') { if (!byPage.has(m.page)) byPage.set(m.page, []); byPage.get(m.page).push(m); } });
   for (const [i, edits] of byPage) {
     const page = pages[i]; if (!page) continue; const removed = removeEditedText(pdfDoc, doc, i, edits);
-    const ops = new Ops(); ops.s.push(`${invertT(doc.pages[i].T).map((v) => num(v, 6)).join(' ')} cm`);
+    const ops = new Ops(doc); ops.s.push(`${invertT(doc.pages[i].T).map((v) => num(v, 6)).join(' ')} cm`);
     edits.forEach((m) => { const isOn = m.applied || removed.has(m.id); applied.set(m.id, isOn); dl({ ...m, applied: isOn }, doc).forEach((p) => ops.prim(p)); });
     const res = await resourcesFor(pdfDoc, ops, fonts, imgCache);
     appendPageContent(pdfDoc, page, ops.toString(), res, [PM_MARK.editStart, PM_MARK.edit]);

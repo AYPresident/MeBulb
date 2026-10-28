@@ -43,7 +43,7 @@ function pdfjsParams(doc) {
   return { ...common, range: T, length: src.size, rangeChunkSize: 1 << 18, disableAutoFetch: true, disableStream: true };
 }
 async function loadPdfInto(doc) {
-  if (doc.pdf) { try { await doc.pdf.destroy(); } catch { } }
+  if (doc.pdf) { try { await doc.pdf.loadingTask.destroy(); } catch { } }
   const task = pdfjsLib.getDocument(pdfjsParams(doc));
   task.onPassword = (update, reason) => {
     openDialog({ title: 'Password required', body: `<p>${reason === 2 ? 'That password did not work. ' : ''}<b>${esc(doc.name)}</b> is protected.</p>${field('Password', '<input type="password" name="pw" autocomplete="off">')}`, buttons: [{ label: 'Cancel', value: false }, { label: 'Open', value: true, primary: true }] })
@@ -70,7 +70,7 @@ async function openSource(name, src, opts = {}) {
       const ext = await extractPlanmark(await src.all()).catch((e) => { console.warn(e); return null; });
       if (ext) { doc.src = new MemSource(ext.bytes); data = ext.data; doc.diskMatches = false; }
     }
-    if (data) { doc.markups = data.markups || []; doc.scales = data.scales || {}; doc.layers = data.layers || []; doc.links = data.links || {}; doc.viewports = data.viewports || {}; doc.align = data.align || null; doc.tomb = data.tomb || null; doc.colorAdj = data.colorAdj || null; doc.ownSig = data.ownSig || {}; }
+    if (data) { doc.markups = data.markups || []; doc.scales = data.scales || {}; doc.layers = data.layers || []; doc.links = data.links || {}; doc.viewports = data.viewports || {}; doc.align = data.align || null; doc.tomb = data.tomb || null; doc.colorAdj = data.colorAdj || null; doc.ownSig = data.ownSig || {}; doc.assets = data.assets || {}; await ensureAssetImages(doc).catch(() => {}); }
     doc.base = { src: doc.src, appends: [] }; doc.reader = doc.src === src ? R : await openReader(doc.src); doc.viewReader = doc.reader;
     await loadPdfInto(doc);
     if (data && data.ownSig) await stripOwnedFromView(doc, data.ownSig);
@@ -128,7 +128,7 @@ async function saveFile(filename, data, mime, handle) {
 const WINANSI = { 8594: 187, 8592: 171, 8211: 150, 8364: 128, 8218: 130, 402: 131, 8222: 132, 8230: 133, 8224: 134, 8225: 135, 710: 136, 8240: 137, 352: 138, 8249: 139, 338: 140, 381: 142, 8216: 145, 8217: 146, 8220: 147, 8221: 148, 8226: 149, 8211: 150, 8212: 151, 732: 152, 8482: 153, 353: 154, 8250: 155, 339: 156, 382: 158, 376: 159 };
 function winAnsiHex(str) { let h = ''; for (const ch of str) { const c = ch.codePointAt(0); let b = c >= 32 && c <= 126 ? c : c >= 160 && c <= 255 ? c : WINANSI[c] || 63; h += b.toString(16).padStart(2, '0'); } return '<' + h + '>'; }
 class Ops {
-  constructor() { this.s = []; this.gs = new Map(); this.imgs = new Map(); this.fonts = new Set(); this.glyphs = new Map(); }
+  constructor(doc) { this.s = []; this.gs = new Map(); this.imgs = new Map(); this.fonts = new Set(); this.glyphs = new Map(); this.assets = new Map(); this.doc = doc || (typeof activeDoc === 'function' ? activeDoc() : null); }
   font(p) { const P = pdfFontFor(p.font, p.bold, p.italic); this.fonts.add(P.res); if (P.sys) { if (!this.glyphs.has(P.res)) this.glyphs.set(P.res, { face: P.face, used: new Map() }); const u = this.glyphs.get(P.res).used; return { ...P, hex: (s) => P.enc(s, u) }; } return { ...P, hex: (s) => P.enc(s) }; }
   // text matrix, with a slant for synthetic italics; synthetic bold strokes the outline too
   tm(size, cos, sin, x, y, synth) { const k = synth & 2 ? 0.21 : 0; return [size * cos, size * sin, k * size * cos + size * sin, k * size * sin - size * cos, x, y].map((v) => this.n(v)).join(' '); }
@@ -156,6 +156,11 @@ class Ops {
       const w = textWidth(p.str, p.size, p.bold, p.font, p.italic); const dx = p.anchor === 'middle' ? -w / 2 : p.anchor === 'end' ? -w : 0; const a = p.rot || 0; const cos = Math.cos(a), sin = Math.sin(a);
       this.s.push('q'); if (op < 1) this.s.push(`/${this.gsName(op, op)} gs`);
       this.s.push(`BT /${F.res} 1 Tf ${this.rgb(p.color)} rg ${this.bold(F, p.size, p.color)}${this.tm(p.size, cos, sin, p.x + dx * cos, p.y + dx * sin, F.synth)} Tm ${F.hex(p.str)} Tj ET Q`); return;
+    }
+    if (p.k === 'asset') { // a stamp's vector artwork: its PDF page as a form XObject
+      const A = this.doc && this.doc.assets && this.doc.assets[p.asset]; if (!A) return;
+      if (!this.assets.has(p.asset)) this.assets.set(p.asset, 'S' + this.assets.size);
+      this.s.push('q'); if (op < 1) this.s.push(`/${this.gsName(op, op)} gs`); this.s.push(`${this.n(p.w / A.w)} 0 0 ${this.n(-p.h / A.h)} ${this.n(p.x)} ${this.n(p.y + p.h)} cm /${this.assets.get(p.asset)} Do Q`); return;
     }
     if (p.k === 'image' && p.src) {
       if (!this.imgs.has(p.src)) this.imgs.set(p.src, 'I' + this.imgs.size);
@@ -189,7 +194,7 @@ function primsBBox(prims) {
   for (const p of prims) {
     if (p.k === 'path') { p.d.forEach((s) => { for (let i = 1; i < s.length; i += 2) pts.push([s[i], s[i + 1]]); }); pad = Math.max(pad, (p.width || 0) / 2 + 1); }
     else if (p.k === 'text') { const w = textWidth(p.str, p.size, p.bold, p.font, p.italic); const dx = p.anchor === 'middle' ? -w / 2 : p.anchor === 'end' ? -w : 0; const a = p.rot || 0; const c = Math.cos(a), s = Math.sin(a); [[dx, -p.size], [dx + w, -p.size], [dx + w, p.size * 0.3], [dx, p.size * 0.3]].forEach(([lx, ly]) => pts.push([p.x + lx * c - ly * s, p.y + lx * s + ly * c])); }
-    else if (p.k === 'image') pts.push([p.x, p.y], [p.x + p.w, p.y + p.h]);
+    else if (p.k === 'image' || p.k === 'asset') pts.push([p.x, p.y], [p.x + p.w, p.y + p.h]);
   }
   if (!pts.length) return null; const b = G.bbox(pts); return { x: b.x - pad, y: b.y - pad, x2: b.x2 + pad, y2: b.y2 + pad };
 }
@@ -216,7 +221,9 @@ async function resourcesFor(pdfDoc, ops, fonts, imgCache) {
   const ctx = pdfDoc.context; const res = { Font: {} }; fonts.use(ops.glyphs);
   for (const name of ops.fonts) res.Font[name] = (await fonts.get(name)).ref;
   if (ops.gs.size) { res.ExtGState = {}; ops.gs.forEach((g) => { const o = { Type: 'ExtGState', CA: g.CA, ca: g.ca }; if (g.bm) o.BM = g.bm === 'multiply' ? 'Multiply' : 'Normal'; res.ExtGState[g.name] = ctx.obj(o); }); }
-  if (ops.imgs.size) { res.XObject = {}; for (const [src, name] of ops.imgs) { const img = await embedImageData(pdfDoc, src, imgCache); res.XObject[name] = img.ref; } }
+  if (ops.imgs.size || ops.assets.size) res.XObject = {};
+  for (const [src, name] of ops.imgs) { const img = await embedImageData(pdfDoc, src, imgCache); res.XObject[name] = img.ref; }
+  for (const [id, name] of ops.assets) { const key = 'asset:' + id; if (!imgCache.has(key)) { const [pg] = await pdfDoc.embedPdf(b64ToBytes(ops.doc.assets[id].pdf), [0]); imgCache.set(key, pg); } res.XObject[name] = imgCache.get(key).ref; }
   return ctx.obj(res);
 }
 const ANNOT_SUBTYPE = { rect: 'Square', ellipse: 'Circle', radius: 'Circle', line: 'Line', arrow: 'Line', length: 'Line', polyline: 'PolyLine', polylength: 'PolyLine', angle: 'PolyLine', polygon: 'Polygon', cloud: 'Polygon', area: 'Polygon', perimeter: 'Polygon', volume: 'Polygon', pen: 'Ink', highlight: 'Ink', text: 'FreeText', callout: 'FreeText', note: 'Text', stamp: 'Stamp', image: 'Stamp', count: 'Square', texthl: 'Highlight', strikeout: 'StrikeOut', sketch: 'Square' };
@@ -231,7 +238,7 @@ async function annotsForPage(pdfDoc, fonts, imgCache, doc, i, pageRef, ms) {
   for (const m of ms) {
     const prims = dl(m, doc); const vb = primsBBox(prims); if (!vb) continue;
     const corners = [[vb.x, vb.y], [vb.x2, vb.y], [vb.x2, vb.y2], [vb.x, vb.y2]].map((p) => applyT(M, p)); const rb = G.bbox(corners); const rect = [rb.x, rb.y, rb.x2, rb.y2];
-    const ops = new Ops(); ops.s.push(cm); prims.forEach((p) => ops.prim(p));
+    const ops = new Ops(doc); ops.s.push(cm); prims.forEach((p) => ops.prim(p));
     const res = await resourcesFor(pdfDoc, ops, fonts, imgCache);
     const ap = ctx.register(ctx.flateStream(ops.toString(), { Type: 'XObject', Subtype: 'Form', FormType: 1, BBox: rect, Resources: res }));
     const s = m.style; const col = hexToRgb(m.type === 'note' ? s.fill : s.stroke) || [0, 0, 0]; let sub = ANNOT_SUBTYPE[m.type] || 'Square'; if (m.type === 'sketch' && sketchSize(doc, m).shape === 'circle') sub = 'Circle';

@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('mebulbHost', {
   // live sharing folder + local outbox
   sessDir: call('sess:dir'), sessList: call('sess:list'), sessRead: call('sess:read'), sessAppend: call('sess:append'), sessWrite: call('sess:write'), sessRm: call('sess:rm'), sessWatch: call('sess:watch'), sessUnwatch: call('sess:unwatch'), outboxDir: call('outbox:dir'),
   onSessChanged: on('sess:changed'),
+  // stamps
+  stampList: call('stamps:list'), stampRead: call('stamps:read'), stampAdd: call('stamps:add'), stampRemove: call('stamps:remove'), pickFolder: call('dialog:folder'),
   // printing
   printers: call('print:printers'), print: call('print:run'),
   // window

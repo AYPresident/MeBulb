@@ -254,7 +254,8 @@ function dl(m, doc, opts = {}) {
       break;
     }
     case 'stamp': {
-      const b = boxRect(pts[0], pts[1]); const txt = (m.text || 'STAMP').toUpperCase();
+      const b = boxRect(pts[0], pts[1]);
+      if (m.asset) { const src = doc && doc.assetImg && doc.assetImg[m.asset]; if (!src && doc) assetImage(doc, m.asset).then(() => renderMarkupEl(m, doc)).catch(() => {}); out.push({ k: 'asset', asset: m.asset, src, x: b.x, y: b.y, w: b.w, h: b.h, opacity: s.opacity }, { k: 'path', d: P.poly(G.rectPts(pts[0], pts[1]), true), fill: 'transparent', stroke: 'none', hitOnly: true, hit: 'box' }); break; } const txt = (m.text || 'STAMP').toUpperCase();
       const sub = m.stampSub === false ? '' : `${m.author || ''}  ${new Date(m.created || Date.now()).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`.trim();
       const mainSize = Math.max(4, Math.min(b.h * (sub ? 0.46 : 0.62), (b.w - 14) / Math.max(1, textWidth(txt, 1, true))));
       const col = s.fontColor || s.stroke; const sw = Math.max(0.5, s.width);
@@ -387,6 +388,7 @@ function primSvg(p) {
     const rot = p.rot ? ` transform="rotate(${num((p.rot * 180) / Math.PI, 3)} ${num(p.x, 2)} ${num(p.y, 2)})"` : '';
     return `<text x="${num(p.x, 2)}" y="${num(p.y, 2)}" font-size="${num(p.size, 2)}" font-family="${FONT_FAMILIES[famOf(p.font)].css}"${p.bold ? ' font-weight="700"' : ''}${p.italic ? ' font-style="italic"' : ''} fill="${p.color}" text-anchor="${p.anchor || 'start'}"${p.opacity != null && p.opacity < 1 ? ` opacity="${p.opacity}"` : ''}${rot} xml:space="preserve">${esc(p.str)}</text>`;
   }
+  if (p.k === 'asset') return p.src ? `<image href="${p.src}" x="${num(p.x, 2)}" y="${num(p.y, 2)}" width="${num(p.w, 2)}" height="${num(p.h, 2)}" preserveAspectRatio="none"${p.opacity != null && p.opacity < 1 ? ` opacity="${p.opacity}"` : ''}/>` : `<rect x="${num(p.x, 2)}" y="${num(p.y, 2)}" width="${num(p.w, 2)}" height="${num(p.h, 2)}" fill="none" stroke="#999" stroke-dasharray="3 2"/>`;
   if (p.k === 'image') return p.src ? `<image href="${p.src}" x="${num(p.x, 2)}" y="${num(p.y, 2)}" width="${num(p.w, 2)}" height="${num(p.h, 2)}" preserveAspectRatio="none"${p.opacity < 1 ? ` opacity="${p.opacity}"` : ''}/>` : '';
   return '';
 }
