@@ -15,6 +15,9 @@ async function start(user) {
   return { app, win, errors, ev: (fn, a) => win.evaluate(fn, a) };
 }
 (async () => {
+  // start from the untouched drawing each run (set MEBULB_BIGPDF_ORIG to a big PDF of your own)
+  const ORIG = process.env.MEBULB_BIGPDF_ORIG || path.join(path.dirname(path.dirname(PDF)), 'L1 Big Plan.orig.pdf');
+  if (fs.existsSync(ORIG)) { fs.copyFileSync(ORIG, PDF); fs.rmSync(path.join(path.dirname(PDF), '.mebulb'), { recursive: true, force: true }); }
   const size0 = fs.statSync(PDF).size;
   const A = await start('alice');
   ok(await A.ev(() => !!window.mebulbHost && document.body.classList.contains('desktop')), 'desktop bridge present');
