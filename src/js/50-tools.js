@@ -8,6 +8,7 @@ function setTool(t, opts = {}) {
   endCount();
   if (state.editing) commitEdit();
   if (state.placeItem) endPlace();
+  if (t !== 'equip' && state.placeEquip) { state.placeEquip = null; state.ghost = null; renderDraft(); if (typeof renderEquipPanelSoon === 'function') renderEquipPanelSoon(); }
   state.tool = t; state.toolLocked = !!opts.lock;
   if (t !== 'select') { state.sel.clear(); refreshSelection(); }
   if (opts.style) state.toolStyles[t] = { ...(state.toolStyles[t] || {}), ...opts.style };
@@ -103,6 +104,7 @@ function drawDown(e, i) {
     case 'box': state.draft = { mode: 'drag', page: i, m: newDraftMarkup(state.tool, i, [p, p.slice()]), start: p }; capture(e); break;
     case 'sketch': state.draft = { mode: 'sketch', page: i, m: newDraftMarkup(state.tool, i, [p]), start: p, sx: e.clientX, sy: e.clientY, moved: false }; capture(e); break;
     case 'alignpick': alignPickClick(p, i); return;
+    case 'equip': placeEquipAt(i, clientToPage(e, i)); return;
     case 'textedit': {
       const hit = textHitAt(doc, i, p, 0);
       const ex = doc.markups.find((m) => m.type === 'textedit' && m.page === i && G.pointInPoly(p, m.pts));
@@ -167,6 +169,7 @@ function onPointerMove(e) {
   const pi = pageAtClient(e.clientX, e.clientY); updateCoords(e, pi);
   if (I.drag) { dragMove(e); return; }
   const d = state.draft;
+  if (!d && (state.placeEquip && state.tool === 'equip' || state.placeItem)) { state.ghost = pi >= 0 ? { page: pi, p: clientToPage(e, pi) } : null; renderDraft(); return; }
   if (!d) { if (state.tool !== 'select' && state.tool !== 'pan' && pi >= 0) { const had = !!state.snapHint; snapPoint(clientToPage(e, pi), pi); if (had || state.snapHint) renderDraft(); } return; }
   const i = d.page; let p = clientToPage(e, i);
   const moved = d.sx != null && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 5;
@@ -378,6 +381,7 @@ function onKeyDown(e) {
   if (k === ' ') { if (!I.space) { I.space = true; V.el.classList.add('space'); } e.preventDefault(); return; }
   if (k === 'Escape') { if (state.painter) { endPainter(); return; } if (state.alignPick) { cancelAlignPick(); return; } if (state.cutoutFor && state.tool === 'cutout') { state.cutoutFor = null; } if (state.draft) cancelDraft(); else if (state.countId) endCount(); else if (state.tool !== 'select') setTool('select'); else if (state.sel.size) { state.sel.clear(); refreshSelection(); } hideMenu(); closeMenus(); return; }
   if (doc && k === 'Enter' && !mod) { if (state.draft) { e.preventDefault(); finishDraft(); } else if (state.countId) endCount(); else { const ms = selected(); if (ms.length === 1 && TEXT_TYPES.has(ms[0].type)) { e.preventDefault(); editText(ms[0], false); } } return; }
+  if (doc && (k === 'r' || k === 'R') && !mod && !e.altKey && state.tool === 'equip' && state.placeEquip) { e.preventDefault(); state.placeRot = (((state.placeRot || 0) + (e.shiftKey ? -90 : 90)) % 360 + 360) % 360; renderDraft(); return; }
   if (doc && k === 'Backspace' && state.draft && state.draft.mode === 'multi') { e.preventDefault(); draftUndoPoint(); return; }
   if (doc && k === 'Backspace' && !mod) { e.preventDefault(); deleteSelected(); return; }
   if (doc && (k === 'c' || k === 'C') && !mod && !e.altKey && !e.shiftKey && state.draft && state.draft.mode === 'multi' && TOOLS[state.draft.m.type] && TOOLS[state.draft.m.type].closed) { e.preventDefault(); finishDraft(); return; } // C closes the shape, as in Revu

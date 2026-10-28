@@ -27,6 +27,7 @@ import * as pdfjsLib from '${PDFJS}/pdf.min.mjs';
 pdfjsLib.GlobalWorkerOptions.workerSrc = '${PDFJS}/pdf.worker.min.mjs';
 const PDFJS_ASSETS = ${ASSETS};
 const OCR_BASE = '${process.env.OCR_BASE || 'ocr/'}';
+const REVIT_EXPORTER = ${JSON.stringify(fs.readFileSync(path.join(root, 'revit/mebulb_export_equipment.py'), 'utf8')).replace(/<\//g, '<\\/')};
 ${code}
 </script>
 `;

@@ -283,7 +283,12 @@ function placeToolItem(it, page, p) {
   if (!state.toolLocked && !state.reuse) { endPlace(); if (state.tool !== 'select') setTool('select'); placed.forEach((x) => state.sel.add(x.id)); }
   refreshSelection();
 }
-function endPlace() { if (!state.placeItem) return; state.placeItem = null; if (V.el) delete V.el.dataset.place; renderToolsets(); }
+function endPlace() { if (!state.placeItem) return; state.placeItem = null; state.ghost = null; if (V.el) delete V.el.dataset.place; renderDraft(); renderToolsets(); }
+// what drawing mode will drop, following the pointer
+function toolGhost(doc, page, p) {
+  const it = state.placeItem; if (!it) return ''; const ms = toolMarkups(it); const all = G.bbox(ms.flatMap((m) => m.pts)); const dx = p[0] - (all.x + all.x2) / 2, dy = p[1] - (all.y + all.y2) / 2;
+  const sd = sampleDoc(); sd.pages = doc.pages; sd.scales = doc.scales; return `<g class="ghost" opacity="0.55">${ms.map((m) => dl({ ...m, page, pts: m.pts.map(([a, b]) => [a + dx, b + dy]) }, sd).map(primSvg).join('')).join('')}</g>`;
+}
 async function pickToolset(defName) {
   const r = await openDialog({ title: 'Add to tool set', body: `${field('Name', `<input type="text" name="name" value="${esc(defName)}" maxlength="60" required>`)}${field('Tool set', `<select name="set">${state.toolsets.map((t, k) => `<option value="${k}">${esc(t.name)}</option>`).join('')}<option value="new">New tool set…</option></select>`)}`, buttons: [{ label: 'Cancel', value: false }, { label: 'Add', value: true, primary: true }] });
   if (!r || !r.value) return null;

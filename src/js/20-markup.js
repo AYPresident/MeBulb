@@ -36,6 +36,7 @@ const TOOLS = {
   cutout: { label: 'Cutout', icon: 'cutout', mode: 'multi', closed: true, style: { stroke: '#d6331f', width: 1, dash: 'dashed', fill: 'none' } },
   sketchrect: { label: 'Sketch rectangle to scale', short: 'Sketch rect', key: 'b', icon: 'sketchrect', mode: 'sketch', shape: 'rect', subject: 'Sketch rectangle', style: { stroke: '#1f5fd1', width: 1.25, fill: '#1f5fd1', fillOpacity: 0.07, fontSize: 9, fontColor: '#1f5fd1', symbol: 'x', showLabel: true, showName: true, showSize: true, showArea: false, showDims: false } },
   sketchcircle: { label: 'Sketch circle to scale', short: 'Sketch circle', key: 'o', icon: 'sketchcircle', mode: 'sketch', shape: 'circle', subject: 'Sketch circle', style: { stroke: '#1f8a3a', width: 1.25, fill: '#1f8a3a', fillOpacity: 0.07, fontSize: 9, fontColor: '#1d6b29', symbol: 'x', showLabel: true, showName: true, showSize: true, showArea: false, showDims: false } },
+  equip: { label: 'Equipment to scale (top view with clearances)', short: 'Equipment', icon: 'equip', mode: 'equip', subject: 'Equipment', style: { stroke: '#343a40', width: 1, fill: '#ffffff', fillOpacity: 0.85, fontSize: 8, fontColor: '#212529' } },
   sketch: { label: 'Sketch to scale', icon: 'sketchrect', subject: 'Sketch' },
   edittext: { label: 'Edit PDF text', short: 'Edit text', key: 'x', icon: 'edittext', mode: 'textedit', subject: 'Text edit', style: { fontColor: '#000000', cover: '#ffffff', fontSize: 10, stroke: '#000000', width: 0 } },
   textedit: { label: 'Text edit', icon: 'edittext', subject: 'Text edit' },
@@ -231,6 +232,7 @@ function dl(m, doc, opts = {}) {
       break;
     case 'text': out.push(...textPrims(textLayout(m), s, opts.hideText)); break;
     case 'sketch': out.push(...sketchPrims(m, doc, opts)); break;
+    case 'equip': out.push(...equipPrims(m, doc, opts)); break;
     case 'textedit': {
       const q = pts; const cover = !m.applied || opts.forceCover;
       out.push({ k: 'path', d: P.poly(q, true), fill: cover ? s.cover || '#ffffff' : 'transparent', fillOpacity: 1, stroke: 'none', hit: 'box', hitOnly: !cover });
@@ -330,6 +332,7 @@ function markupBBox(m, doc) {
   if (m.type === 'text' || m.type === 'callout') { const L = textLayout(m); const pts = [[L.x, L.y], [L.x + L.w, L.y + L.h]]; if (m.type === 'callout') pts.push(m.pts[0]); return G.bbox(pts); }
   if (m.type === 'note') return { x: m.pts[0][0], y: m.pts[0][1], w: 18, h: 18, x2: m.pts[0][0] + 18, y2: m.pts[0][1] + 18 };
   if (m.type === 'sketch') return sketchBBox(m, doc);
+  if (m.type === 'equip') return equipBBox(m, doc);
   if (m.type === 'textedit') { const b = G.bbox(m.pts); if (m.text) { const w = textWidth(m.text, m.style.fontSize, m.style.bold, m.style.font, m.style.italic); const e = [m.base[0] + Math.cos(m.ang || 0) * w, m.base[1] + Math.sin(m.ang || 0) * w]; return G.bbox([...m.pts, e]); } return b; }
   if (m.type === 'radius') { const r = G.dist(m.pts[0], m.pts[1]); const c = m.pts[0]; return { x: c[0] - r, y: c[1] - r, w: 2 * r, h: 2 * r, x2: c[0] + r, y2: c[1] + r }; }
   if (m.type === 'count') { const r = m.style.size || 6; const b = G.bbox(m.pts); return { x: b.x - r, y: b.y - r, w: b.w + 2 * r, h: b.h + 2 * r, x2: b.x2 + r, y2: b.y2 + r }; }

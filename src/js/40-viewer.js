@@ -199,7 +199,9 @@ function renderDraft() {
   }
   if (state.marquee && d.pageEls[state.marquee.page]) { const q = state.marquee; const b = boxRect(q.a, q.b); const target = d.pageEls[q.page].querySelector('g.draft'); target.innerHTML = `<rect class="marquee${q.b[0] < q.a[0] ? ' cross' : ''}" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" stroke-width="${1 / z}"/>`; }
   if (state.snapHint && d.pageEls[state.snapHint.page]) s += snapMarker(state.snapHint, z);
-  const page = dr ? dr.page : state.snapHint ? state.snapHint.page : -1;
+  const gh = !dr && state.ghost && d.pageEls[state.ghost.page] ? state.ghost : null;
+  if (gh) s += state.placeEquip ? equipGhost(d, gh.page, gh.p) : state.placeItem ? toolGhost(d, gh.page, gh.p) : '';
+  const page = dr ? dr.page : gh ? gh.page : state.snapHint ? state.snapHint.page : -1;
   if (page >= 0 && s) d.pageEls[page].querySelector('g.draft').insertAdjacentHTML('beforeend', s);
   if (state.alignPick) new Set([state.alignPick.ref, state.alignPick.page]).forEach((pg) => { const el = d.pageEls[pg]; const svg = alignPickSvg(d, pg, z); if (el && svg) el.querySelector('g.draft').insertAdjacentHTML('beforeend', svg); });
   updateDraftBar();

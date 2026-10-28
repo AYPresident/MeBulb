@@ -195,6 +195,7 @@ const ICONS = {
   chevr: '<path d="M9 5l7 7-7 7"/>',
   more: '<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
   chevd: '<path d="M5 9l7 7 7-7"/>',
+  equip: '<rect x="3.5" y="6" width="17" height="12" rx="1"/><circle class="s-blue" cx="9" cy="12" r="3.2"/><path class="s-blue" d="M9 9.6v4.8M6.6 12h4.8"/><path class="s-mute" d="M15 9h3M15 12h3M15 15h3" stroke-dasharray="1.5 1.5"/>',
   import: '<path d="M12 3v11M7.5 9.5L12 14l4.5-4.5"/><path class="s-blue" d="M4 15v4.5h16V15"/>',
   export: '<path d="M12 14V3M7.5 7.5L12 3l4.5 4.5"/><path class="s-blue" d="M4 15v4.5h16V15"/>',
   info: '<circle cx="12" cy="12" r="8.5"/><path class="s-blue" d="M12 11v5.5M12 7.6v.1"/>',

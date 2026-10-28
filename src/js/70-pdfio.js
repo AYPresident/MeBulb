@@ -231,7 +231,7 @@ async function resourcesFor(pdfDoc, ops, fonts, imgCache) {
   for (const [id, name] of ops.assets) { const key = 'asset:' + id; if (!imgCache.has(key)) { const [pg] = await pdfDoc.embedPdf(b64ToBytes(ops.doc.assets[id].pdf), [0]); imgCache.set(key, pg); } res.XObject[name] = imgCache.get(key).ref; }
   return ctx.obj(res);
 }
-const ANNOT_SUBTYPE = { rect: 'Square', ellipse: 'Circle', radius: 'Circle', line: 'Line', arrow: 'Line', length: 'Line', polyline: 'PolyLine', polylength: 'PolyLine', angle: 'PolyLine', polygon: 'Polygon', cloud: 'Polygon', area: 'Polygon', perimeter: 'Polygon', volume: 'Polygon', pen: 'Ink', highlight: 'Ink', text: 'FreeText', callout: 'FreeText', note: 'Text', stamp: 'Stamp', image: 'Stamp', count: 'Square', texthl: 'Highlight', strikeout: 'StrikeOut', sketch: 'Square' };
+const ANNOT_SUBTYPE = { equip: 'Square', rect: 'Square', ellipse: 'Circle', radius: 'Circle', line: 'Line', arrow: 'Line', length: 'Line', polyline: 'PolyLine', polylength: 'PolyLine', angle: 'PolyLine', polygon: 'Polygon', cloud: 'Polygon', area: 'Polygon', perimeter: 'Polygon', volume: 'Polygon', pen: 'Ink', highlight: 'Ink', text: 'FreeText', callout: 'FreeText', note: 'Text', stamp: 'Stamp', image: 'Stamp', count: 'Square', texthl: 'Highlight', strikeout: 'StrikeOut', sketch: 'Square' };
 
 // rich text goes in as plain ASCII with XML character references: pdf.js (and others) read RC
 // as a byte string, so UTF-16 here would arrive as mojibake
@@ -249,7 +249,7 @@ async function annotsForPage(pdfDoc, fonts, imgCache, doc, i, pageRef, ms) {
     const ap = ctx.register(ctx.flateStream(ops.toString(), { Type: 'XObject', Subtype: 'Form', FormType: 1, BBox: rect, Resources: res }));
     const col = hexToRgb(m.type === 'note' ? s.fill : s.stroke) || [0, 0, 0]; let sub = ANNOT_SUBTYPE[m.type] || 'Square'; if (m.type === 'sketch' && sketchSize(doc, m).shape === 'circle') sub = 'Circle';
     const info = MEASURE_TYPES.has(m.type) ? measureInfo(m, doc) : null;
-    const contents = TEXT_TYPES.has(m.type) ? m.text : m.type === 'stamp' ? m.text : m.type === 'sketch' ? [sketchName(doc, m), sizeLabel(doc, m), m.comment].filter(Boolean).join('\n') : info ? info.text : [m.text, m.comment].filter(Boolean).join('\n');
+    const contents = m.type === 'equip' ? [m.tag, m.eq && m.eq.name, m.eq && `${Math.round(m.eq.w)} × ${Math.round(m.eq.d)} mm`, m.comment].filter(Boolean).join('\n') : TEXT_TYPES.has(m.type) ? m.text : m.type === 'stamp' ? m.text : m.type === 'sketch' ? [sketchName(doc, m), sizeLabel(doc, m), m.comment].filter(Boolean).join('\n') : info ? info.text : [m.text, m.comment].filter(Boolean).join('\n');
     const A = {
       ...base, Subtype: sub, Rect: rect, NM: PDFString.of((m.ext && m.ext.nm) || m.id), MeBulbId: PDFString.of(m.id), AP: { N: ap },
       C: col.map((v) => +(v / 255).toFixed(4)), Contents: PDFHexString.fromText(contents || ''), Border: [0, 0, s.width || 0],

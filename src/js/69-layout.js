@@ -4,6 +4,7 @@ const PANELS = {
   bookmarks: { title: 'Bookmarks', icon: 'bookmark', render: () => renderBookmarks() },
   layers: { title: 'Layers', icon: 'layers', render: () => renderLayers() },
   toolsets: { title: 'Tool sets', icon: 'toolset', render: () => renderToolsets() },
+  equipment: { title: 'Equipment', icon: 'equip', render: () => renderEquipPanel() },
   props: { title: 'Properties', icon: 'props', render: () => renderProps() },
   measure: { title: 'Measurements', icon: 'scale', render: () => renderMeasurePanel() },
   linked: { title: 'Linked sketches', icon: 'link', render: () => renderLinkedPanel() },
@@ -16,7 +17,7 @@ const TOOLBAR_DEFS = [
   { id: 'markup', name: 'Markup', items: ['tool:text', 'tool:callout', 'tool:note', 'tool:pen', 'tool:highlight', 'tool:strikeout', 'tool:stamp', 'tool:image'] },
   { id: 'shapes', name: 'Shapes', items: ['tool:line', 'tool:arrow', 'tool:rect', 'tool:ellipse', 'tool:polygon', 'tool:polyline', 'tool:cloud'] },
   { id: 'measure', name: 'Measure', items: ['tool:calibrate', 'tool:viewport', 'sep', 'tool:length', 'tool:polylength', 'tool:area', 'tool:perimeter', 'tool:volume', 'tool:count', 'tool:angle', 'tool:radius'] },
-  { id: 'sketch', name: 'Sketch to scale', items: ['tool:sketchrect', 'tool:sketchcircle', 'cmd:sketch.place', 'cmd:sketch.transition'] },
+  { id: 'sketch', name: 'Sketch to scale', items: ['tool:sketchrect', 'tool:sketchcircle', 'cmd:sketch.place', 'cmd:sketch.transition', 'tool:equip'] },
   { id: 'edit', name: 'Edit', items: ['tool:edittext', 'cmd:doc.ocr'] },
   { id: 'arrange', name: 'Arrange', row: 1, items: ['cmd:arr.alignLeft', 'cmd:arr.alignCenter', 'cmd:arr.alignRight', 'cmd:arr.alignTop', 'cmd:arr.alignMiddle', 'cmd:arr.alignBottom', 'sep', 'cmd:arr.distH', 'cmd:arr.distV', 'sep', 'cmd:edit.front', 'cmd:edit.back'] },
   { id: 'properties', name: 'Properties', row: 1, items: ['cmd:edit.copyProps', 'cmd:edit.pasteProps', 'cmd:edit.fitText', 'cmd:edit.lock'] },
@@ -27,7 +28,7 @@ const TOOLBAR_DEFS = [
 function defaultLayout() {
   return {
     v: 1, toolbars: TOOLBAR_DEFS.map((t) => ({ id: t.id, name: t.name, items: t.items.slice(), row: t.row || 0, hidden: !!t.hidden })),
-    panels: { left: ['pages', 'bookmarks', 'layers', 'toolsets'], right: ['props', 'measure', 'linked', 'search', 'session'] },
+    panels: { left: ['pages', 'bookmarks', 'layers', 'toolsets', 'equipment'], right: ['props', 'measure', 'linked', 'search', 'session'] },
     leftOpen: false, rightOpen: true, leftTab: 'pages', rightTab: 'props', listOpen: false, leftW: 250, rightW: 300, propbar: true, navbar: true,
   };
 }

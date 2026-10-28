@@ -16,13 +16,14 @@ there open here.
 | `build.js` | Assembles `src/` into a single self-contained `dist/mebulb.html` (web build) |
 | `desktop/` | The portable Windows app (Electron shell, preload bridge, packaging) |
 | `test/` | Playwright end-to-end tests (browser build and desktop build) |
+| `revit/` | Revit exporter (Python for Dynamo / pyRevit) that feeds MeBulb's equipment library |
 | `metrics.json` | Glyph widths of the PDF standard fonts, so text lays out identically on screen and in the PDF |
 
 ### Main modules (`src/js`)
 
 - `00-core` utilities, geometry, font metrics · `10-units` units and scales
 - `20-markup` markup types and drawing (screen SVG and PDF use the same primitives)
-- `22-richtext` rich text runs and editor · `25-sketch` sketch-to-scale risers · `27-align` page alignment by gridlines
+- `22-richtext` rich text runs and editor · `25-sketch` sketch-to-scale risers · `26-equip` equipment top views to scale with clearances and clash checks · `27-align` page alignment by gridlines
 - `30-state` application state, undo · `40-viewer` page rendering · `45-content` PDF content parsing (snapping, text)
 - `46-forms` form fields · `47-textedit` PDF text editing · `48-ocr` text recognition · `49-fonts` installed fonts and embedding
 - `50-tools`, `51-editops` drawing tools and editing commands
@@ -55,8 +56,9 @@ official Electron GitHub release).
 
 `npm test` builds the page, then runs every browser suite in turn
 (`test/run-all.js`; pass suite names to run some, e.g. `node test/run-all.js revu btx`):
-`flow`, `flow2`, `flow3`, `r4`, `r5`, `label`, `incr`, `textmark`, `revu` (Bluebeam measurements and
-counts, using sample files in `test/fixtures`), `stamps`, `btx` (tool sets) and `ocr`. The tests need
+`flow`, `flow2`, `flow3`, `r4`, `r5`, `label`, `incr`, `textmark`, `revu` (Bluebeam measurements,
+counts and Revu-flattened markups, using sample files in `test/fixtures`), `stamps`, `btx` (tool sets),
+`equip` (equipment and clearances), `ocr`, and `igs` (client drawings, skipped unless `IGS_DIR` has them). The tests need
 `qpdf` and `pdftotext`/`pdftoppm` (poppler-utils). `test/desktop.js` runs the Linux Electron build under
 `xvfb-run`, including a two-person live session.
 

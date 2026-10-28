@@ -34,6 +34,8 @@ function renderProps() {
   if (T.kind === 'tool' && T.tool === 'edittext') { html += '<p class="muted pad">Click any line of PDF text and type the replacement. When you save, the original glyphs are removed from the page and your text is written in their place. Scanned pages need OCR first.</p>'; el.innerHTML = html; return; }
   if (T.kind === 'tool' && T.tool === 'cutout') { html += '<p class="muted pad">Click the corners of the opening, then double-click or press Enter. Its area is subtracted from the measurement.</p>'; el.innerHTML = html; return; }
   if (one && one.type === 'sketch') html += sketchPropsHtml(doc, one);
+  if (one && one.type === 'equip') html += equipPropsHtml(doc, one);
+  if (T.kind === 'tool' && T.tool === 'equip') html += `<section class="psec"><h3>Equipment</h3>${state.placeEquip ? `<div class="eq-propv">${eqPreviewSvg(state.placeEquip, 90)}<div><b>${esc(state.placeEquip.name)}</b><br><span class="muted">${Math.round(state.placeEquip.w)} × ${Math.round(state.placeEquip.d)} mm · turned ${state.placeRot || 0}°</span></div></div><p class="muted sm">Click to place. R turns it 90° (Shift+R back). Esc when done.</p>` : '<p class="muted sm">Pick a unit in the Equipment panel.</p>'}<div class="btn-row"><button type="button" class="btn sm" data-act="equip-panel">${icon('equip')} Equipment panel</button></div></section>`;
   if (T.kind === 'tool' && TOOLS[T.tool].mode === 'sketch') html += sketchToolHtml(doc, T.tool);
   if (one && one.type === 'textedit') html += `<section class="psec"><h3>Text edit</h3>${field('Original text', `<div class="note-box">${esc(one.orig || '')}</div>`)}${field('Replacement', `<input type="text" data-k="text" value="${esc(one.text)}">`)}${field('Background', swatchRow('style.cover', one.style.cover, false))}<p class="muted sm">${one.applied ? 'The original text was removed when this file was saved.' : 'The original glyphs are removed from the page content when you save.'}</p></section>`;
 
@@ -131,6 +133,9 @@ function setField(m, k, v) {
     return;
   }
   if (k === 'depth') { m.depth = v; return; }
+  if (k.startsWith('show.')) { m.show = { ...(m.show || {}), [k.slice(5)]: v }; return; }
+  if (k === 'rot') { m.rot = (((+v || 0) % 360) + 360) % 360; return; }
+  if (k === 'eqpick') { const u = eqLib().find((x) => x.id === v); if (u) { m.eq = deep(u); m.text = u.name; m.subject = u.category || 'Equipment'; } return; }
   m[k] = v;
 }
 function coerce(k, el) {
@@ -175,7 +180,8 @@ function bindProps() {
   el.addEventListener('change', (e) => {
     const t = e.target; const k = t.dataset.k; if (!k) return;
     applyProp(k, coerce(k, t), false); _propUndo = false;
-    const structural = t.tagName === 'SELECT' || t.type === 'checkbox' || t.type === 'color' || k === 'depth' || /^(sz|tsz|rot|link|sk\.|sketchNext)/.test(k);
+    const structural = t.tagName === 'SELECT' || t.type === 'checkbox' || t.type === 'color' || k === 'depth' || /^(sz|tsz|rot|link|sk\.|sketchNext|show\.|tag)/.test(k);
+    if (/^(show\.|rot|tag|eqpick|flip)/.test(k)) { renderAllMarks(activeDoc()); renderEquipPanelSoon(); }
     if (structural) renderProps();
     renderList(); if (k === 'layer') renderLayers();
   });
@@ -187,6 +193,10 @@ function bindProps() {
     const act = a.dataset.act; const ms = selected();
     if (act === 'del-sel') deleteSelected();
     else if (act === 'stamps') stampsDialog();
+    else if (act === 'equip-panel') openPanel('equipment');
+    else if (act === 'equip-rot-l') rotateEquip(ms.filter((m) => m.type === 'equip'), -90);
+    else if (act === 'equip-rot-r') rotateEquip(ms.filter((m) => m.type === 'equip'), 90);
+    else if (act === 'equip-edit' && ms[0] && ms[0].type === 'equip') { (async () => { const v = await editEquipDialog(ms[0].eq); if (v) { pushUndo(activeDoc()); ms[0].eq = v; touch(ms[0]); renderAllMarks(activeDoc()); renderProps(); renderEquipPanelSoon(); } })(); }
     else if (act === 'stamp-fields' && ms[0]) editStampFields(ms[0]);
     else if (act === 'zoom-sel' && ms[0]) zoomToBox(ms[0].page, markupBBox(ms[0], activeDoc()));
     else if (act === 'toolset-sel') addSelectionToToolset();
