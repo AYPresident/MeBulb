@@ -581,3 +581,8 @@ body.painting #viewer g.mk, body.painting #viewer g.mk .hit { cursor: copy !impo
 .st-prev img { max-width: 100%; max-height: 60px; }
 .st-txt { font: 700 13px var(--ui); color: #2e9e3e; border: 2px solid #2e9e3e; border-radius: 4px; padding: 3px 8px; }
 .st-name { font-size: 12.5px; align-self: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.st-fill fieldset.st-cluster { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px 4px; margin: 0 0 10px; }
+.st-fill legend { font: 600 11px/1 var(--cond); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 0 4px; }
+.st-fill label.check { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; }
+.st-err { color: var(--danger, #c0392b); font-weight: 600; margin: 0 0 8px; }

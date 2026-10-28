@@ -46,7 +46,7 @@ async function analyseStamp(st) {
   const p = (async () => {
     const bytes = await stampBytes(st); const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
     const page = pdf.getPage(0); const { width: w, height: h } = page.getSize(); const fields = []; const scripts = [];
-    const jsOf = (a) => { if (!(a instanceof PDFDict)) return ''; const s = a.lookup(PDFName.of('S')); if (!s || s.asString() !== '/JavaScript') return ''; const js = a.lookup(PDFName.of('JS')); return js ? (js.decodeText ? js.decodeText() : new TextDecoder().decode(decodeStream(js))) : ''; };
+    const jsOf = (a) => { if (!(a instanceof PDFDict)) return ''; const s = a.lookup(PDFName.of('S')); if (!s || s.asString() !== '/JavaScript') return ''; const js = a.lookup(PDFName.of('JS')); return js ? (js.decodeText ? js.decodeText() : jsText(decodeStream(js))) : ''; };
     try {
       for (const f of pdf.getForm().getFields()) {
         const d = f.acroField.dict; const name = f.getName(); const tu = pdfText(d.lookup(PDFName.of('TU'))); const type = f.constructor.name.replace(/^PDF|Field$/g, '');
@@ -63,6 +63,11 @@ async function analyseStamp(st) {
   STAMPLIB.cache.set(st.id, p); return p;
 }
 
+// script text in a stream: UTF-16 with a byte-order mark (as Revu writes it), else UTF-8 / PDFDocEncoding
+function jsText(b) {
+  if (b[0] === 0xfe && b[1] === 0xff) return new TextDecoder('utf-16be').decode(b.subarray(2)); if (b[0] === 0xff && b[1] === 0xfe) return new TextDecoder('utf-16le').decode(b.subarray(2));
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(b); } catch { return new TextDecoder('latin1').decode(b); }
+}
 // ----- the stamp JavaScript sandbox ------------------------------------------------------------------
 const STAMP_SANDBOX = `
 self.fetch = undefined; self.XMLHttpRequest = undefined; self.WebSocket = undefined; self.importScripts = undefined; self.EventSource = undefined; self.indexedDB = undefined; self.caches = undefined;
@@ -76,16 +81,33 @@ self.onmessage = (e) => {
   const { docJs, scripts, fields: F, answers, author, stampName } = e.data; const prompts = []; let ai = 0; const fields = {};
   F.forEach((f) => { fields[f.name] = { name: f.name, value: f.value || '', valueAsString: f.value || '', display: 0, readonly: false, userName: f.label }; });
   const getField = (n) => fields[n] || (fields[n] = { name: n, value: '', valueAsString: '' });
-  const app = { response(q, t, d) { if (q && typeof q === 'object') { t = q.cTitle; d = q.cDefault; q = q.cQuestion; } prompts.push({ q: String(q == null ? '' : q), t: String(t == null ? '' : t), d: d == null ? '' : String(d) }); const a = answers ? answers[ai] : undefined; ai++; return a !== undefined ? a : d == null ? '' : String(d); },
-    alert() { return 1; }, beep() {},
-    // dialogs built with app.execDialog (Bluebeam's interactive stamp template): their text boxes become our prompts
+  const alerts = []; let invalid = null;
+  const app = { response(q, t, d) { if (q && typeof q === 'object') { t = q.cTitle; d = q.cDefault; q = q.cQuestion; } prompts.push({ kind: 'response', q: String(q == null ? '' : q), t: String(t == null ? '' : t), d: d == null ? '' : String(d) }); const a = answers ? answers[ai] : undefined; ai++; return a !== undefined ? a : d == null ? '' : String(d); },
+    alert(m) { alerts.push(String(m && typeof m === 'object' ? m.cMsg : m)); return 1; }, beep() {},
+    // Acrobat dialogs (app.execDialog), as used by Bluebeam's and Acrobat's interactive stamps: the first run
+    // describes the dialog for MeBulb to show; the second run gets the answers, validates and commits them
     execDialog(desc) {
-      const els = []; const walk = (list, label) => { (list || []).forEach((el) => { if (el.type === 'static_text') label = el.name; if (el.type === 'edit_text') els.push({ id: el.item_id, label: el.name || label || el.item_id }); if (el.elements) walk(el.elements, label); }); };
-      walk(desc && desc.description && desc.description.elements); const defaults = {}; const vals = {};
-      const dlg = { load(o) { Object.assign(defaults, o); }, store() { return { ...defaults, ...vals }; }, enable() {}, visible() {}, end() {}, setForeColorRed() {} };
+      const D = desc && desc.description || {}; const controls = [];
+      const walk = (list, ctx) => { let label = ''; (list || []).forEach((el) => {
+        if (!el || typeof el !== 'object') return; const t = String(el.type || '');
+        if (t === 'static_text') { label = el.name || ''; if (!(list || []).some((x) => x && x.type === 'edit_text')) controls.push({ type: 'text', label: el.name || '', cluster: ctx }); }
+        else if (t === 'edit_text') { controls.push({ type: 'edit', id: el.item_id, label: el.name || label || '', multi: !!el.multiline, cluster: ctx }); label = ''; }
+        else if (t === 'radio') controls.push({ type: 'radio', id: el.item_id, label: el.name || '', group: el.group_id || 'g', cluster: ctx });
+        else if (t === 'check_box') controls.push({ type: 'check', id: el.item_id, label: el.name || '', cluster: ctx });
+        else if (t === 'popup' || t === 'list_box') controls.push({ type: 'list', id: el.item_id, label: el.name || label || '', cluster: ctx });
+        if (el.elements) walk(el.elements, t === 'cluster' ? (el.name || ctx) : ctx);
+      }); };
+      walk(D.elements, ''); const defaults = {}; const vals = {};
+      const dlg = { load(o) { Object.assign(defaults, o || {}); }, store() { return { ...defaults, ...vals }; }, enable() {}, visible() {}, end() {}, setForeColorRed() {}, setForeColorBlack() {}, gotoNextTab() {} };
       try { if (desc.initialize) desc.initialize(dlg); } catch (err) { /* ignore */ }
-      els.forEach((el) => { prompts.push({ q: String(el.label), t: String((desc.description && desc.description.name) || ''), d: defaults[el.id] == null ? '' : String(defaults[el.id]) }); const a = answers ? answers[ai] : undefined; ai++; vals[el.id] = a !== undefined ? a : defaults[el.id] == null ? '' : defaults[el.id]; });
-      if (!answers) return 'cancel'; try { if (desc.commit) desc.commit(dlg); } catch (err) { /* ignore */ } return 'ok';
+      // list items come in through load(): { "Item": -1, "Chosen": 1 }
+      controls.forEach((c) => { if (c.type === 'list') { const v = defaults[c.id]; c.items = v && typeof v === 'object' ? Object.keys(v) : []; c.d = v && typeof v === 'object' ? (Object.keys(v).find((k) => v[k] > 0) || '') : ''; } else if (c.id) c.d = defaults[c.id]; });
+      const k = ai; prompts.push({ kind: 'dialog', t: String(D.name || 'Stamp'), controls }); const a = answers ? answers[k] : undefined; ai++;
+      if (!a || typeof a !== 'object') return 'cancel';
+      controls.forEach((c) => { if (!c.id || !(c.id in a)) return; if (c.type === 'list') { const o = {}; (c.items || []).forEach((it) => { o[it] = it === a[c.id] ? 1 : -1; }); vals[c.id] = o; } else vals[c.id] = a[c.id]; });
+      let okv = true; try { if (desc.validate) okv = desc.validate(dlg) !== false; } catch (err) { /* ignore */ }
+      if (!okv) { invalid = { index: k, message: alerts[alerts.length - 1] || 'Please check the values' }; return 'cancel'; }
+      try { if (desc.commit) desc.commit(dlg); } catch (err) { /* ignore */ } return 'ok';
     }, viewerType: 'Exchange-Pro', viewerVariation: 'Full', viewerVersion: 21, platform: 'WIN', language: 'ENU', setTimeOut() {}, setInterval() {}, clearTimeOut() {}, clearInterval() {} };
   const identity = { name: author, loginName: author, corporation: '', email: '' }; const Collab = { user: author };
   const util = { printd, printf: (f, ...a) => String(f).replace(/%[0-9.,+]*[dfsx]/g, () => String(a.shift())), scand: (f, s) => new Date(s) };
@@ -99,7 +121,7 @@ self.onmessage = (e) => {
   if (!scripts.length) run(prefix, { source, rc: true });
   scripts.filter((s) => !s.format).forEach((s) => { const f = getField(s.field); const event = { value: f.value, target: f, source, rc: true, name: 'Calculate', type: 'Field' }; const v0 = event.value; run(prefix + s.code, event); if (event.rc !== false && event.value !== undefined && event.value !== v0) f.value = event.value; });
   scripts.filter((s) => s.format).forEach((s) => { const f = getField(s.field); const event = { value: f.value, target: f, source, rc: true, name: 'Format', type: 'Field' }; run(prefix + s.code, event); if (event.value !== undefined) f.formatted = event.value; });
-  postMessage({ prompts, values: Object.fromEntries(Object.values(fields).map((f) => [f.name, String(f.formatted !== undefined ? f.formatted : f.value == null ? '' : f.value)])) });
+  postMessage({ prompts, invalid, values: Object.fromEntries(Object.values(fields).map((f) => [f.name, String(f.formatted !== undefined ? f.formatted : f.value == null ? '' : f.value)])) });
 };`;
 function runStampScripts(info, st, answers) {
   return new Promise((resolve) => {
@@ -112,26 +134,79 @@ function runStampScripts(info, st, answers) {
 // guesses for stamps without scripts: dates get today, names get you
 function fieldDefault(f) { const n = (f.name + ' ' + f.label).toLowerCase(); if (/date/.test(n)) return new Date().toLocaleDateString(); if (/\btime\b/.test(n)) return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); if (/name|by|author|reviewer|checked|approved/.test(n)) return state.author; return f.value || ''; }
 
-// ask for the stamp's values: prompts from its scripts, otherwise its text fields
+// ask for the stamp's values: the stamp's own dialog or questions (from its scripts), otherwise its text fields
+function stampPromptHtml(prompts, prev, err) {
+  return prompts.map((p, k) => {
+    const old = prev && prev.answers ? prev.answers[k] : undefined;
+    if (p.kind !== 'dialog') return field(esc(p.q || p.t || `Value ${k + 1}`), `<input type="text" name="p${k}" value="${esc(old !== undefined && typeof old !== 'object' ? old : p.d || '')}">`);
+    const val = (c) => (old && typeof old === 'object' && c.id in old ? old[c.id] : c.d);
+    const groups = new Map(); let html = ''; let cur = null;
+    p.controls.forEach((c) => {
+      if (c.cluster !== cur) { if (cur !== null) html += '</fieldset>'; cur = c.cluster; html += `<fieldset class="st-cluster">${cur ? `<legend>${esc(cur)}</legend>` : ''}`; }
+      if (c.type === 'text') html += `<p class="muted sm">${esc(c.label)}</p>`;
+      else if (c.type === 'edit') html += field(esc(c.label || c.id), c.multi ? `<textarea name="p${k}:${esc(c.id)}" rows="3">${esc(val(c) == null ? '' : val(c))}</textarea>` : `<input type="text" name="p${k}:${esc(c.id)}" value="${esc(val(c) == null ? '' : val(c))}">`);
+      else if (c.type === 'radio') { groups.set(c.group, true); html += `<label class="check"><input type="radio" name="p${k}:radio:${esc(c.group)}" value="${esc(c.id)}"${val(c) === true ? ' checked' : ''}> ${esc(c.label)}</label>`; }
+      else if (c.type === 'check') html += `<label class="check"><input type="checkbox" name="p${k}:${esc(c.id)}"${val(c) === true ? ' checked' : ''}> ${esc(c.label)}</label>`;
+      else if (c.type === 'list') html += field(esc(c.label || c.id), `<select name="p${k}:${esc(c.id)}">${(c.items || []).map((it) => `<option${it === val(c) ? ' selected' : ''}>${esc(it)}</option>`).join('')}</select>`);
+    });
+    if (cur !== null) html += '</fieldset>';
+    return (err && err.index === k ? `<p class="st-err" role="alert">${esc(err.message)}</p>` : '') + html;
+  }).join('');
+}
+function readStampAnswers(prompts, form) {
+  return prompts.map((p, k) => {
+    if (p.kind !== 'dialog') return form['p' + k] || '';
+    const o = {};
+    p.controls.forEach((c) => {
+      if (c.type === 'edit' || c.type === 'list') o[c.id] = form[`p${k}:${c.id}`] || '';
+      else if (c.type === 'check') o[c.id] = form[`p${k}:${c.id}`] === true || form[`p${k}:${c.id}`] === 'on';
+      else if (c.type === 'radio') o[c.id] = form[`p${k}:radio:${c.group}`] === c.id;
+    });
+    return o;
+  });
+}
 async function stampValues(st, prev) {
   const info = await analyseStamp(st); const text = info.fields.filter((f) => f.type === 'Text' && !f.ro);
   let prompts = []; let base = null;
   if (info.hasJs) { const r1 = await runStampScripts(info, st, null); if (r1) { prompts = r1.prompts; base = r1.values; } }
-  const ask = prompts.length ? prompts.map((p, k) => ({ key: 'p' + k, label: p.q || p.t || `Value ${k + 1}`, value: prev && prev.answers ? prev.answers[k] : p.d }))
-    : text.map((f) => ({ key: 'f:' + f.name, label: f.label, value: prev && prev.values ? prev.values[f.name] : base && base[f.name] ? base[f.name] : fieldDefault(f) }));
+  if (prompts.length) {
+    let err = null; let last = prev;
+    for (let tries = 0; tries < 6; tries++) {
+      const r = await openDialog({ title: st.name, body: `<div class="st-fill">${stampPromptHtml(prompts, last, err)}</div>`, buttons: [{ label: 'Cancel', value: false }, { label: 'Stamp', value: true, primary: true }] });
+      if (!r || !r.value) return null;
+      const answers = readStampAnswers(prompts, r.form);
+      const r2 = await runStampScripts(info, st, answers);
+      if (r2 && r2.invalid) { err = r2.invalid; last = { answers }; continue; } // the stamp's own check said no: ask again with its message
+      const orig = Object.fromEntries(info.fields.map((f) => [f.name, f.value || ''])); // labels and untouched fields are left as drawn
+      return { values: Object.fromEntries(Object.entries((r2 && r2.values) || {}).filter(([k, v]) => v !== (orig[k] || ''))), answers };
+    }
+    return null;
+  }
+  const ask = text.map((f) => ({ key: 'f:' + f.name, label: f.label, value: prev && prev.values ? prev.values[f.name] : base && base[f.name] ? base[f.name] : fieldDefault(f) }));
   if (!ask.length) return { values: base || {}, answers: [] };
   const r = await openDialog({ title: st.name, body: `<p class="muted">Fill in the stamp.</p>${ask.map((a) => field(esc(a.label), `<input type="text" name="${esc(a.key)}" value="${esc(a.value || '')}">`)).join('')}`, buttons: [{ label: 'Cancel', value: false }, { label: 'Stamp', value: true, primary: true }] });
   if (!r || !r.value) return null;
-  if (prompts.length) { const answers = prompts.map((p, k) => r.form['p' + k] || ''); const r2 = await runStampScripts(info, st, answers); return { values: (r2 && r2.values) || {}, answers }; }
   const values = {}; text.forEach((f) => { values[f.name] = r.form['f:' + f.name] || ''; }); return { values, answers: [] };
 }
 // the stamp with its fields filled in and flattened: one vector page
 async function fillStamp(st, values) {
   const pdf = await PDFDocument.load(await stampBytes(st), { ignoreEncryption: true, updateMetadata: false });
-  try { const form = pdf.getForm(); Object.entries(values || {}).forEach(([k, v]) => { try { const f = form.getField(k); if (f.setText) f.setText(String(v)); else if (f.select) f.select(String(v)); } catch { } }); form.flatten(); } catch (e) { console.warn('fill stamp', e); }
+  // fill the fields; their appearances are then drawn with the stamp's other annotations, in the stacking
+  // order of the page (a field flattened into the page content would end up under a filled shape)
+  try { const form = pdf.getForm(); Object.entries(values || {}).forEach(([k, v]) => { try { const f = form.getField(k); if (f.setText) f.setText(String(v)); else if (f.select) f.select(String(v)); else if (f.check && /^(true|on|yes|1)$/i.test(String(v))) f.check(); } catch { } }); form.updateFieldAppearances(); } catch (e) { console.warn('fill stamp', e); }
   while (pdf.getPageCount() > 1) pdf.removePage(1);
   // Bluebeam stamps are drawn with annotations on a blank page: bake those in, with &[Date]-style text filled
-  bakeStampAnnots(pdf, pdf.getPage(0), stampTokens());
+  const page = pdf.getPage(0); bakeStampAnnots(pdf, page, stampTokens());
+  // the stamp is the page's art box (crop box) when it has one, not the whole sheet it was drawn on
+  const box = page.node.lookup(PDFName.of('ArtBox')) || page.node.lookup(PDFName.of('CropBox')); const mb = page.getMediaBox();
+  if (box instanceof PDFArray && box.size() === 4) {
+    const [x1, y1, x2, y2] = box.asArray().map(nOf); const x = Math.min(x1, x2), y = Math.min(y1, y2), w = Math.abs(x2 - x1), h = Math.abs(y2 - y1);
+    if (w > 4 && h > 4 && (w < mb.width - 1 || h < mb.height - 1 || x || y)) {
+      const ctx = pdf.context; const c = page.node.get(PDFName.of('Contents')); const list = c ? (ctx.lookup(c) instanceof PDFArray ? ctx.lookup(c).asArray() : [c]) : [];
+      page.node.set(PDFName.of('Contents'), ctx.obj([ctx.register(ctx.stream(`q 1 0 0 1 ${num(-x, 4)} ${num(-y, 4)} cm\n`)), ...list, ctx.register(ctx.stream('\nQ\n'))]));
+      page.setMediaBox(0, 0, w, h); ['CropBox', 'ArtBox', 'BleedBox', 'TrimBox'].forEach((k) => page.node.delete(PDFName.of(k)));
+    }
+  }
   return pdf.save();
 }
 // Bluebeam dynamic text: &[Date], &[Time], &[User], &[File] …
@@ -146,7 +221,8 @@ function bakeStampAnnots(pdf, page, T) {
   const ctx = pdf.context; const annots = page.node.Annots(); if (!annots || !annots.size()) { tokensInContent(pdf, page, T); return; }
   const ops = []; const xo = {}; let n = 0;
   for (let k = 0; k < annots.size(); k++) {
-    const a = annots.lookup(k); if (!(a instanceof PDFDict)) continue; const sub = a.lookup(PDFName.of('Subtype')); if (sub && ['/Popup', '/Widget', '/Link'].includes(sub.asString())) continue;
+    const a = annots.lookup(k); if (!(a instanceof PDFDict)) continue; const sub = a.lookup(PDFName.of('Subtype')); if (sub && ['/Popup', '/Link'].includes(sub.asString())) continue;
+    const fl = nOf(a.lookup(PDFName.of('F'))) || 0; if (fl & 2 || fl & 32) continue; // hidden / not shown
     let ap = a.lookup(PDFName.of('AP')); ap = ap instanceof PDFDict ? ap.lookup(PDFName.of('N')) : null; if (ap instanceof PDFDict && !(ap instanceof PDFLib.PDFStream)) { const as = a.lookup(PDFName.of('AS')); ap = as ? ap.lookup(as) : null; }
     if (!ap || !ap.dict) continue; const rect = a.lookup(PDFName.of('Rect')); if (!rect) continue; const R = rect.asArray().map(nOf);
     const bb = (ap.dict.lookup(PDFName.of('BBox')) || PDFArray.withContext(ctx)).asArray().map(nOf); const mt = ap.dict.lookup(PDFName.of('Matrix')); const M = mt ? mt.asArray().map(nOf) : [1, 0, 0, 1, 0, 0];
@@ -162,7 +238,7 @@ function bakeStampAnnots(pdf, page, T) {
     const s = ctx.register(ctx.stream(`q\n${ops.join('\n')}\nQ\n`)); const c = page.node.get(PDFName.of('Contents'));
     page.node.set(PDFName.of('Contents'), c ? ctx.obj([c instanceof PDFArray ? c.asArray() : c, s].flat()) : s);
   }
-  page.node.delete(PDFName.of('Annots')); tokensInContent(pdf, page, T);
+  page.node.delete(PDFName.of('Annots')); pdf.catalog.delete(PDFName.of('AcroForm')); tokensInContent(pdf, page, T);
 }
 function tokensInContent(pdf, page, T) {
   const ctx = pdf.context; const c = page.node.Contents(); const list = c instanceof PDFArray ? c.asArray().map((r) => ({ ref: r, st: ctx.lookup(r) })) : c ? [{ ref: page.node.get(PDFName.of('Contents')), st: c }] : [];
@@ -195,7 +271,7 @@ async function placeStamp(doc, i, p) {
   const busy = $('#busy'); busy.hidden = false; busy.textContent = 'Preparing stamp…';
   try {
     const bytes = await fillStamp(st, vals.values); const asset = await addStampAsset(doc, bytes); const A = doc.assets[asset];
-    const k = Math.min(1, 220 / Math.max(A.w, A.h)) || 1; const w = A.w * k, h = A.h * k;
+    const pg = doc.pages[i] || { w: 600 }; const k = Math.min(1, (pg.w * 0.4) / A.w) || 1; const w = A.w * k, h = A.h * k; // actual size, unless wider than 40% of the sheet
     const m = newDraftMarkup('stamp', i, [[p[0] - w / 2, p[1] - h / 2], [p[0] + w / 2, p[1] + h / 2]]); Object.assign(m, { text: st.name, asset, stampId: st.id, stampValues: vals.values, stampAnswers: vals.answers });
     return m;
   } finally { busy.hidden = true; }

@@ -58,6 +58,46 @@ const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) pro
   const t2 = execSync(`pdftotext -f 1 -l 1 ${OUT}/stamps-bb.pdf - 2>/dev/null || true`, { encoding: 'utf8' });
   ok(/Checked by Reviewer/.test(t2) && !/&\[/.test(t2), 'Bluebeam-style stamp: annotation artwork baked in, &[User] filled: ' + (t2.match(/Checked by.*/) || [''])[0]);
   await page.screenshot({ path: OUT + '/stamps-bb.png' });
+  // Revu "interactive stamp" layout: art box on an A4 sheet, a white panel annotation drawn before the fields,
+  // a radio group, and the common builder/CreateDialog script with app.execDialog, validate and app.alert
+  await ev(async () => {
+    const { PDFDocument, PDFName, PDFString, StandardFonts, rgb } = PDFLib; const pdf = await PDFDocument.create(); const pg = pdf.addPage([595, 842]); const ctx = pdf.context;
+    pg.node.set(PDFName.of('ArtBox'), ctx.obj([100, 600, 400, 760]));
+    const panelAp = ctx.register(ctx.stream('1 1 1 rg 0 0.5 0 RG 2 w 101 601 298 158 re B', { Type: 'XObject', Subtype: 'Form', BBox: [100, 600, 400, 760], Resources: {} }));
+    const panel = ctx.register(ctx.obj({ Type: 'Annot', Subtype: 'Square', Rect: [100, 600, 400, 760], IC: [1, 1, 1], F: 4, AP: { N: panelAp } }));
+    const form = pdf.getForm(); const by = form.createTextField('CHECKED_BY'); by.addToPage(pg, { x: 120, y: 700, width: 200, height: 18, borderWidth: 0 });
+    const st = form.createRadioGroup('Status'); st.addOptionToPage('OK', pg, { x: 120, y: 660, width: 12, height: 12 }); st.addOptionToPage('REDO', pg, { x: 220, y: 660, width: 12, height: 12 });
+    const calc = form.createTextField('Calculation'); calc.addToPage(pg, { x: 120, y: 620, width: 1, height: 1, borderWidth: 0 });
+    const builder = 'var builder = { textBoxes: [ { field: "CHECKED_BY", description: "Checked By:", default: function () { return String(identity.name || "").toUpperCase(); } } ], radioGroup: "Status", radioButtons: [ { value: "OK", description: "Approved" }, { value: "REDO", description: "Revise" } ], radioErrorMsg: "Please select a status" };';
+    const main = 'if (event.source.forReal) { var sd = CreateDialog(builder); app.execDialog(sd); this.getField(builder.radioGroup).value = sd.radioSelection; for (var i = 0; i < builder.textBoxes.length; ++i) this.getField(builder.textBoxes[i].field).value = sd.textBoxResults[i]; }\n' +
+      'function CreateDialog(b) { var sd = { builder: b, radioSelection: "", textBoxResults: [] }; var rad = b.radioButtons.map(function (c, i) { return { type: "radio", name: c.description, item_id: "rad" + i, group_id: "grp1" }; }); var opts = b.textBoxes.map(function (t, i) { return { type: "view", align_children: "align_row", elements: [ { type: "static_text", item_id: "sta" + i, name: t.description }, { type: "edit_text", item_id: "edt" + i } ] }; });' +
+      ' sd.initialize = function (d) { var o = {}; for (var i = 0; i < this.builder.textBoxes.length; ++i) o["edt" + i] = this.builder.textBoxes[i].default(); d.load(o); };' +
+      ' sd.commit = function (d) { var r = d.store(); for (var i = 0; i < this.builder.radioButtons.length; ++i) if (r["rad" + i] == true) { this.radioSelection = this.builder.radioButtons[i].value; break; } for (var j = 0; j < this.builder.textBoxes.length; ++j) this.textBoxResults[j] = r["edt" + j]; };' +
+      ' sd.validate = function (d) { var r = d.store(); for (var i = 0; i < this.builder.radioButtons.length; ++i) if (r["rad" + i] == true) return true; app.alert(this.builder.radioErrorMsg); return false; };' +
+      ' sd.description = { name: "Stamp Dialog", elements: [ { type: "view", elements: [ { type: "cluster", name: "Status", elements: rad }, { type: "cluster", name: "Options", elements: opts } ] }, { type: "ok" } ] }; return sd; }';
+    calc.acroField.dict.set(PDFName.of('AA'), ctx.obj({ C: { S: 'JavaScript', JS: PDFString.of(main) } }));
+    const js = ctx.register(ctx.obj({ S: 'JavaScript', JS: PDFString.of(builder) }));
+    pdf.catalog.set(PDFName.of('Names'), ctx.obj({ JavaScript: { Names: [PDFString.of('Builder'), js] } }));
+    // the panel comes first in /Annots, the fields after it (as Revu writes them)
+    const an = pg.node.Annots(); const refs = an.asArray(); pg.node.set(PDFName.of('Annots'), ctx.obj([panel, ...refs]));
+    window.__ivStamp = new File([await pdf.save()], 'Interactive QA.pdf', { type: 'application/pdf' });
+  });
+  await ev(async () => { await mebulb.importStampFiles([window.__ivStamp]); const st = mebulb.STAMPLIB.list.find((s) => s.name === 'Interactive QA'); mebulb.state.stampId = st.id; mebulb.setTool('stamp'); mebulb.goToPage(0, [900, 700]); });
+  await page.waitForTimeout(300);
+  const [x4, y4] = await ev(() => { const d = mebulb.activeDoc(); const r = d.pageEls[0].getBoundingClientRect(); return [r.left + 900 * d.zoom, r.top + 700 * d.zoom]; });
+  await page.mouse.click(x4, y4); await page.waitForSelector('#modal .st-fill');
+  const dlg = await ev(() => ({ legends: [...document.querySelectorAll('#modal legend')].map((l) => l.textContent), radios: document.querySelectorAll('#modal input[type=radio]').length, name: document.querySelector('#modal input[type=text]').value }));
+  ok(dlg.legends.join() === 'Status,Options' && dlg.radios === 2 && dlg.name === 'REVIEWER', 'the stamp\'s own dialog: status choices and a name box filled in by its script ' + JSON.stringify(dlg));
+  await page.click('#modal footer .btn.primary'); await page.waitForSelector('#modal .st-err');
+  ok(/select a status/.test(await ev(() => document.querySelector('#modal .st-err').textContent)), 'its own check runs: pressing Stamp with no status shows its message');
+  await page.check('#modal input[type=radio] >> nth=1'); await page.click('#modal footer .btn.primary'); await page.waitForTimeout(1500);
+  const iv = await ev(() => { const d = mebulb.activeDoc(); const m = d.markups[d.markups.length - 1]; return { vals: m.stampValues, w: Math.round(Math.abs(m.pts[1][0] - m.pts[0][0])), h: Math.round(Math.abs(m.pts[1][1] - m.pts[0][1])), pdf: d.assets[m.asset].pdf }; });
+  ok(iv.vals.Status === 'REDO' && iv.vals.CHECKED_BY === 'REVIEWER' && iv.w === 300 && iv.h === 160, `placed at the art box size (${iv.w}×${iv.h}) with ${JSON.stringify(iv.vals)}`);
+  fs.writeFileSync(OUT + '/stamps-interactive.pdf', Buffer.from(iv.pdf, 'base64'));
+  const t3 = execSync(`pdftotext ${OUT}/stamps-interactive.pdf - 2>/dev/null || true`, { encoding: 'utf8' });
+  execSync(`pdftoppm -r 72 -png ${OUT}/stamps-interactive.pdf ${OUT}/stamps-interactive`);
+  const px = execSync(`python3 -c "from PIL import Image; im=Image.open('${OUT}/stamps-interactive-1.png').convert('L'); print(sum(1 for y in range(55,80) for x in range(20,200) if im.getpixel((x,y))<128))"`, { encoding: 'utf8' }).trim();
+  ok(/REVIEWER/.test(t3) && +px > 20, `filled name is drawn above the white panel (${px} dark pixels where the name is)`);
   console.log(errors.filter((e) => !/XFA/.test(e)).join('\n') || 'no errors');
   await browser.close();
 })();
