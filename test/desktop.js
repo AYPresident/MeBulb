@@ -1,6 +1,6 @@
 // Desktop app end to end (Linux Electron build of the same app): big file streaming,
 // incremental save to disk, installed fonts, live session between two running copies.
-const { _electron } = require('/opt/npm-tools/node_modules/playwright');
+const { _electron } = require('./paths').playwright();
 const fs = require('fs'); const path = require('path'); const { execSync } = require('child_process');
 const OUT = '/home/claude/planmark/test/out'; const EXE = '/home/claude/planmark/out/linux-test/electron';
 const PDF = '/tmp/claude-0/egnyte/Project/L1 Big Plan.pdf';

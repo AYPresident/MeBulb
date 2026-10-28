@@ -7,7 +7,15 @@
     "build": "node build.js",
     "build:desktop": "node build.js && node desktop/build-desktop.js",
     "build:win": "node build.js && node desktop/build-desktop.js --win",
-    "test": "node test/flow.js && node test/flow2.js && node test/flow3.js && node test/r4.js && node test/label.js && node test/incr.js"
+    "test": "node build.js && node test/run-all.js"
   },
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "6.2.108",
+    "playwright": "1.63.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
 }

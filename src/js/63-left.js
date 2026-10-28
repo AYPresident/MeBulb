@@ -154,35 +154,124 @@ function bindLayers() {
   });
 }
 
-// ----- tool sets ------------------------------------------------------------------------------
+// ----- tool sets (a tool chest in the Revu style) -----------------------------------------------
+// Each set is a group of saved tools with their look. A tool is used in one of two ways, as in Revu:
+// properties mode (draw a new markup with the saved look) or drawing mode (drop a copy of the saved
+// markup, same size and shape, where you click). Recent tools collect themselves as you draw.
 function saveToolsets() { store.set('toolsets', state.toolsets); }
+const _pvCache = new Map();
+function previewOf(it) { const k = JSON.stringify([it.tool, it.style, it.text, it.shape, it.depth, it.size, it.name]); let v = _pvCache.get(k); if (!v) { v = toolPreview(it); if (_pvCache.size > 400) _pvCache.clear(); _pvCache.set(k, v); } return v; }
+const tsKind = (it) => (TOOLS[it.tool] ? TOOLS[it.tool].short || TOOLS[it.tool].label : it.tool);
+const tsSet = (s) => (s === 'r' ? { id: 'recent', name: 'Recent tools', items: state.recentTools || [], collapsed: state.recentCollapsed, view: state.recentView || 'grid', recent: true } : state.toolsets[+s]);
+function tsItemHtml(it, si, ii) {
+  const tip = `${it.name} · ${tsKind(it)}${it.mode === 'drawing' ? ' · drawing mode (places this exact shape)' : ''}`;
+  return `<div class="titem${it.mode === 'drawing' ? ' drawing' : ''}" data-s="${si}" data-i="${ii}" role="button" tabindex="0" draggable="${si === 'r' ? 'false' : 'true'}" title="${esc(tip)}"><span class="ti-pv">${previewOf(it)}</span><span class="ti-name">${esc(it.name)}</span><span class="ti-kind">${esc(tsKind(it))}</span>${it.mode === 'drawing' ? '<span class="ti-mode" aria-label="Drawing mode">D</span>' : ''}</div>`;
+}
+function tsSectionHtml(ts, si) {
+  const view = ts.view || 'grid'; const shut = !!ts.collapsed; const n = ts.items.length;
+  const empty = ts.recent ? 'Tools you use appear here.' : 'Empty. Right-click a markup and choose Add to tool set, or drag tools here.';
+  return `<section class="tset${shut ? ' shut' : ''}" data-s="${si}"><div class="tset-head" data-s="${si}"><button class="icon-btn sm ts-tog" data-tst="${si}" aria-expanded="${!shut}" aria-label="${shut ? 'Show' : 'Hide'} ${esc(ts.name)}">${icon(shut ? 'chevr' : 'chevd')}</button><span class="ts-name" data-tsn="${si}" title="${ts.recent ? '' : 'Double-click to rename'}">${esc(ts.name)}</span><span class="ts-n">${n}</span>${ts.from === 'btx' ? '<span class="ts-tag" title="Imported from a Bluebeam tool set">BTX</span>' : ''}<button class="icon-btn sm" data-tsm="${si}" aria-label="${esc(ts.name)} options">${icon('more')}</button></div>${shut ? '' : `<div class="tbody ${view}" data-s="${si}">${n ? ts.items.map((it, ii) => tsItemHtml(it, si, ii)).join('') : `<p class="muted pad sm">${empty}</p>`}</div>`}</section>`;
+}
 function renderToolsets() {
   const el = $('#toolsets'); if (!el) return;
-  el.innerHTML = state.toolsets.map((ts, si) => `<div class="tset"><div class="tset-head"><input value="${esc(ts.name)}" data-ts="${si}" aria-label="Tool set name"><button class="icon-btn sm" data-tsdel="${si}" aria-label="Delete tool set">${icon('trash')}</button></div>${ts.items.length ? ts.items.map((it, ii) => {
-    const col = it.tool === 'highlight' ? (it.style && it.style.stroke) : (it.style && (it.style.fill && it.style.fill !== 'none' && it.tool !== 'callout' ? it.style.fill : it.style.stroke)) || '#d6331f';
-    return `<div class="titem" data-s="${si}" data-i="${ii}" role="button" tabindex="0"><span class="ti-ic" style="color:${esc(col)}">${icon(TOOLS[it.tool] ? TOOLS[it.tool].icon : 'rect')}</span><span class="ti-name">${esc(it.name)}</span><span class="ti-kind">${esc(TOOLS[it.tool] ? TOOLS[it.tool].short || TOOLS[it.tool].label : it.tool)}</span><button class="icon-btn sm ti-x" data-tidel="${si}:${ii}" aria-label="Remove ${esc(it.name)}">${icon('close')}</button></div>`;
-  }).join('') : '<p class="muted pad sm">Empty. Select a markup and choose Add to tool set.</p>'}</div>`).join('') +
-    `<div class="btn-row pad"><button class="btn sm" data-tsa="new">${icon('plus')} New tool set</button><button class="btn sm" data-tsa="reset">Restore defaults</button></div><p class="muted pad sm">Tool sets are saved in this browser.</p>`;
+  const bar = `<div class="ts-bar"><button class="btn sm" data-tsa="new">${icon('plus')} New set</button><button class="btn sm" data-tsa="import" title="Import Bluebeam Revu tool sets (.btx)">${icon('import')} Import .btx</button><span class="grow"></span><button class="icon-btn sm" data-tsa="more" aria-label="More tool set options">${icon('more')}</button></div>`;
+  const placing = state.placeItem ? `<div class="ts-placing">${icon('info')} Click the page to place “${esc(state.placeItem.name)}”. Esc to stop.</div>` : '';
+  el.innerHTML = bar + placing + ((state.recentTools || []).length ? tsSectionHtml(tsSet('r'), 'r') : '') + state.toolsets.map((ts, si) => tsSectionHtml(ts, si)).join('') +
+    `<p class="muted pad sm">Tool sets are saved on this computer. Import .btx and Export .btx swap them with Bluebeam Revu.</p>`;
+}
+function renameToolset(si) {
+  const sp = $(`#toolsets [data-tsn="${si}"]`); if (!sp || si === 'r') return; const ts = state.toolsets[+si];
+  const inp = document.createElement('input'); inp.value = ts.name; inp.className = 'ts-rename'; inp.setAttribute('aria-label', 'Tool set name'); sp.replaceWith(inp); inp.focus(); inp.select();
+  let done = false; const fin = (ok) => { if (done) return; done = true; if (ok) ts.name = inp.value.trim() || ts.name; saveToolsets(); renderToolsets(); };
+  inp.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') fin(true); if (e.key === 'Escape') fin(false); }); inp.addEventListener('blur', () => fin(true));
+}
+async function renameToolItem(si, ii) {
+  const it = tsSet(si).items[ii]; const r = await openDialog({ title: 'Rename tool', body: field('Name', `<input type="text" name="name" value="${esc(it.name)}" maxlength="60" required>`), buttons: [{ label: 'Cancel', value: false }, { label: 'Rename', value: true, primary: true }] });
+  if (r && r.value && r.form.name.trim()) { it.name = r.form.name.trim(); si === 'r' ? store.set('recentTools', state.recentTools) : saveToolsets(); renderToolsets(); }
+}
+function pickBtxFiles() { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.btx,application/xml,text/xml'; inp.multiple = true; inp.onchange = () => importBtxFiles([...inp.files]); inp.click(); }
+async function exportToolset(si) { const ts = tsSet(si); if (!ts.items.length) { toast('This tool set is empty'); return; } try { const n = await exportBtx(ts); toast(`Exported ${n} tool${n === 1 ? '' : 's'} to ${ts.name}.btx`); } catch (e) { toast('Export failed: ' + (e.message || e), 'error'); } }
+function toolsetMenu(si, x, y) {
+  const ts = tsSet(si); const k = +si; const items = [];
+  if (si === 'r') { items.push([ts.view === 'list' ? 'Show as icons' : 'Show as list', () => { state.recentView = ts.view === 'list' ? 'grid' : 'list'; renderToolsets(); }], ['Save as a tool set…', () => { state.toolsets.push({ id: uid('TS'), name: 'My tools', items: deep(state.recentTools) }); saveToolsets(); renderToolsets(); renameToolset(state.toolsets.length - 1); }], ['Export .btx…', () => exportToolset('r')], ['-'], ['Clear recent tools', () => { state.recentTools = []; store.set('recentTools', []); renderToolsets(); }, 'danger']); showMenu(x, y, items); return; }
+  items.push(['Rename', () => renameToolset(si)], [ts.view === 'list' ? 'Show as icons' : 'Show as list', () => { ts.view = ts.view === 'list' ? 'grid' : 'list'; saveToolsets(); renderToolsets(); }], ['Export .btx…', () => exportToolset(si)], ['Duplicate set', () => { state.toolsets.splice(k + 1, 0, { ...deep(ts), id: uid('TS'), name: ts.name + ' copy', from: undefined }); saveToolsets(); renderToolsets(); }]);
+  if (k > 0) items.push(['Move up', () => { state.toolsets.splice(k - 1, 0, state.toolsets.splice(k, 1)[0]); saveToolsets(); renderToolsets(); }]);
+  if (k < state.toolsets.length - 1) items.push(['Move down', () => { state.toolsets.splice(k + 1, 0, state.toolsets.splice(k, 1)[0]); saveToolsets(); renderToolsets(); }]);
+  items.push(['-'], ['Delete set', async () => { if (await confirmDialog('Delete tool set?', `Delete <b>${esc(ts.name)}</b> and its ${ts.items.length} tools?`, 'Delete', true)) { state.toolsets.splice(k, 1); saveToolsets(); renderToolsets(); } }, 'danger']);
+  showMenu(x, y, items);
+}
+function toolItemMenu(si, ii, x, y) {
+  const ts = tsSet(si); const it = ts.items[ii]; const save = () => { if (si === 'r') store.set('recentTools', state.recentTools); else saveToolsets(); renderToolsets(); };
+  const canDraw = !(it.tool === 'stamp' && it.stampId && !String(it.stampId).startsWith('txt:')) && !TOOLS[it.tool].shape;
+  const items = [['Use (properties mode)', () => useToolsetItem({ ...it, mode: 'properties' })]];
+  if (canDraw) items.push(['Place a copy (drawing mode)', () => useToolsetItem({ ...it, mode: 'drawing' })]);
+  if (!ts.recent && canDraw) items.push([it.mode === 'drawing' ? 'Click uses properties mode' : 'Click uses drawing mode', () => { it.mode = it.mode === 'drawing' ? 'properties' : 'drawing'; save(); }]);
+  items.push(['-'], ['Rename…', () => renameToolItem(si, ii)]);
+  if (ts.recent) items.push(['Add to tool set…', async () => { const pick = await pickToolset(it.name); if (pick) { pick.set.items.push({ ...deep(it), name: pick.name }); saveToolsets(); renderToolsets(); } }]);
+  else {
+    items.push(['Duplicate', () => { ts.items.splice(ii + 1, 0, { ...deep(it), name: it.name + ' copy' }); save(); }]);
+    if (ii > 0) items.push(['Move up', () => { ts.items.splice(ii - 1, 0, ts.items.splice(ii, 1)[0]); save(); }]);
+    if (ii < ts.items.length - 1) items.push(['Move down', () => { ts.items.splice(ii + 1, 0, ts.items.splice(ii, 1)[0]); save(); }]);
+    state.toolsets.forEach((o, k) => { if (k !== +si) items.push([`Move to ${o.name}`, () => { o.items.push(ts.items.splice(ii, 1)[0]); save(); }]); });
+  }
+  items.push(['-'], ['Delete', () => { ts.items.splice(ii, 1); save(); }, 'danger']);
+  showMenu(x, y, items);
 }
 function bindToolsets() {
   const el = $('#toolsets');
-  el.addEventListener('click', async (e) => {
-    const del = e.target.closest('[data-tidel]'); if (del) { e.stopPropagation(); const [s, i] = del.dataset.tidel.split(':').map(Number); state.toolsets[s].items.splice(i, 1); saveToolsets(); renderToolsets(); return; }
-    const sd = e.target.closest('[data-tsdel]'); if (sd) { const s = +sd.dataset.tsdel; if (await confirmDialog('Delete tool set?', `Delete <b>${esc(state.toolsets[s].name)}</b> and its ${state.toolsets[s].items.length} tools?`, 'Delete', true)) { state.toolsets.splice(s, 1); saveToolsets(); renderToolsets(); } return; }
-    const a = e.target.closest('[data-tsa]'); if (a) { if (a.dataset.tsa === 'new') state.toolsets.push({ id: uid('TS'), name: 'My tools', items: [] }); else state.toolsets = deep(DEFAULT_TOOLSETS); saveToolsets(); renderToolsets(); return; }
-    const it = e.target.closest('.titem'); if (it) useToolsetItem(state.toolsets[+it.dataset.s].items[+it.dataset.i]);
+  el.addEventListener('click', (e) => {
+    const tg = e.target.closest('[data-tst]'); if (tg) { const s = tg.dataset.tst; if (s === 'r') state.recentCollapsed = !state.recentCollapsed; else { state.toolsets[+s].collapsed = !state.toolsets[+s].collapsed; saveToolsets(); } renderToolsets(); return; }
+    const mb = e.target.closest('[data-tsm]'); if (mb) { const r = mb.getBoundingClientRect(); toolsetMenu(mb.dataset.tsm, r.left, r.bottom + 2); return; }
+    const a = e.target.closest('[data-tsa]');
+    if (a) {
+      const k = a.dataset.tsa;
+      if (k === 'new') { state.toolsets.push({ id: uid('TS'), name: 'My tools', items: [], view: 'grid' }); saveToolsets(); renderToolsets(); renameToolset(state.toolsets.length - 1); }
+      else if (k === 'import') pickBtxFiles();
+      else if (k === 'more') { const r = a.getBoundingClientRect(); showMenu(r.left, r.bottom + 2, [['Import Bluebeam tool sets (.btx)…', pickBtxFiles], ['Export all sets as .btx…', async () => { for (let s = 0; s < state.toolsets.length; s++) if (state.toolsets[s].items.length) await exportToolset(s); }], ['Collapse all', () => { state.toolsets.forEach((t) => { t.collapsed = true; }); state.recentCollapsed = true; saveToolsets(); renderToolsets(); }], ['Expand all', () => { state.toolsets.forEach((t) => { t.collapsed = false; }); state.recentCollapsed = false; saveToolsets(); renderToolsets(); }], ['-'], ['Add the MeBulb starter sets', () => { const have = new Set(state.toolsets.map((t) => t.id)); state.toolsets.push(...deep(DEFAULT_TOOLSETS).filter((t) => !have.has(t.id))); saveToolsets(); renderToolsets(); }], ['Restore the starter sets only…', async () => { if (await confirmDialog('Restore starter sets?', 'This replaces all your tool sets with the MeBulb starter sets. Export any you want to keep first.', 'Restore', true)) { state.toolsets = deep(DEFAULT_TOOLSETS); saveToolsets(); renderToolsets(); } }, 'danger']]); }
+      return;
+    }
+    const it = e.target.closest('.titem'); if (it) useToolsetItem(tsSet(it.dataset.s).items[+it.dataset.i]);
   });
-  el.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.classList.contains('titem')) e.target.click(); });
-  el.addEventListener('change', (e) => { const t = e.target; if (t.dataset.ts != null) { state.toolsets[+t.dataset.ts].name = t.value.trim() || 'Tool set'; saveToolsets(); } });
+  el.addEventListener('dblclick', (e) => { const n = e.target.closest('[data-tsn]'); if (n) renameToolset(n.dataset.tsn); });
+  el.addEventListener('contextmenu', (e) => {
+    const it = e.target.closest('.titem'); if (it) { e.preventDefault(); toolItemMenu(it.dataset.s, +it.dataset.i, e.clientX, e.clientY); return; }
+    const h = e.target.closest('.tset-head'); if (h) { e.preventDefault(); toolsetMenu(h.dataset.s, e.clientX, e.clientY); }
+  });
+  el.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.classList.contains('titem')) e.target.click(); if ((e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) && e.target.classList.contains('titem')) { e.preventDefault(); const r = e.target.getBoundingClientRect(); toolItemMenu(e.target.dataset.s, +e.target.dataset.i, r.left + 20, r.bottom); } });
+  // drag tools to reorder them or move them between sets; drop .btx files to import them
+  let drag = null;
+  el.addEventListener('dragstart', (e) => { const it = e.target.closest('.titem'); if (!it || it.dataset.s === 'r') return; drag = { s: +it.dataset.s, i: +it.dataset.i }; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/x-mebulb-tool', `${drag.s}:${drag.i}`); it.classList.add('dragging'); });
+  el.addEventListener('dragend', () => { drag = null; $$('#toolsets .dragging, #toolsets .drop-before, #toolsets .drop-in').forEach((x) => x.classList.remove('dragging', 'drop-before', 'drop-in')); });
+  el.addEventListener('dragover', (e) => {
+    if (!drag) return; const tgt = e.target.closest('.titem, .tset'); if (!tgt || tgt.dataset.s === 'r') return; e.preventDefault(); e.stopPropagation();
+    $$('#toolsets .drop-before, #toolsets .drop-in').forEach((x) => x.classList.remove('drop-before', 'drop-in')); tgt.classList.add(tgt.classList.contains('titem') ? 'drop-before' : 'drop-in');
+  });
+  el.addEventListener('drop', (e) => {
+    if (!drag) return; const tgt = e.target.closest('.titem, .tset'); if (!tgt || tgt.dataset.s === 'r') return; e.preventDefault(); e.stopPropagation();
+    const from = state.toolsets[drag.s]; const it = from.items.splice(drag.i, 1)[0]; const to = state.toolsets[+tgt.dataset.s];
+    let at = tgt.classList.contains('titem') ? +tgt.dataset.i : to.items.length; if (to === from && tgt.classList.contains('titem') && drag.i < at) at--;
+    to.items.splice(at, 0, it); to.collapsed = false; drag = null; saveToolsets(); renderToolsets();
+  });
 }
 function useToolsetItem(it) {
   if (!it || !TOOLS[it.tool]) return; const lock = it.tool === 'count' || MEASURE_TYPES.has(it.tool);
   state.toolStyles[it.tool] = { ...(TOOLS[it.tool].style || {}) };
-  setTool(it.tool, { style: it.style, subject: it.subject || it.name, text: it.text, lock });
+  if (it.tool === 'stamp') state.stampId = it.stampId || 'txt:' + (it.text || 'APPROVED');
+  setTool(it.tool, { style: it.style, subject: it.subject || it.name, text: it.text, lock: lock && it.mode !== 'drawing' });
   if (it.tool === 'volume' && it.depth != null) state.volDepth = it.depth;
   if (it.size && TOOLS[it.tool] && TOOLS[it.tool].shape) state.sketchDefaults[TOOLS[it.tool].shape] = deep(it.size);
+  if (it.mode === 'drawing' && !TOOLS[it.tool].shape) { state.placeItem = it; V.el.dataset.place = '1'; renderToolsets(); toast(`${it.name}: click the page to place a copy`); return; }
   toast(`${it.name}: ${lock ? 'tool stays active until Esc' : 'draw on the page'}`);
 }
+// drawing mode: drop the saved markup, same size and look, centred where you click
+function placeToolItem(it, page, p) {
+  const doc = activeDoc(); const m = sampleMarkup(it); const c = G.bbox(m.pts); const dx = p[0] - (c.x + c.x2) / 2, dy = p[1] - (c.y + c.y2) / 2;
+  const x = newMarkup(m.type, page, m.pts.map(([a, b]) => [a + dx, b + dy]), { style: deep(m.style), subject: it.subject || it.name || m.subject });
+  if (m.text) x.text = m.text; if (m.runs) x.runs = deep(m.runs); if (it.depth != null) x.depth = it.depth; if (x.type === 'volume' && x.depth == null) x.depth = defaultDepth(scaleAt(doc, page, p));
+  addMarkup(x, doc); noteRecentTool(x); state.sel.clear(); state.sel.add(x.id); refreshSelection();
+  if (!state.toolLocked && !state.reuse) { endPlace(); setTool('select'); state.sel.add(x.id); refreshSelection(); }
+}
+function endPlace() { if (!state.placeItem) return; state.placeItem = null; if (V.el) delete V.el.dataset.place; renderToolsets(); }
 async function pickToolset(defName) {
   const r = await openDialog({ title: 'Add to tool set', body: `${field('Name', `<input type="text" name="name" value="${esc(defName)}" maxlength="60" required>`)}${field('Tool set', `<select name="set">${state.toolsets.map((t, k) => `<option value="${k}">${esc(t.name)}</option>`).join('')}<option value="new">New tool set…</option></select>`)}`, buttons: [{ label: 'Cancel', value: false }, { label: 'Add', value: true, primary: true }] });
   if (!r || !r.value) return null;
@@ -192,11 +281,13 @@ async function pickToolset(defName) {
 async function addSelectionToToolset() {
   const m = selected()[0]; if (!m) return; const pick = await pickToolset(m.subject); if (!pick) return;
   const doc = activeDoc(); const isSk = m.type === 'sketch'; const sz = isSk ? sketchSize(doc, m) : null;
-  pick.set.items.push({ name: pick.name, tool: isSk ? (sz.shape === 'circle' ? 'sketchcircle' : 'sketchrect') : m.type, style: deep(m.style), subject: m.subject, text: m.type === 'stamp' ? m.text : undefined, depth: m.depth, size: sz ? deep(sz) : undefined });
+  const c = G.bbox(m.pts); const cx = (c.x + c.x2) / 2, cy = (c.y + c.y2) / 2;
+  const shape = isSk || m.type === 'count' ? undefined : { pts: m.pts.map(([x, y]) => [x - cx, y - cy]), text: TEXT_TYPES.has(m.type) ? m.text : null, runs: m.runs ? deep(m.runs) : null };
+  pick.set.items.push({ name: pick.name, tool: isSk ? (sz.shape === 'circle' ? 'sketchcircle' : 'sketchrect') : m.type, style: deep(m.style), subject: m.subject, text: m.type === 'stamp' ? m.text : undefined, stampId: m.type === 'stamp' ? m.stampId : undefined, depth: m.depth, size: sz ? deep(sz) : undefined, shape });
   saveToolsets(); openRight('toolsets'); toast(`Added “${pick.name}” to ${pick.set.name}`);
 }
 async function addToolToToolset() {
   const t = state.tool; const pick = await pickToolset(state.toolSubjects[t] || TOOLS[t].subject || TOOLS[t].label); if (!pick) return;
-  pick.set.items.push({ name: pick.name, tool: t, style: toolStyle(t), subject: state.toolSubjects[t] || TOOLS[t].subject, text: t === 'stamp' ? state.stampText : undefined, depth: t === 'volume' ? state.volDepth : undefined, size: TOOLS[t].shape ? deep(state.sketchDefaults[TOOLS[t].shape]) : undefined });
+  pick.set.items.push({ name: pick.name, tool: t, style: toolStyle(t), subject: state.toolSubjects[t] || TOOLS[t].subject, text: t === 'stamp' ? (currentStamp() ? currentStamp().name || currentStamp().text : state.stampText) : undefined, stampId: t === 'stamp' ? state.stampId : undefined, depth: t === 'volume' ? state.volDepth : undefined, size: TOOLS[t].shape ? deep(state.sketchDefaults[TOOLS[t].shape]) : undefined });
   saveToolsets(); openRight('toolsets'); toast(`Added “${pick.name}” to ${pick.set.name}`);
 }

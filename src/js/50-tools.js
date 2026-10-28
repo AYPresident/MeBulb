@@ -7,6 +7,7 @@ function setTool(t, opts = {}) {
   if (state.draft) finishDraft(true);
   endCount();
   if (state.editing) commitEdit();
+  if (state.placeItem) endPlace();
   state.tool = t; state.toolLocked = !!opts.lock;
   if (t !== 'select') { state.sel.clear(); refreshSelection(); }
   if (opts.style) state.toolStyles[t] = { ...(state.toolStyles[t] || {}), ...opts.style };
@@ -66,6 +67,7 @@ function onPointerDown(e) {
   if (e.button === 1 || (e.button === 0 && (I.space || state.tool === 'pan'))) { startPan(e); e.preventDefault(); return; }
   if (e.button === 2) return;
   const i = pageAtClient(e.clientX, e.clientY);
+  if (state.placeItem && i >= 0) { e.preventDefault(); placeToolItem(state.placeItem, i, snapPoint(clientToPage(e, i), i)); return; }
   if (state.tool === 'select') { selectDown(e, i); return; }
   if (i < 0 && !(state.draft && state.draft.mode !== 'drag')) return;
   e.preventDefault(); drawDown(e, i < 0 ? state.draft.page : i);
@@ -143,7 +145,7 @@ function drawDown(e, i) {
     case 'point':
       if (state.tool === 'note') { const m = newDraftMarkup('note', i, [[p[0] - 9, p[1] - 9]]); addMarkup(m); state.sel.clear(); state.sel.add(m.id); refreshSelection(); toolDone(); setTimeout(() => { const c = $('#prop-comment'); if (c) c.focus(); }, 30); }
       else if (state.tool === 'stamp') {
-        placeStamp(doc, i, p).then((m) => { if (!m) return; addMarkup(m); state.sel.clear(); state.sel.add(m.id); refreshSelection(); toolDone(); }).catch((err) => { console.error(err); toast('Could not place the stamp: ' + err.message, 'error'); });
+        placeStamp(doc, i, p).then((m) => { if (!m) return; addMarkup(m); noteRecentTool(m); state.sel.clear(); state.sel.add(m.id); refreshSelection(); toolDone(); }).catch((err) => { console.error(err); toast('Could not place the stamp: ' + err.message, 'error'); });
       }
       break;
   }
@@ -308,7 +310,7 @@ function finishDraft(fromToolChange) {
     state.sketchDefaults[m.sz.shape] = deep(m.sz); store.set('sketchDefaults2', state.sketchDefaults);
     const nm = (state.sketchNext || '').trim(); if (nm) { m.name = nm; if (state.sketchAutoNum) { const used = sketchNamesUsed(doc); used.add(nm); state.sketchNext = nextName(nm, used); store.set('sketchNext', state.sketchNext); } }
   }
-  addMarkup(m);
+  addMarkup(m); noteRecentTool(m);
   state.sel.clear(); state.sel.add(m.id);
   if (!fromToolChange) toolDone();
   refreshSelection();

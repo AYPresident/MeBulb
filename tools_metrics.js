@@ -1,6 +1,6 @@
 // Generates metrics.json: advance widths (per 1000 em) of the PDF standard fonts
 // for character codes 32..255 (Latin-1) plus a few extra punctuation code points.
-const P = require('/opt/npm-tools/node_modules/pdf-lib');
+const P = require(require('./test/paths').pdfLibDir());
 const EXTRA = [8211, 8212, 8216, 8217, 8220, 8221, 8226, 8230, 8364, 8482, 8240];
 (async () => {
   const d = await P.PDFDocument.create();

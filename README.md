@@ -27,28 +27,41 @@ there open here.
 - `46-forms` form fields · `47-textedit` PDF text editing · `48-ocr` text recognition · `49-fonts` installed fonts and embedding
 - `50-tools`, `51-editops` drawing tools and editing commands
 - `60`–`69` user interface: properties, markups list, panels, menus, preferences, commands and shortcuts, layout
+- `52-print` print dialog · `53-stamps` stamp library, custom PDF stamps with fields and stamp JavaScript (sandboxed)
 - `70-pdfio` open/save/flatten, page operations · `71-pdfread` big-file reader and incremental (append-only) saves
-- `72-dialogs` dialogs · `76-host` desktop bridge · `78-session` live sessions over the Egnyte drive · `80-sample` sample drawing
+- `72-dialogs` dialogs · `73-owned` colour processing and flatten/unflatten page content
+- `74-revu` Bluebeam Revu compatibility (measurements, captions, counts, layers, viewports, importing other apps' markups)
+- `75-btx` Bluebeam tool sets (.btx) import/export, tool previews, recent tools
+- `76-host` desktop bridge · `78-session` live sessions over the Egnyte drive · `80-sample` sample drawing
+- `vendor/ocr` offline text recognition (Tesseract compiled to WebAssembly, English model) and its worker
 
 ## Building
 
-Node 18+.
+Node 20+. `npm install` fetches the build and test tools (pdf.js, pdf-lib, Playwright).
 
 ```
+npm install
+npx playwright install chromium        # once, for the tests
 node build.js                          # dist/mebulb.html (loads pdf.js and pdf-lib from jsDelivr)
 node desktop/build-desktop.js          # out/app: the desktop app folder (all engines bundled)
 node desktop/build-desktop.js --win    # dist/MeBulb-<version>-portable-win-x64.zip
 ```
 
-The desktop build needs `pdfjs-dist` and `pdf-lib` (paths at the top of `desktop/build-desktop.js`)
-and an Electron Windows zip (`ELECTRON_WIN`, defaults to `/tmp/dl/electron-win.zip`, from the
+The desktop build bundles `pdfjs-dist` and `pdf-lib` from `node_modules` (or a shared tools folder
+named by `MEBULB_TOOLS`) and needs an Electron Windows zip (`ELECTRON_WIN`, defaults to `/tmp/dl/electron-win.zip`, from the
 official Electron GitHub release).
 
 ## Tests
 
-The tests drive the built page with Playwright: `node test/flow.js`, `flow2`, `flow3`, `r4`, `label`,
-`incr` (incremental saves, fonts), and `desktop.js` (runs the Linux Electron build under
-`xvfb-run`, including a two-person live session).
+`npm test` builds the page, then runs every browser suite in turn
+(`test/run-all.js`; pass suite names to run some, e.g. `node test/run-all.js revu btx`):
+`flow`, `flow2`, `flow3`, `r4`, `r5`, `label`, `incr`, `textmark`, `revu` (Bluebeam measurements and
+counts, using sample files in `test/fixtures`), `stamps`, `btx` (tool sets) and `ocr`. The tests need
+`qpdf` and `pdftotext`/`pdftoppm` (poppler-utils). `test/desktop.js` runs the Linux Electron build under
+`xvfb-run`, including a two-person live session.
+
+GitHub Actions (`.github/workflows/ci.yml`) builds and runs the browser suites on every push and
+pull request, and keeps the web build and the test screenshots.
 
 ## Design notes
 
@@ -56,5 +69,9 @@ The tests drive the built page with Playwright: `node test/flow.js`, `flow2`, `f
   (scales, risers, layers) is a compressed JSON stream referenced from the catalog as `/MeBulbData`.
 - **Big files**: files over the threshold are read on demand (pdf.js range requests through the
   desktop bridge) and saved by appending an incremental update, so a 400 MB set saves in well under a second.
+- **Bluebeam Revu**: markups carry Revu's intent (`/IT`), measurement dictionaries, count groups and
+  rich-text captions, so Revu treats them as its own; tool sets go both ways as `.btx` files.
+- **Flatten / unflatten** keeps the markups as JSON inside the flattened drawing, so unflatten brings
+  back real, editable annotations (text boxes stay text boxes).
 - **Live sessions** write small change files into a hidden `.mebulb` folder beside the PDF; Egnyte
   syncs them and every copy merges them (newest change per markup wins).

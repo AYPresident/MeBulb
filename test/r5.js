@@ -39,6 +39,8 @@ const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) pro
   ok(await ev(() => document.querySelectorAll('.cadj').length === 8), 'colour overlay on every page, under the markups');
   // flatten page 1 markups (allow unflatten), save, reopen, unflatten
   const before = await ev(() => mebulb.activeDoc().markups.filter((m) => m.page === 0).length);
+  // a count is one annotation per counted item (Revu count groups)
+  const beforeAnn = await ev(() => mebulb.activeDoc().markups.filter((m) => m.page === 0).reduce((n, m) => n + (m.type === 'count' ? m.pts.length : 1), 0));
   await ev(() => mebulb.runCommand('doc.flatten')); await page.waitForSelector('#modal select[name=which]');
   await page.selectOption('#modal select[name=which]', 'page'); await page.click('#modal footer .btn.primary'); await page.waitForTimeout(300);
   const after = await ev(() => ({ left: mebulb.activeDoc().markups.filter((m) => m.page === 0).length, flat: mebulb.activeDoc().flat.length }));
@@ -61,7 +63,7 @@ const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) pro
   fs.writeFileSync(OUT + '/r5-unflat.pdf', Buffer.from(saved2, 'base64'));
   const pageObj = execSync(`qpdf --show-object=6 ${OUT}/r5-unflat.pdf`, { encoding: 'utf8' }); const contents = (pageObj.match(/\/Contents \[([^\]]*)\]/) || [])[1] || ''; const kinds = contents.match(/\d+ 0 R/g).map((r) => execSync(`qpdf --show-object=${r.split(' ')[0]} ${OUT}/r5-unflat.pdf`, { encoding: 'utf8' }).match(/\/MeBulb \/(\w+)/)).map((m) => (m ? m[1] : 'original'));
   const nAnn = ((pageObj.match(/\/Annots \[([^\]]*)\]/) || [])[1] || '').split(' R').length - 1;
-  ok(/No syntax or stream encoding errors/.test(execSync(`qpdf --check ${OUT}/r5-unflat.pdf 2>&1 || true`, { encoding: 'utf8' })) && !kinds.includes('Flat') && nAnn === before, `after unflatten and save: page content ${kinds.join('+')}, ${nAnn} annotations`);
+  ok(/No syntax or stream encoding errors/.test(execSync(`qpdf --check ${OUT}/r5-unflat.pdf 2>&1 || true`, { encoding: 'utf8' })) && !kinds.includes('Flat') && nAnn === beforeAnn, `after unflatten and save: page content ${kinds.join('+')}, ${nAnn} annotations (expected ${beforeAnn})`);
   // print dialog
   await ev(() => mebulb.runCommand('file.print')); await page.waitForSelector('#pp-canvas'); await page.waitForTimeout(900);
   await page.selectOption('#modal select[name=paper]', 'A3'); await page.waitForTimeout(700);

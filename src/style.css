@@ -185,16 +185,37 @@ body:not(.left-open) #left, body:not(.right-open) #right { visibility: hidden; }
 .layer-row input.lr-name:hover, .layer-row input.lr-name:focus { border-color: var(--line-2); background: var(--surface); }
 .lr-n { font: 500 11px var(--mono); color: var(--faint); min-width: 22px; text-align: right; }
 .lr-act { display: flex; align-items: center; gap: 3px; font-size: 11px; color: var(--muted); }
-.tset { border-bottom: 1px solid var(--line); padding-bottom: 6px; }
-.tset-head { display: flex; align-items: center; gap: 4px; padding: 10px 8px 4px 10px; }
-.tset-head input { flex: 1; min-width: 0; border: 1px solid transparent; background: none; font: 600 12px/1.2 var(--cond); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: 4px; border-radius: 4px; }
-.tset-head input:focus, .tset-head input:hover { border-color: var(--line-2); background: var(--surface); }
-.titem { display: flex; align-items: center; gap: 9px; padding: 6px 8px 6px 12px; margin: 0 4px; border-radius: 6px; cursor: pointer; }
+.ts-bar { display: flex; align-items: center; gap: 6px; padding: 8px 8px 6px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); z-index: 2; }
+.ts-bar .grow { flex: 1; }
+.ts-placing { display: flex; gap: 6px; align-items: center; margin: 6px 8px; padding: 6px 8px; border-radius: 6px; background: var(--accent-2); font-size: 12px; }
+.ts-placing .ic { width: 16px; height: 16px; flex: none; }
+.tset { border-bottom: 1px solid var(--line); }
+.tset.drop-in { outline: 2px dashed var(--accent); outline-offset: -2px; }
+.tset-head { display: flex; align-items: center; gap: 4px; padding: 6px 6px 6px 4px; user-select: none; }
+.tset-head .ts-tog .ic { width: 14px; height: 14px; }
+.ts-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 12px/1.2 var(--cond); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 4px 2px; cursor: default; }
+.ts-rename { flex: 1; min-width: 0; font: 600 12px/1.2 var(--cond); letter-spacing: .1em; text-transform: uppercase; padding: 3px 4px; border: 1px solid var(--line-2); border-radius: 4px; background: var(--surface); color: var(--ink); }
+.ts-n { font-size: 11px; color: var(--faint); min-width: 14px; text-align: right; }
+.ts-tag { font: 600 9px/1 var(--cond); letter-spacing: .08em; color: var(--faint); border: 1px solid var(--line-2); border-radius: 3px; padding: 2px 3px; }
+.tbody { padding: 0 6px 8px; }
+.tbody.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 4px; }
+.titem { position: relative; display: flex; align-items: center; gap: 9px; padding: 4px 6px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
 .titem:hover { background: var(--panel-2); }
-.ti-ic .ic { width: 20px; height: 20px; }
+.titem:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+.titem.dragging { opacity: .4; }
+.titem.drop-before { box-shadow: inset 3px 0 0 var(--accent); }
+.tbody.list .titem.drop-before { box-shadow: inset 0 3px 0 var(--accent); }
+.ti-pv { flex: none; width: 34px; height: 26px; display: grid; place-items: center; background: var(--paper, #fff); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.ti-pv svg { width: 100%; height: 100%; display: block; }
+.ti-pv .ic { width: 18px; height: 18px; }
 .ti-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ti-kind { font-size: 11px; color: var(--faint); }
-.ti-x { opacity: 0; } .titem:hover .ti-x, .ti-x:focus { opacity: 1; }
+.ti-mode { position: absolute; top: 2px; right: 2px; font: 700 9px/1 var(--cond); color: #fff; background: var(--accent); border-radius: 3px; padding: 2px 3px; }
+.tbody.grid .titem { flex-direction: column; gap: 3px; padding: 5px 3px 4px; text-align: center; }
+.tbody.grid .ti-pv { width: 100%; height: 40px; }
+.tbody.grid .ti-name { font-size: 11px; line-height: 1.2; width: 100%; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.tbody.grid .ti-kind { display: none; }
+#viewer[data-place="1"] { cursor: copy; }
 
 
 /* ---- document tabs + viewer + navigation bar ---- */

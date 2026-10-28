@@ -1,5 +1,5 @@
 const { launch } = require('./harness');
-const P = require('/opt/npm-tools/node_modules/pdf-lib');
+const P = require(require('./paths').pdfLibDir());
 (async () => {
   const pdf = await P.PDFDocument.create(); const f = await pdf.embedFont(P.StandardFonts.Helvetica);
   for (let i = 0; i < 40; i++) { const p = pdf.addPage([2592, 1728]); p.drawText(`SHEET ${i + 1}`, { x: 200, y: 1500, size: 80, font: f }); for (let k = 0; k < 200; k++) p.drawLine({ start: { x: 100 + k * 12, y: 100 }, end: { x: 100 + k * 12, y: 1600 }, thickness: 0.3 }); }

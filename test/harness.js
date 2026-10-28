@@ -1,8 +1,8 @@
 // Shared Playwright harness: serves the built page and maps CDN URLs to local copies.
-const { chromium } = require('/opt/npm-tools/node_modules/playwright');
+const P = require('./paths'); const { chromium } = P.playwright();
 const fs = require('fs'); const path = require('path');
-const PDFJS_DIR = '/opt/npm-tools/node_modules/pdfjs-dist/build';
-const PDFLIB = '/opt/npm-tools/node_modules/pdf-lib/dist/pdf-lib.min.js';
+const PDFJS_DIR = path.join(P.pdfjsDir(), 'build');
+const PDFLIB = path.join(P.pdfLibDir(), 'dist/pdf-lib.min.js');
 async function launch(opts = {}) {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: opts.viewport || { width: 1440, height: 900 }, deviceScaleFactor: 1, colorScheme: opts.dark ? 'dark' : 'light' });

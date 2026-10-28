@@ -68,14 +68,14 @@ async function openSource(name, src, opts = {}) {
     if ((!R && src.size < 300 * 1048576) || (data && (data.markups || []).some((m) => m.type === 'textedit' && m.applied))) {
       // edits baked into the page content (or a file our reader cannot follow): clean copy in memory
       const ext = await extractPlanmark(await src.all()).catch((e) => { console.warn(e); return null; });
-      if (ext) { doc.src = new MemSource(ext.bytes); data = ext.data; doc.diskMatches = false; }
+      if (ext) { doc.src = new MemSource(ext.bytes); data = ext.data; doc.diskMatches = false; doc.cleanCopy = true; }
     }
     if (data) { doc.markups = data.markups || []; doc.scales = data.scales || {}; doc.layers = data.layers || []; doc.links = data.links || {}; doc.viewports = data.viewports || {}; doc.align = data.align || null; doc.tomb = data.tomb || null; doc.colorAdj = data.colorAdj || null; doc.ownSig = data.ownSig || {}; doc.vpSig = data.vpSig || {}; doc.assets = data.assets || {}; await ensureAssetImages(doc).catch(() => {}); }
     doc.base = { src: doc.src, appends: [] }; doc.reader = doc.src === src ? R : await openReader(doc.src); doc.viewReader = doc.reader;
     await loadPdfInto(doc);
     if (data && data.ownSig) await stripOwnedFromView(doc, data.ownSig);
     // markups from Revu, Acrobat and other apps become editable MeBulb markups
-    try { const imp = await importAnnotations(doc, data); if (imp) { doc.hide = imp.hide; doc.imported = imp.imported; if (imp.removed.length) { const gone = new Set(imp.removed.map((m) => m.id)); doc.markups = doc.markups.filter((m) => !gone.has(m.id)); } doc.markups.push(...imp.markups); doc.importNote = { added: imp.markups.length, removed: imp.removed.length }; doc._hidden = new Map(); } } catch (e) { console.warn('import of existing markups failed', e); }
+    try { const imp = await importAnnotations(doc, data); if (imp) { doc.hide = imp.hide; doc.imported = imp.imported; if (imp.removed.length && !doc.cleanCopy) { const gone = new Set(imp.removed.map((m) => m.id)); doc.markups = doc.markups.filter((m) => !gone.has(m.id)); } doc.markups.push(...imp.markups); doc.importNote = { added: imp.markups.length, removed: doc.cleanCopy ? 0 : imp.removed.length }; doc._hidden = new Map(); } } catch (e) { console.warn('import of existing markups failed', e); }
   } catch (e) {
     console.error(e); if (e && e.name === 'PasswordException') return null;
     toast(`Could not open ${name}: ${e.message || e}`, 'error'); return null;
@@ -86,6 +86,9 @@ async function openSource(name, src, opts = {}) {
 }
 function openBytes(name, bytes, opts = {}) { return openSource(name, new MemSource(bytes), { ...opts }).then((d) => { if (d) d.diskMatches = false; return d; }); }
 async function openFiles(files) {
+  files = [...files];
+  const btx = files.filter((f) => /\.btx$/i.test(f.name)); if (btx.length) { await importBtxFiles(btx); files = files.filter((f) => !btx.includes(f)); }
+  const brx = files.filter((f) => /\.brx$/i.test(f.name)); if (brx.length) { await importStampFiles(brx); files = files.filter((f) => !brx.includes(f)); }
   for (const f of files) {
     const isPdf = /\.pdf$/i.test(f.name) || f.type === 'application/pdf'; if (!isPdf) { toast(`${f.name} is not a PDF`, 'error'); continue; }
     const H = HOST(); const p = H && H.pathForFile ? H.pathForFile(f) : ''; if (p) { await openPath(p); continue; }
@@ -258,7 +261,9 @@ async function annotsForPage(pdfDoc, fonts, imgCache, doc, i, pageRef, ms) {
     if (sub === 'Ink') A.InkList = [pdfPts.flat(), ...((m.ext && m.ext.extraInk) || []).map((st) => st.map((p) => applyT(M, p)).flat())];
     if (QUAD_TYPES.has(m.type)) { if (m.type === 'strikeout' && s.variant === 'under') A.Subtype = 'Underline'; const q = []; for (let k = 0; k + 3 < pdfPts.length; k += 4) { const [tl, tr, br, bl] = pdfPts.slice(k, k + 4); q.push(...tl, ...tr, ...bl, ...br); } A.QuadPoints = q; }
     if (sub === 'FreeText') {
-      A.DA = PDFString.of(`/${FONT_FAMILIES[famOf(s.font)].da} ${num(s.fontSize || 12, 2)} Tf ${(hexToRgb(s.fontColor || s.stroke) || [0, 0, 0]).map((v) => num(v / 255, 3)).join(' ')} rg`);
+      // the border colour goes in the DA as a stroke colour (RG), the way Acrobat and Revu read it; /C is the fill
+      const brd = s.width > 0 && s.stroke && s.stroke !== 'none' ? `${(hexToRgb(s.stroke) || [0, 0, 0]).map((v) => num(v / 255, 3)).join(' ')} RG ` : '';
+      A.DA = PDFString.of(`${brd}/${FONT_FAMILIES[famOf(s.font)].da} ${num(s.fontSize || 12, 2)} Tf ${(hexToRgb(s.fontColor || s.stroke) || [0, 0, 0]).map((v) => num(v / 255, 3)).join(' ')} rg`);
       A.RC = xmlAsciiHex(rtXhtml(m)); A.DS = PDFString.of(`font: ${cssFontName(s.font)} ${num(s.fontSize || 12, 2)}pt; text-align:${s.align || 'left'}; margin:0pt; line-height:${num((s.fontSize || 12) * 1.15, 2)}pt; color:${cssColor(s.fontColor || s.stroke)}`);
     }
     if (sub === 'Text') A.Name = 'Comment';

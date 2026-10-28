@@ -6,7 +6,7 @@
 'use strict';
 const fs = require('fs'); const path = require('path'); const { execSync } = require('child_process');
 const ROOT = path.join(__dirname, '..'); const OUT = path.join(ROOT, 'out'); const APP = path.join(OUT, 'app'); const WEB = path.join(APP, 'web');
-const PDFJS = '/opt/npm-tools/node_modules/pdfjs-dist'; const PDFLIB = '/opt/npm-tools/node_modules/pdf-lib/dist/pdf-lib.min.js';
+const TP = require('../test/paths'); const PDFJS = TP.pdfjsDir(); const PDFLIB = path.join(TP.pdfLibDir(), 'dist/pdf-lib.min.js');
 const ELECTRON_WIN = process.env.ELECTRON_WIN || '/tmp/dl/electron-win.zip'; const ELECTRON_LINUX = process.env.ELECTRON_LINUX || '/tmp/dl/linux';
 const VERSION = require('./package.json').version;
 const rm = (p) => fs.rmSync(p, { recursive: true, force: true });
@@ -25,7 +25,7 @@ for (const d of ['cmaps', 'standard_fonts', 'wasm', 'iccs']) if (fs.existsSync(p
 fs.copyFileSync(path.join(PDFJS, 'LICENSE'), path.join(WEB, 'pdfjs/LICENSE'));
 cp(path.join(ROOT, 'vendor/ocr'), path.join(WEB, 'ocr'));
 fs.mkdirSync(path.join(WEB, 'vendor'), { recursive: true }); fs.copyFileSync(PDFLIB, path.join(WEB, 'vendor/pdf-lib.min.js'));
-fs.copyFileSync('/opt/npm-tools/node_modules/pdf-lib/LICENSE.md', path.join(WEB, 'vendor/pdf-lib-LICENSE.md'));
+fs.copyFileSync(path.join(TP.pdfLibDir(), 'LICENSE.md'), path.join(WEB, 'vendor/pdf-lib-LICENSE.md'));
 // 3. shell
 for (const f of ['main.js', 'preload.js', 'package.json']) fs.copyFileSync(path.join(__dirname, f), path.join(APP, f));
 fs.copyFileSync(path.join(__dirname, 'assets/icon.png'), path.join(APP, 'icon.png'));

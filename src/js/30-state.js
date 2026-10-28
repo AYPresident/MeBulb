@@ -36,6 +36,7 @@ const state = {
   sel: new Set(), clipboard: null,
   draft: null, editing: null, countId: null,
   toolsets: migrateToolsets(store.get('toolsets', null)) || deep(DEFAULT_TOOLSETS),
+  recentTools: store.get('recentTools', []), placeItem: null,
   stampText: 'APPROVED', stampId: store.get('stampId', 'txt:APPROVED'), volDepth: null, units: _units,
   leftTab: 'pages', rightTab: 'props', leftOpen: true, rightOpen: true, listOpen: false,
   reuse: store.get('reuse', false), snapMarkup: store.get('snapMarkup', true), snapContent: store.get('snapContent', true), snapGrid: store.get('snapGrid', false), showGrid: store.get('showGrid', false), gridSize: store.get('gridSize2', _metric ? 5 / 25.4 : 0.25),

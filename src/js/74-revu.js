@@ -129,7 +129,8 @@ async function countAnnots(pdfDoc, fonts, imgCache, doc, i, pageRef, m, base) {
 // ----- reading other apps' markups -----------------------------------------------------------------------
 // returns { markups, hide: Map(page -> Set(refKey)), imported: Set(refKey) }
 async function importAnnotations(doc, payload) {
-  const R = doc.viewReader; if (!R) return null; const P = await R.pages(); const out = []; const hide = new Map(); const imported = new Set(); const byNm = new Map();
+  // read the file as saved, not the on-screen copy (that one has MeBulb's own content stripped out)
+  const R = doc.reader && doc.base && doc.reader.src === doc.base.src ? doc.reader : doc.viewReader; if (!R) return null; const P = await R.pages(); const out = []; const hide = new Map(); const imported = new Set(); const byNm = new Map();
   const known = new Map(); (doc.markups || []).forEach((m) => { known.set(m.id, m); if (m.ext && m.ext.nm) known.set(m.ext.nm, m); });
   const written = new Set((payload && payload.written) || []); const seen = new Set(); const now = Date.now(); const layerByName = new Map((doc.layers || []).map((l) => [l.name, l]));
   for (let i = 0; i < P.length && i < doc.numPages; i++) {
@@ -206,7 +207,7 @@ async function toMarkup(R, d, ref, i, T, layerByName, doc) {
     }
     case 'Ink': { const ink = L('InkList'); const strokes = ink instanceof PDFArray ? ink.asArray().map((a) => pairs((a instanceof PDFArray ? a : PDFArray.withContext(R.ctx)).asArray().map(nOf))) : []; m.pts = strokes[0] || []; m.type = /highlight/i.test(m.subject) || (ca < 0.9 && w >= 6) ? 'highlight' : 'pen'; if (m.type === 'highlight') { style.blend = 'multiply'; } m.comment = contents; if (strokes.length > 1) m.ext.extraInk = strokes.slice(1); break; }
     case 'FreeText': {
-      m.type = it === 'FreeTextCallout' ? 'callout' : 'text'; const ft = freeTextStyle(d); Object.assign(style, ft.style); style.width = w; style.stroke = ft.border || stroke; style.fill = pdfRgbHex(L('C')) || 'none'; style.fillOpacity = L('FillOpacity') ? nOf(L('FillOpacity')) : 1;
+      m.type = it === 'FreeTextCallout' ? 'callout' : 'text'; const ft = freeTextStyle(d); Object.assign(style, ft.style); style.width = w; style.stroke = ft.border || ft.style.fontColor || stroke; style.fill = pdfRgbHex(L('C')) || 'none'; style.fillOpacity = L('FillOpacity') ? nOf(L('FillOpacity')) : 1;
       const box = [tp(inner[0], inner[3]), tp(inner[2], inner[1])];
       if (m.type === 'callout') { const cl = nums('CL') || []; const tip = cl.length >= 2 ? tp(cl[0], cl[1]) : box[0]; m.pts = [tip, ...box]; style.arrowEnd = LE_FROM_PDF[leNames[0]] || 'open'; } else m.pts = box;
       m.text = contents; const runs = parseRC(pdfText(g('RC')), style); if (runs) setRuns(m, runs); break;

@@ -1,5 +1,5 @@
 const { launch } = require('./harness');
-const P = require('/opt/npm-tools/node_modules/pdf-lib'); const fs = require('fs');
+const P = require(require('./paths').pdfLibDir()); const fs = require('fs');
 (async () => {
   // build a test PDF: page1 rotated 90, page2 offset mediabox
   const pdf = await P.PDFDocument.create(); const f = await pdf.embedFont(P.StandardFonts.HelveticaBold);
