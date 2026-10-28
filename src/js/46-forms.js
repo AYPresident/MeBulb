@@ -13,7 +13,7 @@ async function loadFields(doc) {
     });
   }
   // the fields are drawn as live inputs; with storage-mode rendering keep their widgets off the canvas
-  if (doc.hasOwnAnnots) Object.values(doc.fields).flat().forEach((f) => doc.pdf.annotationStorage.setValue(f.id, { noView: true }));
+  Object.values(doc.fields).flat().forEach((f) => doc.pdf.annotationStorage.setValue(f.id, { noView: true }));
   doc.pageEls && doc.pageEls.forEach((el) => { el._scale = 0; }); scheduleRender(); renderFormLayers();
   const n = Object.values(doc.fields).reduce((s, l) => s + l.length, 0); if (n) toast(`This PDF has ${n} form field${n === 1 ? '' : 's'}. Use Select and click a field to fill it in.`);
 }

@@ -1,0 +1,5491 @@
+%PDF-1.7
+%¿÷¢þ
+%QDF-1.0
+
+%% Original object ID: 2 0
+1 0 obj
+<<
+  /OCProperties 3 0 R
+  /Pages 4 0 R
+  /Type /Catalog
+  /Version /1.7
+>>
+endobj
+
+%% Original object ID: 1 0
+2 0 obj
+<<
+  /Author (paul.solin)
+  /CreationDate (D:20210420201319-06'00')
+  /Creator (Bluebeam Revu x64)
+  /ModDate (D:20210420201730-06'00')
+  /Producer (Bluebeam PDF Library 20)
+>>
+endobj
+
+%% Original object ID: 11 0
+3 0 obj
+<<
+  /D 5 0 R
+  /OCGs [
+    6 0 R
+    7 0 R
+  ]
+>>
+endobj
+
+%% Original object ID: 3 0
+4 0 obj
+<<
+  /Count 1
+  /Kids [
+    8 0 R
+  ]
+  /Type /Pages
+>>
+endobj
+
+%% Original object ID: 10 0
+5 0 obj
+<<
+  /Order [
+    6 0 R
+    7 0 R
+  ]
+>>
+endobj
+
+%% Original object ID: 12 0
+6 0 obj
+<<
+  /Name (Test Layer 1)
+  /Type /OCG
+  /Usage 9 0 R
+>>
+endobj
+
+%% Original object ID: 84 0
+7 0 obj
+<<
+  /Name (Test Layer 2)
+  /Type /OCG
+>>
+endobj
+
+%% Original object ID: 4 0
+8 0 obj
+<<
+  /Count 1
+  /Kids [
+    10 0 R
+  ]
+  /Parent 4 0 R
+  /Type /Pages
+>>
+endobj
+
+%% Original object ID: 85 0
+9 0 obj
+<<
+>>
+endobj
+
+%% Page 1
+%% Original object ID: 5 0
+10 0 obj
+<<
+  /Annots 11 0 R
+  /BSISpaces 12 0 R
+  /MediaBox [
+    0
+    0
+    612
+    792
+  ]
+  /Parent 8 0 R
+  /Type /Page
+  /VP 13 0 R
+>>
+endobj
+
+%% Original object ID: 7 0
+11 0 obj
+[
+  14 0 R
+  15 0 R
+  16 0 R
+  17 0 R
+  18 0 R
+  19 0 R
+  20 0 R
+  21 0 R
+  22 0 R
+  23 0 R
+  24 0 R
+  25 0 R
+  26 0 R
+  27 0 R
+  28 0 R
+  29 0 R
+  30 0 R
+  31 0 R
+  32 0 R
+  33 0 R
+  34 0 R
+  35 0 R
+  36 0 R
+  37 0 R
+  38 0 R
+  39 0 R
+]
+endobj
+
+%% Original object ID: 82 0
+12 0 obj
+[
+  40 0 R
+]
+endobj
+
+%% Original object ID: 94 0
+13 0 obj
+[
+  41 0 R
+]
+endobj
+
+%% Original object ID: 6 0
+14 0 obj
+<<
+  /AP <<
+    /N 42 0 R
+  >>
+  /BBMeasure <<
+    /A [
+      <<
+        /C 1
+        /D 100
+        /FD true
+        /SS ()
+        /Type /NumberFormat
+        /U (sf)
+      >>
+    ]
+    /D [
+      <<
+        /C 1
+        /D 4
+        /F /F
+        /FD true
+        /PS ()
+        /SS (-)
+        /Type /NumberFormat
+        /U (')
+      >>
+      <<
+        /C 12
+        /D 4
+        /F /F
+        /FD true
+        /PS ()
+        /SS ()
+        /Type /NumberFormat
+        /U (")
+      >>
+    ]
+    /R (0.125 in = 1 ft' in")
+    /Subtype /RL
+    /T [
+      <<
+        /C 1
+        /D 100
+        /FD true
+        /PS ()
+        /SS ()
+        /Type /NumberFormat
+        /U <b0>
+      >>
+    ]
+    /TargetUnitConversion 0.001157407
+    /Type /Measure
+    /V [
+      <<
+        /C 1
+        /D 100
+        /FD true
+        /SS ()
+        /Type /NumberFormat
+        /U (cu ft)
+      >>
+    ]
+    /X [
+      <<
+        /C 0.1111111
+        /D 4
+        /F /F
+        /FD true
+        /SS ()
+        /Type /NumberFormat
+        /U (')
+      >>
+    ]
+  >>
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0043006800650063006b0020004d00610072006b000d00310035>
+  /CountStyle /Checkmark
+  /CreationDate (D:20210420201337-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /GroupNesting [
+    (Count Measurement)
+    /NUZGAFWLSHXPQNLR
+    /IFHTBFCETOUEHHAT
+    /ATZYXQFSBTTDTWHQ
+    /XJNPNWDAEQRQEYSL
+    /GGLRGXNIXUXFSCPV
+    /PBJFFGQLYJSXRODG
+    /JTNCITIXKBQQHAYH
+    /SFFZTSBLOZZTFOWJ
+    /XOVJSUOKKQOJRLHW
+    /GOILJNPHNDKEUCFP
+    /ZRANYUOCZWREEAPN
+    /CSKNKFDRHGGOTTXW
+    /PWNGEUNKBUHDTVUK
+    /FQTONUNMFHDFPIID
+    /BKIMJSKVYKVYOHCX
+  ]
+  /IC [
+    1
+    0
+    0
+  ]
+  /IT /PolygonCount
+  /Label (Check Mark)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (NUZGAFWLSHXPQNLR)
+  /NumCounts 15
+  /OC 6 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Check Mark</p><p>15</p></body>)
+  /Rect [
+    62.77625
+    696.3741
+    89.77625
+    718.8493
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    67.27625
+    707.428
+    69.31432
+    709.4661
+    73.83235
+    704.9435
+    83.23366
+    714.3493
+    85.27625
+    712.3157
+    73.8378
+    700.8741
+  ]
+>>
+endobj
+
+%% Original object ID: 13 0
+15 0 obj
+<<
+  /AP <<
+    /N 44 0 R
+  >>
+  /BBMeasure 46 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0043006800650063006b0020004d00610072006b000d00310035>
+  /CountStyle /Checkmark
+  /CreationDate (D:20210420201438-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IRT 14 0 R
+  /IT /PolygonCount
+  /Label (Check Mark)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (IFHTBFCETOUEHHAT)
+  /NumCounts 15
+  /OC 6 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Check Mark</p><p>15</p></body>)
+  /RT /Group
+  /Rect [
+    99.03197
+    694.4988
+    126.032
+    716.974
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    103.532
+    705.5527
+    105.57
+    707.5908
+    110.0881
+    703.0682
+    119.4894
+    712.474
+    121.532
+    710.4404
+    110.0935
+    698.9988
+  ]
+>>
+endobj
+
+%% Original object ID: 16 0
+16 0 obj
+<<
+  /AP <<
+    /N 47 0 R
+  >>
+  /BBMeasure 49 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0043006800650063006b0020004d00610072006b000d00310035>
+  /CountStyle /Checkmark
+  /CreationDate (D:20210420201438-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IRT 14 0 R
+  /IT /PolygonCount
+  /Label (Check Mark)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (ATZYXQFSBTTDTWHQ)
+  /NumCounts 15
+  /OC 6 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Check Mark</p><p>15</p></body>)
+  /RT /Group
+  /Rect [
+    129.6618
+    693.2486
+    156.6618
+    715.7238
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    134.1618
+    704.3025
+    136.1999
+    706.3406
+    140.7179
+    701.8181
+    150.1192
+    711.2238
+    152.1618
+    709.1902
+    140.7234
+    697.7486
+  ]
+>>
+endobj
+
+%% Original object ID: 19 0
+17 0 obj
+<<
+  /AP <<
+    /N 50 0 R
+  >>
+  /BBMeasure 52 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0043006800650063006b0020004d00610072006b000d00310035>
+  /CountStyle /Checkmark
+  /CreationDate (D:20210420201438-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IRT 14 0 R
+  /IT /PolygonCount
+  /Label (Check Mark)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (XJNPNWDAEQRQEYSL)
+  /NumCounts 15
+  /OC 6 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Check Mark</p><p>15</p></body>)
+  /RT /Group
+  /Rect [
+    165.2924
+    690.7482
+    192.2924
+    713.2234
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    169.7924
+    701.8021
+    171.8305
+    703.8401
+    176.3485
+    699.3176
+    185.7498
+    708.7234
+    187.7924
+    706.6898
+    176.354
+    695.2482
+  ]
+>>
+endobj
+
+%% Original object ID: 22 0
+18 0 obj
+<<
+  /AP <<
+    /N 53 0 R
+  >>
+  /BBMeasure 55 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0043006800650063006b0020004d00610072006b000d00310035>
+  /CountStyle /Checkmark
+  /CreationDate (D:20210420201438-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IRT 14 0 R
+  /IT /PolygonCount
+  /Label (Check Mark)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (GGLRGXNIXUXFSCPV)
+  /NumCounts 15
+  /OC 6 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Check Mark</p><p>15</p></body>)
+  /RT /Group
+  /Rect [
+    197.1725
+    690.7482
+    224.1725
+    713.2234
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    201.6725
+    701.8021
+    203.7105
+    703.8401
+    208.2286
+    699.3176
+    217.6299
+    708.7234
+    219.6725
+    706.6898
+    208.234
+    695.2482
+  ]
+>>
+endobj
+
+%% Original object ID: 25 0
+19 0 obj
+<<
+  /AP <<
+    /N 56 0 R
+  >>
+  /BBMeasure 58 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0043006800650063006b0020004d00610072006b000d00310035>
+  /CountStyle /Checkmark
+  /CreationDate (D:20210420201438-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IRT 14 0 R
+  /IT /PolygonCount
+  /Label (Check Mark)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (PBJFFGQLYJSXRODG)
+  /NumCounts 15
+  /OC 6 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Check Mark</p><p>15</p></body>)
+  /RT /Group
+  /Rect [
+    79.02881
+    670.1199
+    106.0288
+    692.5952
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    83.52881
+    681.1738
+    85.56689
+    683.2119
+    90.08492
+    678.6894
+    99.48622
+    688.0952
+    101.5288
+    686.0616
+    90.09036
+    674.6199
+  ]
+>>
+endobj
+
+%% Original object ID: 28 0
+20 0 obj
+<<
+  /AP <<
+    /N 59 0 R
+  >>
+  /BBMeasure 61 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0043006800650063006b0020004d00610072006b000d00310035>
+  /CountStyle /Checkmark
+  /CreationDate (D:20210420201438-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IRT 14 0 R
+  /IT /PolygonCount
+  /Label (Check Mark)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (JTNCITIXKBQQHAYH)
+  /NumCounts 15
+  /OC 6 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Check Mark</p><p>15</p></body>)
+  /RT /Group
+  /Rect [
+    114.0343
+    671.3701
+    141.0343
+    693.8453
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    118.5343
+    682.424
+    120.5724
+    684.4621
+    125.0904
+    679.9396
+    134.4917
+    689.3453
+    136.5343
+    687.3118
+    125.0959
+    675.8701
+  ]
+>>
+endobj
+
+%% Original object ID: 31 0
+21 0 obj
+<<
+  /AP <<
+    /N 62 0 R
+  >>
+  /BBMeasure 64 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0043006800650063006b0020004d00610072006b000d00310035>
+  /CountStyle /Checkmark
+  /CreationDate (D:20210420201438-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IRT 14 0 R
+  /IT /PolygonCount
+  /Label (Check Mark)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (SFFZTSBLOZZTFOWJ)
+  /NumCounts 15
+  /OC 6 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Check Mark</p><p>15</p></body>)
+  /RT /Group
+  /Rect [
+    144.0391
+    671.3701
+    171.0391
+    693.8453
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    148.5391
+    682.424
+    150.5771
+    684.4621
+    155.0952
+    679.9396
+    164.4965
+    689.3453
+    166.5391
+    687.3118
+    155.1006
+    675.8701
+  ]
+>>
+endobj
+
+%% Original object ID: 34 0
+22 0 obj
+<<
+  /AP <<
+    /N 65 0 R
+  >>
+  /BBMeasure 67 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0043006800650063006b0020004d00610072006b000d00310035>
+  /CountStyle /Checkmark
+  /CreationDate (D:20210420201438-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IRT 14 0 R
+  /IT /PolygonCount
+  /Label (Check Mark)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (XOVJSUOKKQOJRLHW)
+  /NumCounts 15
+  /OC 6 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Check Mark</p><p>15</p></body>)
+  /RT /Group
+  /Rect [
+    183.4203
+    671.3701
+    210.4203
+    693.8453
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    187.9203
+    682.424
+    189.9584
+    684.4621
+    194.4764
+    679.9396
+    203.8777
+    689.3453
+    205.9203
+    687.3118
+    194.4818
+    675.8701
+  ]
+>>
+endobj
+
+%% Original object ID: 37 0
+23 0 obj
+<<
+  /AP <<
+    /N 68 0 R
+  >>
+  /BBMeasure 70 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0043006800650063006b0020004d00610072006b000d00310035>
+  /CountStyle /Checkmark
+  /CreationDate (D:20210420201438-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IRT 14 0 R
+  /IT /PolygonCount
+  /Label (Check Mark)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (GOILJNPHNDKEUCFP)
+  /NumCounts 15
+  /OC 6 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Check Mark</p><p>15</p></body>)
+  /RT /Group
+  /Rect [
+    163.4171
+    653.2422
+    190.4171
+    675.7175
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    167.9171
+    664.2961
+    169.9552
+    666.3342
+    174.4732
+    661.8117
+    183.8745
+    671.2175
+    185.9171
+    669.1839
+    174.4787
+    657.7422
+  ]
+>>
+endobj
+
+%% Original object ID: 40 0
+24 0 obj
+<<
+  /AP <<
+    /N 71 0 R
+  >>
+  /BBMeasure 73 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0043006800650063006b0020004d00610072006b000d00310035>
+  /CountStyle /Checkmark
+  /CreationDate (D:20210420201438-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IRT 14 0 R
+  /IT /PolygonCount
+  /Label (Check Mark)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (ZRANYUOCZWREEAPN)
+  /NumCounts 15
+  /OC 6 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Check Mark</p><p>15</p></body>)
+  /RT /Group
+  /Rect [
+    124.661
+    651.9921
+    151.661
+    674.4673
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    129.161
+    663.046
+    131.1991
+    665.084
+    135.7171
+    660.5615
+    145.1184
+    669.9673
+    147.161
+    667.9337
+    135.7226
+    656.4921
+  ]
+>>
+endobj
+
+%% Original object ID: 43 0
+25 0 obj
+<<
+  /AP <<
+    /N 74 0 R
+  >>
+  /BBMeasure 76 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0043006800650063006b0020004d00610072006b000d00310035>
+  /CountStyle /Checkmark
+  /CreationDate (D:20210420201438-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IRT 14 0 R
+  /IT /PolygonCount
+  /Label (Check Mark)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (CSKNKFDRHGGOTTXW)
+  /NumCounts 15
+  /OC 6 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Check Mark</p><p>15</p></body>)
+  /RT /Group
+  /Rect [
+    93.40607
+    653.2422
+    120.4061
+    675.7175
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    97.90607
+    664.2961
+    99.94415
+    666.3342
+    104.4622
+    661.8117
+    113.8635
+    671.2175
+    115.9061
+    669.1839
+    104.4676
+    657.7422
+  ]
+>>
+endobj
+
+%% Original object ID: 46 0
+26 0 obj
+<<
+  /AP <<
+    /N 77 0 R
+  >>
+  /BBMeasure 79 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0043006800650063006b0020004d00610072006b000d00310035>
+  /CountStyle /Checkmark
+  /CreationDate (D:20210420201438-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IRT 14 0 R
+  /IT /PolygonCount
+  /Label (Check Mark)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (PWNGEUNKBUHDTVUK)
+  /NumCounts 15
+  /OC 6 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Check Mark</p><p>15</p></body>)
+  /RT /Group
+  /Rect [
+    106.5331
+    635.1144
+    133.5331
+    657.5897
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    111.0331
+    646.1683
+    113.0712
+    648.2064
+    117.5892
+    643.6839
+    126.9906
+    653.0897
+    129.0331
+    651.0561
+    117.5947
+    639.6144
+  ]
+>>
+endobj
+
+%% Original object ID: 49 0
+27 0 obj
+<<
+  /AP <<
+    /N 80 0 R
+  >>
+  /BBMeasure 82 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0043006800650063006b0020004d00610072006b000d00310035>
+  /CountStyle /Checkmark
+  /CreationDate (D:20210420201438-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IRT 14 0 R
+  /IT /PolygonCount
+  /Label (Check Mark)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (FQTONUNMFHDFPIID)
+  /NumCounts 15
+  /OC 6 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Check Mark</p><p>15</p></body>)
+  /RT /Group
+  /Rect [
+    144.6642
+    633.8642
+    171.6642
+    656.3394
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    149.1642
+    644.9181
+    151.2022
+    646.9562
+    155.7203
+    642.4337
+    165.1216
+    651.8394
+    167.1642
+    649.8058
+    155.7257
+    638.3642
+  ]
+>>
+endobj
+
+%% Original object ID: 52 0
+28 0 obj
+<<
+  /AP <<
+    /N 83 0 R
+  >>
+  /BBMeasure 85 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0043006800650063006b0020004d00610072006b000d00310035>
+  /CountStyle /Checkmark
+  /CreationDate (D:20210420201438-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IRT 14 0 R
+  /IT /PolygonCount
+  /Label (Check Mark)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (BKIMJSKVYKVYOHCX)
+  /NumCounts 15
+  /OC 6 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Check Mark</p><p>15</p></body>)
+  /RT /Group
+  /Rect [
+    122.1606
+    616.9865
+    149.1606
+    639.4617
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    126.6606
+    628.0404
+    128.6987
+    630.0785
+    133.2167
+    625.556
+    142.618
+    634.9617
+    144.6606
+    632.9282
+    133.2222
+    621.4865
+  ]
+>>
+endobj
+
+%% Original object ID: 67 0
+29 0 obj
+<<
+  /AP <<
+    /N 86 0 R
+  >>
+  /BBMeasure 88 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0053007100750061007200650020004d00610072006b00750070000d0031>
+  /CountStyle /Square
+  /CreationDate (D:20210420201455-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IT /PolygonCount
+  /Label (Square Markup)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (PRMJOWFQHZKUXOAJ)
+  /NumCounts 1
+  /OC 7 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Square Markup</p><p>1</p></body>)
+  /Rect [
+    184.6705
+    350.3074
+    211.6705
+    377.3074
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    189.1705
+    354.8074
+    207.1705
+    354.8074
+    207.1705
+    372.8074
+    189.1705
+    372.8074
+  ]
+>>
+endobj
+
+%% Original object ID: 76 0
+30 0 obj
+<<
+  /AP <<
+    /N 89 0 R
+  >>
+  /BBMeasure 91 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0053007100750061007200650020004d00610072006b00750070000d0031>
+  /CountStyle /Square
+  /CreationDate (D:20210420201455-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IT /PolygonCount
+  /Label (Square Markup)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (PEYVAPSODDWQTYUL)
+  /NumCounts 1
+  /OC 7 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Square Markup</p><p>1</p></body>)
+  /Rect [
+    185.2956
+    264.6689
+    212.2956
+    291.6689
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    189.7956
+    269.1689
+    207.7956
+    269.1689
+    207.7956
+    287.1689
+    189.7956
+    287.1689
+  ]
+>>
+endobj
+
+%% Original object ID: 55 0
+31 0 obj
+<<
+  /AP <<
+    /N 92 0 R
+  >>
+  /BBMeasure 94 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0053007100750061007200650020004d00610072006b00750070000d0034>
+  /CountStyle /Square
+  /CreationDate (D:20210420201455-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /GroupNesting [
+    (Count Measurement)
+    /NKJWIUBFLPJHCCTJ
+    /LVZZLWEWYONQNHXE
+    /QJITPSVFGGISMDEI
+    /BZEMDKGNFDYDSQOE
+  ]
+  /IC [
+    1
+    0
+    0
+  ]
+  /IT /PolygonCount
+  /Label (Square Markup)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (NKJWIUBFLPJHCCTJ)
+  /NumCounts 4
+  /OC 7 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Square Markup</p><p>4</p></body>)
+  /Rect [
+    73.40292
+    423.444
+    100.4029
+    450.444
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    77.90292
+    427.944
+    95.90292
+    427.944
+    95.90292
+    445.944
+    77.90292
+    445.944
+  ]
+>>
+endobj
+
+%% Original object ID: 58 0
+32 0 obj
+<<
+  /AP <<
+    /N 95 0 R
+  >>
+  /BBMeasure 97 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0053007100750061007200650020004d00610072006b00750070000d0034>
+  /CountStyle /Square
+  /CreationDate (D:20210420201455-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IRT 31 0 R
+  /IT /PolygonCount
+  /Label (Square Markup)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (LVZZLWEWYONQNHXE)
+  /NumCounts 4
+  /OC 7 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Square Markup</p><p>4</p></body>)
+  /RT /Group
+  /Rect [
+    192.1717
+    422.8189
+    219.1717
+    449.8189
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    196.6717
+    427.3189
+    214.6717
+    427.3189
+    214.6717
+    445.3189
+    196.6717
+    445.3189
+  ]
+>>
+endobj
+
+%% Original object ID: 64 0
+33 0 obj
+<<
+  /AP <<
+    /N 98 0 R
+  >>
+  /BBMeasure 100 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0053007100750061007200650020004d00610072006b00750070000d0034>
+  /CountStyle /Square
+  /CreationDate (D:20210420201455-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IRT 31 0 R
+  /IT /PolygonCount
+  /Label (Square Markup)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (QJITPSVFGGISMDEI)
+  /NumCounts 4
+  /OC 7 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Square Markup</p><p>4</p></body>)
+  /RT /Group
+  /Rect [
+    72.15273
+    349.0573
+    99.15273
+    376.0573
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    76.65273
+    353.5573
+    94.65273
+    353.5573
+    94.65273
+    371.5573
+    76.65273
+    371.5573
+  ]
+>>
+endobj
+
+%% Original object ID: 73 0
+34 0 obj
+<<
+  /AP <<
+    /N 101 0 R
+  >>
+  /BBMeasure 103 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0053007100750061007200650020004d00610072006b00750070000d0034>
+  /CountStyle /Square
+  /CreationDate (D:20210420201455-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IRT 31 0 R
+  /IT /PolygonCount
+  /Label (Square Markup)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (BZEMDKGNFDYDSQOE)
+  /NumCounts 4
+  /OC 7 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Square Markup</p><p>4</p></body>)
+  /RT /Group
+  /Rect [
+    75.27822
+    266.5442
+    102.2782
+    293.5442
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    79.77822
+    271.0442
+    97.77822
+    271.0442
+    97.77822
+    289.0442
+    79.77822
+    289.0442
+  ]
+>>
+endobj
+
+%% Original object ID: 79 0
+35 0 obj
+<<
+  /AP <<
+    /N 104 0 R
+  >>
+  /BBMeasure 106 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0053007100750061007200650020004d00610072006b00750070000d0031>
+  /CountStyle /Square
+  /CreationDate (D:20210420201455-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IT /PolygonCount
+  /Label (Square Markup)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (XGNWBAJSTBHMNRPU)
+  /NumCounts 1
+  /OC 7 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Square Markup</p><p>1</p></body>)
+  /Rect [
+    317.1914
+    267.7944
+    344.1914
+    294.7944
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    321.6914
+    272.2944
+    339.6914
+    272.2944
+    339.6914
+    290.2944
+    321.6914
+    290.2944
+  ]
+>>
+endobj
+
+%% Original object ID: 61 0
+36 0 obj
+<<
+  /AP <<
+    /N 107 0 R
+  >>
+  /BBMeasure 109 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0053007100750061007200650020004d00610072006b00750070000d0031>
+  /CountStyle /Square
+  /CreationDate (D:20210420201455-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IT /PolygonCount
+  /Label (Square Markup)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (HMFDWJZVDUZRVJZA)
+  /NumCounts 1
+  /OC 7 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Square Markup</p><p>1</p></body>)
+  /Rect [
+    314.691
+    420.3185
+    341.691
+    447.3185
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    319.191
+    424.8185
+    337.191
+    424.8185
+    337.191
+    442.8185
+    319.191
+    442.8185
+  ]
+>>
+endobj
+
+%% Original object ID: 70 0
+37 0 obj
+<<
+  /AP <<
+    /N 110 0 R
+  >>
+  /BBMeasure 112 0 R
+  /BS <<
+    /S /S
+    /Type /Border
+    /W 0
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Contents <feff0053007100750061007200650020004d00610072006b00750070000d0031>
+  /CountStyle /Square
+  /CreationDate (D:20210420201455-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /DepthUnit [
+    <<
+      /C 0.001157407
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IT /PolygonCount
+  /Label (Square Markup)
+  /M (D:20210420201700-06'00')
+  /MeasurementTypes 128
+  /NM (NFSKILIGKSFNWETX)
+  /NumCounts 1
+  /OC 7 0 R
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml"><p>Square Markup</p><p>1</p></body>)
+  /Rect [
+    319.6918
+    350.9325
+    346.6918
+    377.9325
+  ]
+  /Subj (Count Measurement)
+  /Subtype /Polygon
+  /T (paul.solin)
+  /Type /Annot
+  /Version 1
+  /Vertices [
+    324.1918
+    355.4325
+    342.1918
+    355.4325
+    342.1918
+    373.4325
+    324.1918
+    373.4325
+  ]
+>>
+endobj
+
+%% Original object ID: 92 0
+38 0 obj
+<<
+  /AP <<
+    /N 113 0 R
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /CreationDate (D:20210420201631-06'00')
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /M (D:20210420201631-06'00')
+  /NM (OAYHIYJXKTGLLXSK)
+  /P 10 0 R
+  /Rect [
+    47.0225
+    60.13538
+    527.4716
+    274.9175
+  ]
+  /Subj (PolyLine)
+  /Subtype /PolyLine
+  /T (paul.solin)
+  /Type /Annot
+  /Vertices [
+    52.5225
+    136.2715
+    220.0489
+    136.2715
+    276.6204
+    79.70013
+    337.2549
+    140.3347
+    414.4546
+    140.3347
+    422.5809
+    65.63538
+    521.3464
+    66.2605
+    521.9716
+    269.4175
+  ]
+>>
+endobj
+
+%% Original object ID: 97 0
+39 0 obj
+<<
+  /AP <<
+    /N 115 0 R
+  >>
+  /C [
+    1
+    0
+    0
+  ]
+  /Cap true
+  /Contents (81.2°)
+  /CreationDate (D:20210420201723-06'00')
+  /DS (font: Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000)
+  /F 4
+  /IC [
+    1
+    0
+    0
+  ]
+  /IT /PolyLineAngle
+  /Label ()
+  /M (D:20210420201723-06'00')
+  /Measure 117 0 R
+  /MeasurementTypes 1152
+  /NM (HAASTCWLVTKAJMAR)
+  /P 10 0 R
+  /RC (<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="font:Helvetica 12pt; text-align:center; line-height:13.8pt; color:#FF0000" xmlns="http://www.w3.org/1999/xhtml">81.2°</body>)
+  /Rect [
+    382.2987
+    615.8481
+    450.5844
+    664.354
+  ]
+  /Subj (Angle Measurement)
+  /Subtype /PolyLine
+  /T (paul.solin)
+  /Type /Annot
+  /Vertices [
+    392.5761
+    658.854
+    392.5761
+    621.3481
+    445.0844
+    629.4744
+  ]
+>>
+endobj
+
+%% Original object ID: 83 0
+40 0 obj
+<<
+  /C [
+    0
+    0
+    1
+  ]
+  /CA 0.1
+  /Kids [
+    118 0 R
+    119 0 R
+  ]
+  /Path [
+    [
+      44.39621
+      470.6993
+    ]
+    [
+      44.39621
+      217.5344
+    ]
+    [
+      398.8271
+      217.5344
+    ]
+    [
+      398.8271
+      470.6993
+    ]
+  ]
+  /Title (Level 1)
+  /Type /Space
+>>
+endobj
+
+%% Original object ID: 95 0
+41 0 obj
+<<
+  /BBox [
+    0
+    0
+    612
+    792
+  ]
+  /Measure 120 0 R
+  /NM (BXMWULMFOSYTRCPC)
+  /Type /Viewport
+>>
+endobj
+
+%% Original object ID: 8 0
+42 0 obj
+<<
+  /BBox [
+    62.77625
+    696.3741
+    89.77625
+    718.8493
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -62.77625
+    -696.3741
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 43 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 67.27625 707.428 m 69.31432 709.4661 l 73.83235 704.9435 l 83.23366 714.3493 l 85.27625 712.3157 l 73.8378 700.8741 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+43 0 obj
+144
+endobj
+
+%% Original object ID: 14 0
+44 0 obj
+<<
+  /BBox [
+    99.03197
+    694.4988
+    126.032
+    716.974
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -99.03197
+    -694.4988
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 45 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 103.532 705.5527 m 105.57 707.5908 l 110.0881 703.0682 l 119.4894 712.474 l 121.532 710.4404 l 110.0935 698.9988 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+45 0 obj
+141
+endobj
+
+%% Original object ID: 15 0
+46 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 17 0
+47 0 obj
+<<
+  /BBox [
+    129.6618
+    693.2486
+    156.6618
+    715.7238
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -129.6618
+    -693.2486
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 48 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 134.1618 704.3025 m 136.1999 706.3406 l 140.7179 701.8181 l 150.1192 711.2238 l 152.1618 709.1902 l 140.7234 697.7486 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+48 0 obj
+146
+endobj
+
+%% Original object ID: 18 0
+49 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 20 0
+50 0 obj
+<<
+  /BBox [
+    165.2924
+    690.7482
+    192.2924
+    713.2234
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -165.2924
+    -690.7482
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 51 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 169.7924 701.8021 m 171.8305 703.8401 l 176.3485 699.3176 l 185.7498 708.7234 l 187.7924 706.6898 l 176.354 695.2482 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+51 0 obj
+145
+endobj
+
+%% Original object ID: 21 0
+52 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 23 0
+53 0 obj
+<<
+  /BBox [
+    197.1725
+    690.7482
+    224.1725
+    713.2234
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -197.1725
+    -690.7482
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 54 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 201.6725 701.8021 m 203.7105 703.8401 l 208.2286 699.3176 l 217.6299 708.7234 l 219.6725 706.6898 l 208.234 695.2482 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+54 0 obj
+145
+endobj
+
+%% Original object ID: 24 0
+55 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 26 0
+56 0 obj
+<<
+  /BBox [
+    79.02881
+    670.1199
+    106.0288
+    692.5952
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -79.02881
+    -670.1199
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 57 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 83.52881 681.1738 m 85.56689 683.2119 l 90.08492 678.6894 l 99.48622 688.0952 l 101.5288 686.0616 l 90.09036 674.6199 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+57 0 obj
+146
+endobj
+
+%% Original object ID: 27 0
+58 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 29 0
+59 0 obj
+<<
+  /BBox [
+    114.0343
+    671.3701
+    141.0343
+    693.8453
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -114.0343
+    -671.3701
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 60 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 118.5343 682.424 m 120.5724 684.4621 l 125.0904 679.9396 l 134.4917 689.3453 l 136.5343 687.3118 l 125.0959 675.8701 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+60 0 obj
+145
+endobj
+
+%% Original object ID: 30 0
+61 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 32 0
+62 0 obj
+<<
+  /BBox [
+    144.0391
+    671.3701
+    171.0391
+    693.8453
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -144.0391
+    -671.3701
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 63 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 148.5391 682.424 m 150.5771 684.4621 l 155.0952 679.9396 l 164.4965 689.3453 l 166.5391 687.3118 l 155.1006 675.8701 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+63 0 obj
+145
+endobj
+
+%% Original object ID: 33 0
+64 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 35 0
+65 0 obj
+<<
+  /BBox [
+    183.4203
+    671.3701
+    210.4203
+    693.8453
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -183.4203
+    -671.3701
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 66 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 187.9203 682.424 m 189.9584 684.4621 l 194.4764 679.9396 l 203.8777 689.3453 l 205.9203 687.3118 l 194.4818 675.8701 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+66 0 obj
+145
+endobj
+
+%% Original object ID: 36 0
+67 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 38 0
+68 0 obj
+<<
+  /BBox [
+    163.4171
+    653.2422
+    190.4171
+    675.7175
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -163.4171
+    -653.2422
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 69 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 167.9171 664.2961 m 169.9552 666.3342 l 174.4732 661.8117 l 183.8745 671.2175 l 185.9171 669.1839 l 174.4787 657.7422 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+69 0 obj
+146
+endobj
+
+%% Original object ID: 39 0
+70 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 41 0
+71 0 obj
+<<
+  /BBox [
+    124.661
+    651.9921
+    151.661
+    674.4673
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -124.661
+    -651.9921
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 72 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 129.161 663.046 m 131.1991 665.084 l 135.7171 660.5615 l 145.1184 669.9673 l 147.161 667.9337 l 135.7226 656.4921 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+72 0 obj
+142
+endobj
+
+%% Original object ID: 42 0
+73 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 44 0
+74 0 obj
+<<
+  /BBox [
+    93.40607
+    653.2422
+    120.4061
+    675.7175
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -93.40607
+    -653.2422
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 75 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 97.90607 664.2961 m 99.94415 666.3342 l 104.4622 661.8117 l 113.8635 671.2175 l 115.9061 669.1839 l 104.4676 657.7422 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+75 0 obj
+146
+endobj
+
+%% Original object ID: 45 0
+76 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 47 0
+77 0 obj
+<<
+  /BBox [
+    106.5331
+    635.1144
+    133.5331
+    657.5897
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -106.5331
+    -635.1144
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 78 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 111.0331 646.1683 m 113.0712 648.2064 l 117.5892 643.6839 l 126.9906 653.0897 l 129.0331 651.0561 l 117.5947 639.6144 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+78 0 obj
+146
+endobj
+
+%% Original object ID: 48 0
+79 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 50 0
+80 0 obj
+<<
+  /BBox [
+    144.6642
+    633.8642
+    171.6642
+    656.3394
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -144.6642
+    -633.8642
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 81 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 149.1642 644.9181 m 151.2022 646.9562 l 155.7203 642.4337 l 165.1216 651.8394 l 167.1642 649.8058 l 155.7257 638.3642 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+81 0 obj
+146
+endobj
+
+%% Original object ID: 51 0
+82 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 53 0
+83 0 obj
+<<
+  /BBox [
+    122.1606
+    616.9865
+    149.1606
+    639.4617
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -122.1606
+    -616.9865
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 84 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 126.6606 628.0404 m 128.6987 630.0785 l 133.2167 625.556 l 142.618 634.9617 l 144.6606 632.9282 l 133.2222 621.4865 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+84 0 obj
+144
+endobj
+
+%% Original object ID: 54 0
+85 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 68 0
+86 0 obj
+<<
+  /BBox [
+    184.6705
+    350.3074
+    211.6705
+    377.3074
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -184.6705
+    -350.3074
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 87 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 189.1705 354.8074 m 207.1705 354.8074 l 207.1705 372.8074 l 189.1705 372.8074 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+87 0 obj
+106
+endobj
+
+%% Original object ID: 69 0
+88 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 77 0
+89 0 obj
+<<
+  /BBox [
+    185.2956
+    264.6689
+    212.2956
+    291.6689
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -185.2956
+    -264.6689
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 90 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 189.7956 269.1689 m 207.7956 269.1689 l 207.7956 287.1689 l 189.7956 287.1689 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+90 0 obj
+106
+endobj
+
+%% Original object ID: 78 0
+91 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 56 0
+92 0 obj
+<<
+  /BBox [
+    73.40292
+    423.444
+    100.4029
+    450.444
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -73.40292
+    -423.444
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 93 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 77.90292 427.944 m 95.90292 427.944 l 95.90292 445.944 l 77.90292 445.944 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+93 0 obj
+102
+endobj
+
+%% Original object ID: 57 0
+94 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 59 0
+95 0 obj
+<<
+  /BBox [
+    192.1717
+    422.8189
+    219.1717
+    449.8189
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -192.1717
+    -422.8189
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 96 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 196.6717 427.3189 m 214.6717 427.3189 l 214.6717 445.3189 l 196.6717 445.3189 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+96 0 obj
+106
+endobj
+
+%% Original object ID: 60 0
+97 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 65 0
+98 0 obj
+<<
+  /BBox [
+    72.15273
+    349.0573
+    99.15273
+    376.0573
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -72.15273
+    -349.0573
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 99 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 76.65273 353.5573 m 94.65273 353.5573 l 94.65273 371.5573 l 76.65273 371.5573 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+99 0 obj
+106
+endobj
+
+%% Original object ID: 66 0
+100 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 74 0
+101 0 obj
+<<
+  /BBox [
+    75.27822
+    266.5442
+    102.2782
+    293.5442
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -75.27822
+    -266.5442
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 102 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 79.77822 271.0442 m 97.77822 271.0442 l 97.77822 289.0442 l 79.77822 289.0442 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+102 0 obj
+106
+endobj
+
+%% Original object ID: 75 0
+103 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 80 0
+104 0 obj
+<<
+  /BBox [
+    317.1914
+    267.7944
+    344.1914
+    294.7944
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -317.1914
+    -267.7944
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 105 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 321.6914 272.2944 m 339.6914 272.2944 l 339.6914 290.2944 l 321.6914 290.2944 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+105 0 obj
+106
+endobj
+
+%% Original object ID: 81 0
+106 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 62 0
+107 0 obj
+<<
+  /BBox [
+    314.691
+    420.3185
+    341.691
+    447.3185
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -314.691
+    -420.3185
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 108 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 319.191 424.8185 m 337.191 424.8185 l 337.191 442.8185 l 319.191 442.8185 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+108 0 obj
+102
+endobj
+
+%% Original object ID: 63 0
+109 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 71 0
+110 0 obj
+<<
+  /BBox [
+    319.6918
+    350.9325
+    346.6918
+    377.9325
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -319.6918
+    -350.9325
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 111 0 R
+>>
+stream
+1 0 0 RG 0 w 1 0 0 rg 324.1918 355.4325 m 342.1918 355.4325 l 342.1918 373.4325 l 324.1918 373.4325 l h f 
+endstream
+endobj
+
+%QDF: ignore_newline
+111 0 obj
+106
+endobj
+
+%% Original object ID: 72 0
+112 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 93 0
+113 0 obj
+<<
+  /BBox [
+    47.0225
+    60.13538
+    527.4716
+    274.9175
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -47.02251
+    -60.13538
+  ]
+  /Resources <<
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 114 0 R
+>>
+stream
+1 0 0 RG 1 0 0 rg 1 w 52.5225 136.2715 m 220.0489 136.2715 l 276.6204 79.70013 l 337.2549 140.3347 l 414.4546 140.3347 l 422.5809 65.63538 l 521.3464 66.2605 l 521.9716 269.4175 l S 
+endstream
+endobj
+
+%QDF: ignore_newline
+114 0 obj
+182
+endobj
+
+%% Original object ID: 101 0
+115 0 obj
+<<
+  /BBox [
+    382.2987
+    615.8481
+    450.5844
+    664.354
+  ]
+  /FormType 1
+  /Matrix [
+    1
+    0
+    0
+    1
+    -382.2986
+    -615.8481
+  ]
+  /Resources <<
+    /Font <<
+      /Helv 121 0 R
+    >>
+    /ProcSet [
+      /PDF
+    ]
+  >>
+  /Subtype /Form
+  /Type /XObject
+  /Length 116 0 R
+>>
+stream
+1 0 0 RG 1 0 0 rg 1 w 392.5761 658.854 m 392.5761 621.3481 l 445.0844 629.4744 l S 392.5761 633.85 m 398.4944 633.85 404.0259 629.1088 404.931 623.2601 c S q 1 0 0 1 0 0 cm BT 1 0 0 rg /Helv 12 Tf 1 0 0 1 387.7987 634.0683 Tm (81.2\260) Tj ET Q 
+endstream
+endobj
+
+%QDF: ignore_newline
+116 0 obj
+245
+endobj
+
+%% Original object ID: 99 0
+117 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 86 0
+118 0 obj
+<<
+  /C [
+    0
+    0
+    1
+  ]
+  /CA 0.1
+  /Kids [
+    122 0 R
+    123 0 R
+  ]
+  /Parent 40 0 R
+  /Path [
+    [
+      61.89898
+      459.4475
+    ]
+    [
+      61.89898
+      240.0379
+    ]
+    [
+      262.5556
+      240.0379
+    ]
+    [
+      262.5556
+      459.4475
+    ]
+  ]
+  /Title (Area A)
+  /Type /Space
+>>
+endobj
+
+%% Original object ID: 89 0
+119 0 obj
+<<
+  /C [
+    0
+    0
+    1
+  ]
+  /CA 0.1
+  /Kids [
+    124 0 R
+    125 0 R
+  ]
+  /Parent 40 0 R
+  /Path [
+    [
+      277.558
+      456.9471
+    ]
+    [
+      277.558
+      236.9124
+    ]
+    [
+      387.5753
+      236.9124
+    ]
+    [
+      387.5753
+      456.9471
+    ]
+  ]
+  /Title (Area B)
+  /Type /Space
+>>
+endobj
+
+%% Original object ID: 96 0
+120 0 obj
+<<
+  /A [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (sf)
+    >>
+  ]
+  /D [
+    <<
+      /C 1
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS (-)
+      /Type /NumberFormat
+      /U (')
+    >>
+    <<
+      /C 12
+      /D 4
+      /F /F
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U (")
+    >>
+  ]
+  /R (0.125 in = 1 ft' in")
+  /Subtype /RL
+  /T [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /PS ()
+      /SS ()
+      /Type /NumberFormat
+      /U <b0>
+    >>
+  ]
+  /TargetUnitConversion 0.001157407
+  /Type /Measure
+  /V [
+    <<
+      /C 1
+      /D 100
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (cu ft)
+    >>
+  ]
+  /X [
+    <<
+      /C 0.1111111
+      /D 4
+      /F /F
+      /FD true
+      /SS ()
+      /Type /NumberFormat
+      /U (')
+    >>
+  ]
+>>
+endobj
+
+%% Original object ID: 100 0
+121 0 obj
+<<
+  /BaseFont /Helvetica
+  /Encoding <<
+    /Differences [
+      24
+      /breve
+      /caron
+      /circumflex
+      /dotaccent
+      /hungarumlaut
+      /ogonek
+      /ring
+      /tilde
+      39
+      /quotesingle
+      96
+      /grave
+      127
+      /.notdef
+      /bullet
+      /dagger
+      /daggerdbl
+      /ellipsis
+      /emdash
+      /endash
+      /florin
+      /fraction
+      /guilsinglleft
+      /guilsinglright
+      /minus
+      /perthousand
+      /quotedblbase
+      /quotedblleft
+      /quotedblright
+      /quoteleft
+      /quoteright
+      /quotesinglbase
+      /trademark
+      /fi
+      /fl
+      /Lslash
+      /OE
+      /Scaron
+      /Ydieresis
+      /Zcaron
+      /dotlessi
+      /lslash
+      /oe
+      /scaron
+      /zcaron
+      /.notdef
+      /Euro
+      164
+      /currency
+      166
+      /brokenbar
+      168
+      /dieresis
+      /copyright
+      /ordfeminine
+      172
+      /logicalnot
+      /.notdef
+      /registered
+      /macron
+      /degree
+      /plusminus
+      /twosuperior
+      /threesuperior
+      /acute
+      /mu
+      183
+      /periodcentered
+      /cedilla
+      /onesuperior
+      /ordmasculine
+      188
+      /onequarter
+      /onehalf
+      /threequarters
+      192
+      /Agrave
+      /Aacute
+      /Acircumflex
+      /Atilde
+      /Adieresis
+      /Aring
+      /AE
+      /Ccedilla
+      /Egrave
+      /Eacute
+      /Ecircumflex
+      /Edieresis
+      /Igrave
+      /Iacute
+      /Icircumflex
+      /Idieresis
+      /Eth
+      /Ntilde
+      /Ograve
+      /Oacute
+      /Ocircumflex
+      /Otilde
+      /Odieresis
+      /multiply
+      /Oslash
+      /Ugrave
+      /Uacute
+      /Ucircumflex
+      /Udieresis
+      /Yacute
+      /Thorn
+      /germandbls
+      /agrave
+      /aacute
+      /acircumflex
+      /atilde
+      /adieresis
+      /aring
+      /ae
+      /ccedilla
+      /egrave
+      /eacute
+      /ecircumflex
+      /edieresis
+      /igrave
+      /iacute
+      /icircumflex
+      /idieresis
+      /eth
+      /ntilde
+      /ograve
+      /oacute
+      /ocircumflex
+      /otilde
+      /odieresis
+      /divide
+      /oslash
+      /ugrave
+      /uacute
+      /ucircumflex
+      /udieresis
+      /yacute
+      /thorn
+      /ydieresis
+    ]
+    /Type /Encoding
+  >>
+  /Name /Helv
+  /Subtype /Type1
+  /Type /Font
+>>
+endobj
+
+%% Original object ID: 87 0
+122 0 obj
+<<
+  /C [
+    0
+    0
+    1
+  ]
+  /CA 0.1
+  /Parent 118 0 R
+  /Path [
+    [
+      156.914
+      394.4373
+    ]
+    [
+      156.914
+      328.1768
+    ]
+    [
+      254.4294
+      328.1768
+    ]
+    [
+      254.4294
+      394.4373
+    ]
+  ]
+  /Title (Room 101)
+  /Type /Space
+>>
+endobj
+
+%% Original object ID: 88 0
+123 0 obj
+<<
+  /C [
+    0
+    0
+    1
+  ]
+  /CA 0.1
+  /Parent 118 0 R
+  /Path [
+    [
+      153.1634
+      316.925
+    ]
+    [
+      153.1634
+      251.2897
+    ]
+    [
+      255.6796
+      251.2897
+    ]
+    [
+      255.6796
+      316.925
+    ]
+  ]
+  /Title (Room 102)
+  /Type /Space
+>>
+endobj
+
+%% Original object ID: 90 0
+124 0 obj
+<<
+  /C [
+    0
+    0
+    1
+  ]
+  /CA 0.1
+  /Parent 119 0 R
+  /Path [
+    [
+      293.1855
+      311.2992
+    ]
+    [
+      293.1855
+      250.6646
+    ]
+    [
+      380.0742
+      250.6646
+    ]
+    [
+      380.0742
+      311.2992
+    ]
+  ]
+  /Title (Room 151)
+  /Type /Space
+>>
+endobj
+
+%% Original object ID: 91 0
+125 0 obj
+<<
+  /C [
+    0
+    0
+    1
+  ]
+  /CA 0.1
+  /Parent 119 0 R
+  /Path [
+    [
+      298.8114
+      393.8122
+    ]
+    [
+      298.8114
+      328.1768
+    ]
+    [
+      377.5738
+      328.1768
+    ]
+    [
+      377.5738
+      393.8122
+    ]
+  ]
+  /Title (Room 152)
+  /Type /Space
+>>
+endobj
+
+xref
+0 126
+0000000000 65535 f 
+0000000052 00000 n 
+0000000171 00000 n 
+0000000392 00000 n 
+0000000486 00000 n 
+0000000586 00000 n 
+0000000671 00000 n 
+0000000772 00000 n 
+0000000857 00000 n 
+0000000974 00000 n 
+0000001033 00000 n 
+0000001209 00000 n 
+0000001492 00000 n 
+0000001550 00000 n 
+0000001607 00000 n 
+0000004374 00000 n 
+0000005784 00000 n 
+0000007201 00000 n 
+0000008617 00000 n 
+0000010033 00000 n 
+0000011450 00000 n 
+0000012866 00000 n 
+0000014282 00000 n 
+0000015698 00000 n 
+0000017115 00000 n 
+0000018526 00000 n 
+0000019943 00000 n 
+0000021360 00000 n 
+0000022777 00000 n 
+0000024192 00000 n 
+0000025539 00000 n 
+0000026886 00000 n 
+0000028361 00000 n 
+0000029735 00000 n 
+0000031110 00000 n 
+0000032486 00000 n 
+0000033835 00000 n 
+0000035178 00000 n 
+0000036527 00000 n 
+0000037145 00000 n 
+0000038137 00000 n 
+0000038481 00000 n 
+0000038635 00000 n 
+0000039093 00000 n 
+0000039142 00000 n 
+0000039595 00000 n 
+0000039644 00000 n 
+0000040561 00000 n 
+0000041021 00000 n 
+0000041070 00000 n 
+0000041987 00000 n 
+0000042446 00000 n 
+0000042495 00000 n 
+0000043412 00000 n 
+0000043871 00000 n 
+0000043920 00000 n 
+0000044837 00000 n 
+0000045297 00000 n 
+0000045346 00000 n 
+0000046263 00000 n 
+0000046722 00000 n 
+0000046771 00000 n 
+0000047688 00000 n 
+0000048147 00000 n 
+0000048196 00000 n 
+0000049113 00000 n 
+0000049572 00000 n 
+0000049621 00000 n 
+0000050538 00000 n 
+0000050998 00000 n 
+0000051047 00000 n 
+0000051964 00000 n 
+0000052417 00000 n 
+0000052466 00000 n 
+0000053383 00000 n 
+0000053843 00000 n 
+0000053892 00000 n 
+0000054809 00000 n 
+0000055269 00000 n 
+0000055318 00000 n 
+0000056235 00000 n 
+0000056695 00000 n 
+0000056744 00000 n 
+0000057661 00000 n 
+0000058119 00000 n 
+0000058168 00000 n 
+0000059085 00000 n 
+0000059505 00000 n 
+0000059554 00000 n 
+0000060471 00000 n 
+0000060891 00000 n 
+0000060940 00000 n 
+0000061857 00000 n 
+0000062270 00000 n 
+0000062319 00000 n 
+0000063236 00000 n 
+0000063656 00000 n 
+0000063705 00000 n 
+0000064622 00000 n 
+0000065042 00000 n 
+0000065091 00000 n 
+0000066009 00000 n 
+0000066431 00000 n 
+0000066481 00000 n 
+0000067399 00000 n 
+0000067821 00000 n 
+0000067871 00000 n 
+0000068789 00000 n 
+0000069204 00000 n 
+0000069254 00000 n 
+0000070172 00000 n 
+0000070594 00000 n 
+0000070644 00000 n 
+0000071562 00000 n 
+0000072059 00000 n 
+0000072110 00000 n 
+0000072710 00000 n 
+0000072760 00000 n 
+0000073678 00000 n 
+0000074039 00000 n 
+0000074398 00000 n 
+0000075317 00000 n 
+0000077635 00000 n 
+0000077959 00000 n 
+0000078283 00000 n 
+0000078609 00000 n 
+trailer <<
+  /Info 2 0 R
+  /Root 1 0 R
+  /Size 126
+  /ID [<f14970997ad1f5e6c2218af3ed25e427><f386e0a51ad21173f3818b6780b12c29>]
+>>
+startxref
+78907
+%%EOF

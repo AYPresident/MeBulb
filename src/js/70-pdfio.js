@@ -9,7 +9,7 @@ function hasMarker(bytes) {
   return false;
 }
 // remove MeBulb's own annotations and data from a loaded pdf-lib document; returns the data
-function stripPlanmark(pdfDoc) {
+function stripPlanmark(pdfDoc, doc) {
   const ctx = pdfDoc.context; let key = PDFName.of('MeBulbData'); let ref = pdfDoc.catalog.get(key); if (!ref) { key = PDFName.of('PlanmarkData'); ref = pdfDoc.catalog.get(key); }
   let data = null; if (ref) { try { data = JSON.parse(new TextDecoder().decode(decodeStream(ctx.lookup(ref)))); } catch (e) { console.warn('markup data unreadable', e); } }
   const drop = (r) => { if (r instanceof PDFRef) ctx.delete(r); };
@@ -17,8 +17,8 @@ function stripPlanmark(pdfDoc) {
     const annots = page.node.Annots(); if (!annots) continue;
     for (let i = annots.size() - 1; i >= 0; i--) {
       const aref = annots.get(i); const a = ctx.lookup(aref); if (!(a instanceof PDFDict)) continue;
-      if (!pdfText(a.lookup(PDFName.of('NM'))).startsWith('PM-')) continue;
-      annots.remove(i);
+      if (!isOurs(a) && !(doc && doc.imported && aref instanceof PDFRef && doc.imported.has(refKey(aref)))) continue;
+      annots.remove(i); if (!isOurs(a)) continue; // imported: the object number is reused for the rewritten markup
       const ap = a.lookup(PDFName.of('AP'));
       if (ap instanceof PDFDict) { const n = ap.get(PDFName.of('N')); const ns = n && ctx.lookup(n); if (ns && ns.dict) { const res = ns.dict.lookup(PDFName.of('Resources')); const xo = res instanceof PDFDict && res.lookup(PDFName.of('XObject')); if (xo instanceof PDFDict) xo.values().forEach(drop); } drop(n); }
       drop(aref);
@@ -70,10 +70,12 @@ async function openSource(name, src, opts = {}) {
       const ext = await extractPlanmark(await src.all()).catch((e) => { console.warn(e); return null; });
       if (ext) { doc.src = new MemSource(ext.bytes); data = ext.data; doc.diskMatches = false; }
     }
-    if (data) { doc.markups = data.markups || []; doc.scales = data.scales || {}; doc.layers = data.layers || []; doc.links = data.links || {}; doc.viewports = data.viewports || {}; doc.align = data.align || null; doc.tomb = data.tomb || null; doc.colorAdj = data.colorAdj || null; doc.ownSig = data.ownSig || {}; doc.assets = data.assets || {}; await ensureAssetImages(doc).catch(() => {}); }
+    if (data) { doc.markups = data.markups || []; doc.scales = data.scales || {}; doc.layers = data.layers || []; doc.links = data.links || {}; doc.viewports = data.viewports || {}; doc.align = data.align || null; doc.tomb = data.tomb || null; doc.colorAdj = data.colorAdj || null; doc.ownSig = data.ownSig || {}; doc.vpSig = data.vpSig || {}; doc.assets = data.assets || {}; await ensureAssetImages(doc).catch(() => {}); }
     doc.base = { src: doc.src, appends: [] }; doc.reader = doc.src === src ? R : await openReader(doc.src); doc.viewReader = doc.reader;
     await loadPdfInto(doc);
     if (data && data.ownSig) await stripOwnedFromView(doc, data.ownSig);
+    // markups from Revu, Acrobat and other apps become editable MeBulb markups
+    try { const imp = await importAnnotations(doc, data); if (imp) { doc.hide = imp.hide; doc.imported = imp.imported; if (imp.removed.length) { const gone = new Set(imp.removed.map((m) => m.id)); doc.markups = doc.markups.filter((m) => !gone.has(m.id)); } doc.markups.push(...imp.markups); doc.importNote = { added: imp.markups.length, removed: imp.removed.length }; doc._hidden = new Map(); } } catch (e) { console.warn('import of existing markups failed', e); }
   } catch (e) {
     console.error(e); if (e && e.name === 'PasswordException') return null;
     toast(`Could not open ${name}: ${e.message || e}`, 'error'); return null;
@@ -227,7 +229,6 @@ async function resourcesFor(pdfDoc, ops, fonts, imgCache) {
   return ctx.obj(res);
 }
 const ANNOT_SUBTYPE = { rect: 'Square', ellipse: 'Circle', radius: 'Circle', line: 'Line', arrow: 'Line', length: 'Line', polyline: 'PolyLine', polylength: 'PolyLine', angle: 'PolyLine', polygon: 'Polygon', cloud: 'Polygon', area: 'Polygon', perimeter: 'Polygon', volume: 'Polygon', pen: 'Ink', highlight: 'Ink', text: 'FreeText', callout: 'FreeText', note: 'Text', stamp: 'Stamp', image: 'Stamp', count: 'Square', texthl: 'Highlight', strikeout: 'StrikeOut', sketch: 'Square' };
-const LE_NAME = { none: 'None', arrow: 'ClosedArrow', open: 'OpenArrow', dot: 'Circle', tick: 'Slash' };
 
 // rich text goes in as plain ASCII with XML character references: pdf.js (and others) read RC
 // as a byte string, so UTF-16 here would arrive as mojibake
@@ -236,33 +237,36 @@ function xmlAsciiHex(x) { const a = x.replace(/[^\x20-\x7e]/gu, (c) => `&#${c.co
 async function annotsForPage(pdfDoc, fonts, imgCache, doc, i, pageRef, ms) {
   const ctx = pdfDoc.context; const pg = doc.pages[i]; const M = invertT(pg.T); const cm = `${M.map((v) => num(v, 6)).join(' ')} cm`; const refs = [];
   for (const m of ms) {
+    const s = m.style; const base = { Type: 'Annot', F: 4, P: pageRef, C: (hexToRgb(s.stroke) || [0, 0, 0]).map((v) => +(v / 255).toFixed(4)), CA: s.opacity == null ? 1 : s.opacity, T: PDFHexString.fromText(m.author || ''), Subj: PDFHexString.fromText(m.subject || ''), M: PDFString.of(pdfDate(m.modified)), CreationDate: PDFString.of(pdfDate(m.created)) };
+    if (m.type === 'count' && m.pts.length) { refs.push(...(await countAnnots(pdfDoc, fonts, imgCache, doc, i, pageRef, m, base))); continue; }
     const prims = dl(m, doc); const vb = primsBBox(prims); if (!vb) continue;
     const corners = [[vb.x, vb.y], [vb.x2, vb.y], [vb.x2, vb.y2], [vb.x, vb.y2]].map((p) => applyT(M, p)); const rb = G.bbox(corners); const rect = [rb.x, rb.y, rb.x2, rb.y2];
     const ops = new Ops(doc); ops.s.push(cm); prims.forEach((p) => ops.prim(p));
     const res = await resourcesFor(pdfDoc, ops, fonts, imgCache);
     const ap = ctx.register(ctx.flateStream(ops.toString(), { Type: 'XObject', Subtype: 'Form', FormType: 1, BBox: rect, Resources: res }));
-    const s = m.style; const col = hexToRgb(m.type === 'note' ? s.fill : s.stroke) || [0, 0, 0]; let sub = ANNOT_SUBTYPE[m.type] || 'Square'; if (m.type === 'sketch' && sketchSize(doc, m).shape === 'circle') sub = 'Circle';
+    const col = hexToRgb(m.type === 'note' ? s.fill : s.stroke) || [0, 0, 0]; let sub = ANNOT_SUBTYPE[m.type] || 'Square'; if (m.type === 'sketch' && sketchSize(doc, m).shape === 'circle') sub = 'Circle';
     const info = MEASURE_TYPES.has(m.type) ? measureInfo(m, doc) : null;
-    const contents = TEXT_TYPES.has(m.type) ? m.text : m.type === 'stamp' ? m.text : m.type === 'sketch' ? [sketchName(doc, m), sizeLabel(doc, m), m.comment].filter(Boolean).join('\n') : [m.text, info && info.text, m.comment].filter(Boolean).join('\n');
+    const contents = TEXT_TYPES.has(m.type) ? m.text : m.type === 'stamp' ? m.text : m.type === 'sketch' ? [sketchName(doc, m), sizeLabel(doc, m), m.comment].filter(Boolean).join('\n') : info ? info.text : [m.text, m.comment].filter(Boolean).join('\n');
     const A = {
-      Type: 'Annot', Subtype: sub, Rect: rect, F: 4, P: pageRef, NM: PDFString.of(m.id), AP: { N: ap },
-      C: col.map((v) => v / 255), CA: s.opacity == null ? 1 : s.opacity, T: PDFHexString.fromText(m.author || ''), Subj: PDFHexString.fromText(m.subject || ''),
-      Contents: PDFHexString.fromText(contents || ''), M: PDFString.of(pdfDate(m.modified)), CreationDate: PDFString.of(pdfDate(m.created)), Border: [0, 0, s.width || 0],
+      ...base, Subtype: sub, Rect: rect, NM: PDFString.of((m.ext && m.ext.nm) || m.id), MeBulbId: PDFString.of(m.id), AP: { N: ap },
+      C: col.map((v) => +(v / 255).toFixed(4)), Contents: PDFHexString.fromText(contents || ''), Border: [0, 0, s.width || 0],
     };
     if (s.fill && s.fill !== 'none' && (sub === 'Square' || sub === 'Circle' || sub === 'Polygon')) A.IC = (hexToRgb(s.fill) || [1, 1, 1]).map((v) => v / 255);
     const pdfPts = m.pts.map((p) => applyT(M, p));
-    if (sub === 'Line') { A.L = [...pdfPts[0], ...pdfPts[pdfPts.length - 1]]; A.LE = [LE_NAME[s.arrowStart] || 'None', LE_NAME[s.arrowEnd] || 'None']; }
+    if (sub === 'Line') A.L = [...pdfPts[0], ...pdfPts[pdfPts.length - 1]];
     if (sub === 'PolyLine' || sub === 'Polygon') A.Vertices = pdfPts.flat();
-    if (sub === 'Ink') A.InkList = [pdfPts.flat()];
+    if (sub === 'Ink') A.InkList = [pdfPts.flat(), ...((m.ext && m.ext.extraInk) || []).map((st) => st.map((p) => applyT(M, p)).flat())];
     if (QUAD_TYPES.has(m.type)) { if (m.type === 'strikeout' && s.variant === 'under') A.Subtype = 'Underline'; const q = []; for (let k = 0; k + 3 < pdfPts.length; k += 4) { const [tl, tr, br, bl] = pdfPts.slice(k, k + 4); q.push(...tl, ...tr, ...bl, ...br); } A.QuadPoints = q; }
     if (sub === 'FreeText') {
       A.DA = PDFString.of(`/${FONT_FAMILIES[famOf(s.font)].da} ${num(s.fontSize || 12, 2)} Tf ${(hexToRgb(s.fontColor || s.stroke) || [0, 0, 0]).map((v) => num(v / 255, 3)).join(' ')} rg`);
-      A.RC = xmlAsciiHex(rtXhtml(m)); A.DS = PDFString.of(`font: ${cssFontName(s.font)} ${num(s.fontSize || 12, 2)}pt; text-align:${s.align || 'left'}; color:${cssColor(s.fontColor || s.stroke)}`);
-      if (m.type === 'callout') A.IT = 'FreeTextCallout';
+      A.RC = xmlAsciiHex(rtXhtml(m)); A.DS = PDFString.of(`font: ${cssFontName(s.font)} ${num(s.fontSize || 12, 2)}pt; text-align:${s.align || 'left'}; margin:0pt; line-height:${num((s.fontSize || 12) * 1.15, 2)}pt; color:${cssColor(s.fontColor || s.stroke)}`);
     }
     if (sub === 'Text') A.Name = 'Comment';
-    if (sub === 'Stamp') A.Name = m.type === 'image' ? 'Image' : 'Approved';
-    refs.push(ctx.register(ctx.obj(A)));
+    if (sub === 'Stamp') A.Name = m.type === 'image' ? 'Image' : (m.text || 'Approved').replace(/[^A-Za-z0-9]+/g, '') || 'Approved';
+    revuDecorate(A, m, doc, ctx, M, info);
+    // markups that came from another app keep their object number, so replies and links to them survive
+    const reuse = m.ext && m.ext.ref && /^\d+ \d+$/.test(m.ext.ref) && doc.imported && doc.imported.has(m.ext.ref) ? PDFRef.of(+m.ext.ref.split(' ')[0], +m.ext.ref.split(' ')[1]) : null;
+    if (reuse) { ctx.assign(reuse, ctx.obj(A)); refs.push(reuse); } else refs.push(ctx.register(ctx.obj(A)));
   }
   return refs;
 }
@@ -272,7 +276,7 @@ async function annotsForPage(pdfDoc, fonts, imgCache, doc, i, pageRef, ms) {
 async function buildPdf(doc, { flatten }) {
   const pdfDoc = await PDFDocument.load(await docBytes(doc, 'Preparing the whole file'), { ignoreEncryption: true, updateMetadata: false });
   if (pdfDoc.isEncrypted) throw new Error('This PDF is password-protected, so its pages cannot be rewritten. Export the markup list as CSV instead.');
-  stripPlanmark(pdfDoc);
+  stripPlanmark(pdfDoc, doc);
   const ctx = pdfDoc.context; const fonts = fontCache(pdfDoc); fonts.reg = await fonts.get('FR'); fonts.bold = await fonts.get('FB');
   const imgCache = new Map(); const pages = pdfDoc.getPages();
   const editApplied = await bakeTextEdits(pdfDoc, doc, fonts, imgCache);
@@ -281,11 +285,15 @@ async function buildPdf(doc, { flatten }) {
   await scanFlat(doc);
   const savedFlat = doc.flat; if (flatten) doc.flat = [...(doc.flat || []), ...[...Array(pages.length).keys()].flatMap((i) => exportFlat(doc, i))];
   try { const sigs = await ownedContentFull(pdfDoc, doc, fonts, imgCache); if (!flatten) doc.ownSigPending = sigs; } finally { doc.flat = savedFlat; }
+  if (!flatten) { const ocp = await layerOcgs(pdfDoc, doc, pdfDoc.catalog.get(PDFName.of('OCProperties')), async (o) => (o instanceof PDFRef ? ctx.lookup(o) : o)); if (ocp) pdfDoc.catalog.set(PDFName.of('OCProperties'), ocp); }
+  const vps = {};
   for (let i = 0; i < pages.length && !flatten; i++) {
     const page = pages[i]; if (!doc.pages[i]) continue;
+    const vp = viewportArray(ctx, doc, i); if (vp.length) page.node.set(PDFName.of('VP'), ctx.obj(vp)); else page.node.delete(PDFName.of('VP')); vps[i] = vpSig(doc, i);
     const ms = doc.markups.filter((m) => m.page === i && m.type !== 'textedit'); if (!ms.length) continue;
     for (const ref of await annotsForPage(pdfDoc, fonts, imgCache, doc, i, page.ref, ms)) page.node.addAnnot(ref);
   }
+  if (!flatten) doc.vpSigPending = vps;
   if (!flatten) { cleanupLinks(doc); const ref = ctx.register(ctx.flateStream(new TextEncoder().encode(payloadJson(doc, editApplied)), { Type: 'MeBulbData' })); pdfDoc.catalog.set(PDFName.of('MeBulbData'), ref); }
   fonts.finalize(); pdfDoc.setModificationDate(new Date()); pdfDoc.setProducer('MeBulb');
   return pdfDoc.save();
@@ -341,7 +349,7 @@ async function saveDoc(mode = 'save') {
     if (mode !== 'flatten') {
       if (appendOnly) { doc.base.appends.push(appendOnly.bytes); doc.reader = await openReader(baseSource(doc)); }
       else { doc.base = { src: new MemSource(full), appends: [] }; doc.reader = await openReader(doc.base.src); }
-      if (doc.ownSigPending) { doc.ownSig = doc.ownSigPending; doc.ownSigPending = null; }
+      if (doc.ownSigPending) { doc.ownSig = doc.ownSigPending; doc.ownSigPending = null; } if (doc.vpSigPending) { doc.vpSig = doc.vpSigPending; doc.vpSigPending = null; }
       doc.diskMatches = !!(H ? doc.path : doc.handle); doc.dirty = false; doc.savedAt = nowISO(); renderTabs(); sessionSaved(doc);
       const ms = Math.round(performance.now() - t0); setStatus(`Saved ${doc.name} in ${ms < 1000 ? ms + ' ms' : (ms / 1000).toFixed(1) + ' s'}${appendOnly ? ` (${fmtBytes(appendOnly.bytes.length)} added)` : ' (whole file rewritten)'}`);
     }

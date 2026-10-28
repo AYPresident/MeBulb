@@ -194,9 +194,9 @@ function measureInfo(m, doc) {
     case 'perimeter': { const L = G.len(pts, true); return { kind: 'Length', value: lenValue(L, sc), unit: u.label, text: fmtLen(L, sc) }; }
     case 'area': { const A = netArea(m); return { kind: 'Area', value: areaValue(A, sc), unit: u.area, text: fmtArea(A, sc) }; }
     case 'volume': { const A = netArea(m); return { kind: 'Volume', value: volValue(A, m.depth, sc), unit: u.vol, text: fmtVol(A, m.depth, sc), sub: `${fmtArea(A, sc)} × ${sc.unit === 'ft' && sc.fmt === 'ftin' ? fmtFtIn((m.depth || 0) * 12, 16) : num(m.depth || 0, 3) + ' ' + u.label}` }; }
-    case 'count': return { kind: 'Count', value: pts.length, unit: 'ea', text: `${pts.length}` };
+    case 'count': { const n = m._countTotal || pts.length; return { kind: 'Count', value: n, unit: 'ea', text: `${n}` }; }
     case 'angle': { if (pts.length < 3) return { kind: 'Angle', value: 0, unit: '°', text: '' }; const d = (G.angleAt(pts[0], pts[1], pts[2]) * 180) / Math.PI; return { kind: 'Angle', value: d, unit: '°', text: `${d.toFixed(1)}°` }; }
-    case 'radius': { const r = G.dist(pts[0], pts[1]); return { kind: 'Length', value: lenValue(r, sc), unit: u.label, text: 'R ' + fmtLen(r, sc) }; }
+    case 'radius': { const r = G.dist(pts[0], pts[1]); if (m.ext && m.ext.it === 'CircleDimension') return { kind: 'Length', value: lenValue(2 * r, sc), unit: u.label, text: 'Ø ' + fmtLen(2 * r, sc) }; return { kind: 'Length', value: lenValue(r, sc), unit: u.label, text: 'R ' + fmtLen(r, sc) }; }
   }
   return null;
 }
@@ -293,7 +293,7 @@ function dl(m, doc, opts = {}) {
       const r = s.size || 6; const fill = s.fill; const sym = s.symbol || 'circle'; const lineSym = ['cross', 'plus', 'check'].includes(sym);
       pts.forEach((p, i) => {
         out.push(...countSymbol(p, r, sym, s, fill));
-        if (s.numbered && !lineSym) out.push({ k: 'text', x: p[0], y: p[1] + r * 0.4, size: r * 1.05, bold: true, str: String(i + 1), color: fill && fill !== 'none' ? '#ffffff' : s.stroke, anchor: 'middle', opacity: s.opacity });
+        if (s.numbered && !lineSym) out.push({ k: 'text', x: p[0], y: p[1] + r * 0.4, size: r * 1.05, bold: true, str: String((s.numStart || 0) + i + 1), color: fill && fill !== 'none' ? '#ffffff' : s.stroke, anchor: 'middle', opacity: s.opacity });
       });
       if (pts.length && s.labelBg !== false) { const p = pts[0]; const info = measureInfo(m, doc); const lab = (m.text ? m.text + ': ' : '') + info.text; const w = textWidth(lab, s.fontSize || 10, s.bold, s.font, s.italic); out.push(...labelPrims([lab], p[0] + r + 4 + w / 2, p[1] - r - (s.fontSize || 10) * 0.4, 0, { ...s, fontColor: s.fontColor || darken(fill, 0.3) })); }
       break;

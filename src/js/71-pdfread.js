@@ -163,6 +163,13 @@ class PdfReader {
     const p = this.load(num).then((o) => { const e = this.xref.get(num); if (o && o !== PDFLib.PDFNull) this.ctx.assign(PDFRef.of(num, e && e.t === 1 ? e.gen : 0), o); return o; });
     this.cache.set(num, p); return p;
   }
+  // load everything a dictionary refers to (except the named keys) so pdf-lib's synchronous lookups work
+  async pull(o, skip = ['/P', '/Parent', '/Popup', '/IRT', '/AP', '/Annots', '/Kids'], depth = 0, seen = new Set()) {
+    if (depth > 12 || o == null) return;
+    if (o instanceof PDFRef) { const k = refKey(o); if (seen.has(k)) return; seen.add(k); await this.pull(await this.get(o), skip, depth + 1, seen); return; }
+    if (o instanceof PDFDict) { for (const [k, v] of o.entries()) if (!skip.includes(k.asString())) await this.pull(v, skip, depth + 1, seen); return; }
+    if (o instanceof PDFArray) for (const v of o.asArray()) await this.pull(v, skip, depth + 1, seen);
+  }
   // is this content stream one of MeBulb's own additions? (ours are tiny: big streams are never read)
   async isOwnedStream(ref) { const e = this.xref.get(ref.objectNumber); if (!e || e.t !== 1) return false; if (this.nextOffset(e.off) - e.off > 65536) return false; try { const o = await this.get(ref); return !!(o && o.dict && o.dict.get(PDFName.of('MeBulb'))); } catch { return false; } }
   // drop big streams once used (content of huge drawings is re-read on demand)
@@ -211,7 +218,7 @@ class PdfReader {
     const pd = await this.get(P[i].ref); const a = pd.get(PDFName.of('Annots')); const arrRef = a instanceof PDFRef ? a : null; const arr = await this.resolve(a);
     const list = []; if (!(arr instanceof PDFArray)) return { list, arrRef };
     for (const r of arr.asArray()) {
-      let ours = false; if (r instanceof PDFRef) { try { const d = await this.get(r); if (d instanceof PDFDict) ours = pdfText(d.get(PDFName.of('NM'))).startsWith('PM-'); } catch { } }
+      let ours = false; if (r instanceof PDFRef) { try { const d = await this.get(r); if (d instanceof PDFDict) ours = !!(d.get(PDFName.of('MeBulbId')) || pdfText(d.get(PDFName.of('NM'))).startsWith('PM-')); } catch { } }
       list.push({ ref: r, ours });
     }
     return { list, arrRef };
@@ -244,12 +251,12 @@ async function openReader(src) { try { return await new PdfReader(src).init(); }
 async function hideOwnAnnots(doc, i) {
   doc._hidden = doc._hidden || new Map(); if (doc._hidden.has(i)) return doc._hidden.get(i);
   const p = (async () => {
-    if (!doc.reader || !doc.hasOwnAnnots || !doc.pdf) return false;
-    try { const { list } = await doc.reader.pageAnnots(i); let n = 0; list.forEach((a) => { if (a.ours && a.ref instanceof PDFRef) { doc.pdf.annotationStorage.setValue(pdfjsRefId(a.ref), { noView: true, noPrint: true }); n++; } }); return n > 0; } catch (e) { console.warn(e); return false; }
+    if (!(doc.viewReader || doc.reader) || !(doc.hasOwnAnnots || (doc.hide && doc.hide.size)) || !doc.pdf) return false;
+    try { const extra = (doc.hide && doc.hide.get(i)) || new Set(); const { list } = await (doc.viewReader || doc.reader).pageAnnots(i); let n = 0; list.forEach((a) => { if (a.ref instanceof PDFRef && (a.ours || extra.has(refKey(a.ref)))) { doc.pdf.annotationStorage.setValue(pdfjsRefId(a.ref), { noView: true, noPrint: true }); n++; } }); return n > 0; } catch (e) { console.warn(e); return false; }
   })();
   doc._hidden.set(i, p); return p;
 }
-function annotMode(doc) { return doc.hasOwnAnnots || doc.hasForms ? pdfjsLib.AnnotationMode.ENABLE_STORAGE : pdfjsLib.AnnotationMode.ENABLE; }
+function annotMode(doc) { return doc.hasOwnAnnots || (doc.hide && doc.hide.size) || doc.hasForms ? pdfjsLib.AnnotationMode.ENABLE_STORAGE : pdfjsLib.AnnotationMode.ENABLE; }
 
 // ----- incremental save ---------------------------------------------------------------------------
 // Builds the bytes to append to the file: new annotation objects for pages whose markups
@@ -262,11 +269,12 @@ function serializeObj(num, gen, obj) {
 async function incrementalUpdate(doc, opts = {}) {
   const R = opts.reader || doc.reader; if (!R || R.encrypted) return null;
   const out = await PDFDocument.create({ updateMetadata: false }); const ctx = out.context;
-  const skip = new Set(ctx.enumerateIndirectObjects().map(([r]) => refKey(r)));
+  const skip = new Set(ctx.enumerateIndirectObjects().map(([, o]) => o)); // the scratch document's own catalog and page tree
   ctx.largestObjectNumber = Math.max(ctx.largestObjectNumber, R.size - 1);
   const rewritten = []; // [ref, obj] for objects that replace existing numbers
   const fonts = fontCache(out); const imgCache = new Map(); const P = await R.pages();
-  const pages = opts.pages || [...Array(doc.numPages).keys()]; const newSig = { ...(doc.ownSig || {}) };
+  const pages = opts.pages || [...Array(doc.numPages).keys()]; const newSig = { ...(doc.ownSig || {}) }; const newVp = { ...(doc.vpSig || {}) };
+  const cat = await R.catalog(); const ocp = opts.contentOnly || opts.flatten ? null : await layerOcgs(out, doc, cat.get(PDFName.of('OCProperties')), (o) => R.resolve(o));
   for (const i of pages) {
     if (!P[i] || !doc.pages[i]) continue;
     const pd = await R.get(P[i].ref); const pageDict = PDFDict.fromMapWithContext(new Map(pd.entries()), ctx); let changed = false;
@@ -281,16 +289,19 @@ async function incrementalUpdate(doc, opts = {}) {
     }
     // annotations
     if (!opts.contentOnly) {
-      const { list, arrRef } = await R.pageAnnots(i); const keep = list.filter((a) => !a.ours).map((a) => a.ref);
+      const { list, arrRef } = await R.pageAnnots(i); const gone = (a) => a.ours || (doc.imported && a.ref instanceof PDFRef && doc.imported.has(refKey(a.ref))); const keep = list.filter((a) => !gone(a)).map((a) => a.ref);
       const ms = opts.flatten ? [] : doc.markups.filter((m) => m.page === i && m.type !== 'textedit');
       const fresh = await annotsForPage(out, fonts, imgCache, doc, i, P[i].ref, ms);
-      if (fresh.length || list.some((a) => a.ours)) { const arr = ctx.obj([...keep, ...fresh]); if (arrRef) rewritten.push([arrRef, arr]); else { pageDict.set(PDFName.of('Annots'), arr); changed = true; } }
+      if (fresh.length || list.some(gone)) { const arr = ctx.obj([...keep, ...fresh]); if (arrRef) rewritten.push([arrRef, arr]); else { pageDict.set(PDFName.of('Annots'), arr); changed = true; } }
     }
+    // page scale and viewports as standard /VP (Revu reads and writes these)
+    if (!opts.contentOnly && !opts.flatten) { const sig = vpSig(doc, i); if (sig !== (newVp[i] || '')) { const vp = viewportArray(ctx, doc, i); if (vp.length) pageDict.set(PDFName.of('VP'), ctx.obj(vp)); else pageDict.delete(PDFName.of('VP')); changed = true; newVp[i] = sig; } }
     if (changed) rewritten.push([P[i].ref, pageDict]);
   }
+  if (!opts.flatten && !opts.contentOnly) doc.vpSigPending = newVp;
   if (!opts.flatten && !opts.contentOnly) doc.ownSigPending = newSig;
   // catalog with the MeBulb data stream
-  const cat = await R.catalog(); const cmap = new Map(cat.entries()); cmap.delete(PDFName.of('PlanmarkData'));
+  const cmap = new Map(cat.entries()); cmap.delete(PDFName.of('PlanmarkData')); if (ocp) cmap.set(PDFName.of('OCProperties'), ocp);
   if (opts.contentOnly) { /* view patch: catalog untouched */ }
   else if (!opts.flatten) { const data = ctx.register(ctx.flateStream(new TextEncoder().encode(payloadJson(doc, opts.editApplied)), { Type: 'MeBulbData' })); cmap.set(PDFName.of('MeBulbData'), data); }
   else cmap.delete(PDFName.of('MeBulbData'));
@@ -301,7 +312,7 @@ async function incrementalUpdate(doc, opts = {}) {
   const base = opts.baseSize != null ? opts.baseSize : R.src.size; const chunks = []; let pos = base; const entries = [];
   const tailByte = (await R.src.read(R.src.size - 1, 1))[0]; if (tailByte !== 10 && tailByte !== 13) { chunks.push(bytesOf('\n')); pos += 1; }
   const put = (num, gen, obj) => { const b = serializeObj(num, gen, obj); entries.push([num, gen, pos]); chunks.push(b); pos += b.length; };
-  for (const [ref, obj] of ctx.enumerateIndirectObjects()) { if (skip.has(refKey(ref))) continue; put(ref.objectNumber, ref.generationNumber, obj); }
+  for (const [ref, obj] of ctx.enumerateIndirectObjects()) { if (skip.has(obj)) continue; put(ref.objectNumber, ref.generationNumber, obj); }
   const reNum = new Set(); for (const [ref, obj] of rewritten) { if (!(ref instanceof PDFRef) || reNum.has(ref.objectNumber)) continue; reNum.add(ref.objectNumber); put(ref.objectNumber, ref.generationNumber, obj); }
   let size = Math.max(R.size, ctx.largestObjectNumber + 1);
   const keepKeys = ['Root', 'Info', 'ID'].map((k) => [k, R.trailer.get(PDFName.of(k))]).filter(([, v]) => v);
@@ -325,7 +336,7 @@ function payloadJson(doc, editApplied) {
   const markups = doc.markups.map((m) => (m.type === 'textedit' ? { ...m, applied: !!(editApplied && editApplied.get(m.id)) } : m));
   const ownSig = doc.ownSigPending || doc.ownSig || {}; const flat = (doc.flat || []).map((f) => ({ id: f.id, page: f.page }));
   const S = doc.sess; const tomb = S ? Object.fromEntries([...S.tomb].filter(([, t]) => Date.now() - t < 30 * 864e5)) : doc.tomb || undefined;
-  return JSON.stringify({ v: 3, app: 'MeBulb', saved: nowISO(), savedBy: state.author, savedById: S ? S.uid : undefined, tomb, markups, scales: doc.scales, layers: doc.layers, links: doc.links || {}, viewports: doc.viewports || {}, align: doc.align || null, colorAdj: doc.colorAdj || null, ownSig, flat, assets: usedAssets(doc) });
+  return JSON.stringify({ v: 3, app: 'MeBulb', saved: nowISO(), savedBy: state.author, savedById: S ? S.uid : undefined, tomb, markups, scales: doc.scales, layers: doc.layers, links: doc.links || {}, viewports: doc.viewports || {}, align: doc.align || null, colorAdj: doc.colorAdj || null, ownSig, vpSig: doc.vpSigPending || doc.vpSig || {}, flat, assets: usedAssets(doc), written: doc.markups.filter((m) => m.type !== 'textedit').map((m) => m.id) });
 }
 // can this save be an append, or does it need the whole file rewritten?
 function needsRewrite(doc) {
