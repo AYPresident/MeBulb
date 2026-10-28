@@ -64,13 +64,13 @@ function newDoc(name, src) {
 }
 
 // ----- undo / redo (whole-state snapshots; bytes are shared references) -------
-function snapshot(doc) { return { markups: JSON.stringify(doc.markups), scales: JSON.stringify(doc.scales), layers: JSON.stringify(doc.layers), viewports: JSON.stringify(doc.viewports || {}), links: JSON.stringify(doc.links || {}), formValues: JSON.stringify(doc.formValues || {}), align: JSON.stringify(doc.align || null), src: doc.src, rc: doc.sess ? doc.sess.rc : 0 }; }
+function snapshot(doc) { return { markups: JSON.stringify(doc.markups), scales: JSON.stringify(doc.scales), layers: JSON.stringify(doc.layers), viewports: JSON.stringify(doc.viewports || {}), links: JSON.stringify(doc.links || {}), formValues: JSON.stringify(doc.formValues || {}), align: JSON.stringify(doc.align || null), colorAdj: JSON.stringify(doc.colorAdj || null), flat: JSON.stringify(doc.flat || []), src: doc.src, rc: doc.sess ? doc.sess.rc : 0 }; }
 function pushUndo(doc = activeDoc()) { if (!doc) return; doc.undo.push(snapshot(doc)); if (doc.undo.length > 150) doc.undo.shift(); doc.redo = []; markDirty(doc); }
 function markDirty(doc = activeDoc()) { if (!doc) return; SESS.hint = true; doc.dirty = true; renderTabs(); updateUndoUI(); }
 async function restoreSnap(doc, s) {
   const bytesChanged = s.src !== doc.src;
-  const R = sessKeepRemote(doc, s.rc || 0, { markups: JSON.parse(s.markups), scales: JSON.parse(s.scales), layers: JSON.parse(s.layers), viewports: JSON.parse(s.viewports || '{}'), links: JSON.parse(s.links || '{}'), align: JSON.parse(s.align || 'null') });
-  Object.assign(doc, R); doc.formValues = JSON.parse(s.formValues || '{}'); SESS.hint = true; renderFormLayers && renderFormLayers();
+  const R = sessKeepRemote(doc, s.rc || 0, { markups: JSON.parse(s.markups), scales: JSON.parse(s.scales), layers: JSON.parse(s.layers), viewports: JSON.parse(s.viewports || '{}'), links: JSON.parse(s.links || '{}'), align: JSON.parse(s.align || 'null'), colorAdj: JSON.parse(s.colorAdj || 'null'), flat: JSON.parse(s.flat || '[]') });
+  Object.assign(doc, R); doc.formValues = JSON.parse(s.formValues || '{}'); SESS.hint = true; renderColorAdj(doc); renderFormLayers && renderFormLayers();
   if (bytesChanged) { setDocSource(doc, s.src); await loadPdfInto(doc); mountDoc(doc); }
   state.sel.clear(); doc.dirty = true; refreshAll();
 }

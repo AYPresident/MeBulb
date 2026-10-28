@@ -80,6 +80,9 @@ function buildCommands() {
   add('doc.deletePage', 'Delete page', () => pageOpCurrent('delete'), { ...G_DOC, icon: 'trash', enabled: hasDoc });
   add('doc.compare', 'Overlay compare…', compareDialog, { ...G_DOC, icon: 'compare', enabled: hasDoc });
   add('doc.ocr', 'Recognize text (OCR)…', ocrDialog, { ...G_DOC, icon: 'ocr', enabled: hasDoc, short: 'OCR' });
+  add('doc.color', 'Colour processing…', colorDialog, { ...G_DOC, icon: 'colorproc', enabled: hasDoc });
+  add('doc.flatten', 'Flatten markups…', flattenDialog, { ...G_DOC, icon: 'flatten', enabled: hasDoc });
+  add('doc.unflatten', 'Unflatten markups…', unflattenDialog, { ...G_DOC, icon: 'unflatten', enabled: hasDoc });
   add('doc.alignGrid', 'Align pages to grid…', autoAlignDialog, { ...G_DOC, icon: 'align', enabled: hasDoc });
   add('doc.alignPoints', 'Align this page by points', () => startAlignPick(currentPage()), { ...G_DOC, icon: 'alignpts', enabled: hasDoc });
   add('doc.scale', 'Set page scale…', () => scaleDialog(currentPage()), { ...G_DOC, icon: 'scale', enabled: hasDoc });

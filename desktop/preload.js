@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('mebulbHost', {
   // live sharing folder + local outbox
   sessDir: call('sess:dir'), sessList: call('sess:list'), sessRead: call('sess:read'), sessAppend: call('sess:append'), sessWrite: call('sess:write'), sessRm: call('sess:rm'), sessWatch: call('sess:watch'), sessUnwatch: call('sess:unwatch'), outboxDir: call('outbox:dir'),
   onSessChanged: on('sess:changed'),
+  // printing
+  printers: call('print:printers'), print: call('print:run'),
   // window
   setTitleBar: call('win:titlebar'), setTitle: call('win:title'), toggleFullscreen: call('win:fullscreen'), devtools: call('win:devtools'),
   onOpenFiles: on('app:open'), onCloseRequest: on('app:close-request'), closeOk: () => ipcRenderer.send('app:close-ok'),

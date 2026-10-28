@@ -155,6 +155,19 @@ ipcMain.handle('sess:watch', (_e, dir) => {
 ipcMain.handle('sess:unwatch', (_e, dir) => { const d = path.resolve(dir); const w = watchers.get(d); if (w) { w.close(); watchers.delete(d); } return true; });
 ipcMain.handle('outbox:dir', async () => { await fsp.mkdir(OUTBOX(), { recursive: true }); return OUTBOX(); });
 
+// ----- printing: straight to the chosen printer, paper size from MeBulb's print dialog ------------------
+ipcMain.handle('print:printers', async () => { if (!win) return []; try { return (await win.webContents.getPrintersAsync()).map((p) => ({ name: p.name, displayName: p.displayName || p.name, isDefault: !!p.isDefault, status: p.status, description: p.description })); } catch { return []; } });
+ipcMain.handle('print:run', async (_e, job) => {
+  const first = job.sheets[0]; const mm = (v) => Math.round(v * 1000); // Electron wants microns
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:${first.pw}mm ${first.ph}mm;margin:0}html,body{margin:0;padding:0}.s{position:relative;overflow:hidden;page-break-after:always;break-after:page}.s:last-child{page-break-after:auto;break-after:auto}.s img{position:absolute}</style></head><body>${job.sheets.map((x) => `<div class="s" style="width:${x.pw}mm;height:${x.ph}mm"><img src="${x.url}" style="left:${x.x}mm;top:${x.y}mm;width:${x.w}mm;height:${x.h}mm"></div>`).join('')}</body></html>`;
+  const tmp = path.join(os.tmpdir(), `mebulb-print-${process.pid}-${Date.now()}.html`); await fsp.writeFile(tmp, html);
+  const pw = new BrowserWindow({ show: false, webPreferences: { sandbox: true, contextIsolation: true, javascript: false } });
+  try {
+    await pw.loadFile(tmp);
+    return await new Promise((resolve) => pw.webContents.print({ silent: !!job.printer, deviceName: job.printer || undefined, printBackground: true, color: job.color !== false, copies: job.copies || 1, margins: { marginType: 'none' }, pageSize: { width: mm(first.pw), height: mm(first.ph) }, landscape: false, header: '', footer: '' }, (ok, err) => resolve(ok ? { ok: true } : { ok: false, error: err === 'cancelled' ? null : err })));
+  } finally { pw.destroy(); fsp.unlink(tmp).catch(() => {}); }
+});
+
 // ----- window ------------------------------------------------------------------------------------------
 ipcMain.handle('win:titlebar', (_e, c) => { if (win && isWin && win.setTitleBarOverlay) { try { win.setTitleBarOverlay({ color: c.bg, symbolColor: c.fg, height: c.h || 32 }); } catch { } } });
 ipcMain.handle('win:title', (_e, t) => { if (win) win.setTitle(t); });

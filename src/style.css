@@ -48,7 +48,7 @@ button { cursor: pointer; }
 .ic .s-ink { stroke: var(--ic-ink); } .ic .s-mute { stroke: var(--ic-mute); } .ic .s-red { stroke: var(--ic-red); } .ic .s-blue { stroke: var(--ic-blue); } .ic .s-green { stroke: var(--ic-green); }
 .ic .s-amber { stroke: var(--ic-amber); } .ic .s-orange { stroke: var(--ic-orange); } .ic .s-purple { stroke: var(--ic-purple); } .ic .s-teal { stroke: var(--ic-teal); } .ic .s-pink { stroke: var(--ic-pink); } .ic .s-yellow { stroke: var(--ic-yellow); }
 .ic .f-ink { fill: var(--ic-ink); stroke: none; } .ic .f-red { fill: var(--ic-red); stroke: none; } .ic .f-amber { fill: var(--ic-amber); stroke: none; } .ic .f-yellow { fill: var(--ic-yellow); stroke: none; } .ic .f-green { fill: var(--ic-green); stroke: none; }
-.ic .f-blue { fill: var(--ic-blue); stroke: none; } .ic .f-pink { fill: var(--ic-pink); stroke: none; } .ic .f-purple { fill: var(--ic-purple); stroke: none; } .ic .f-orange { fill: var(--ic-orange); stroke: none; } .ic .f-teal { fill: var(--ic-teal); stroke: none; }
+.ic .f-mute { fill: var(--ic-mute); stroke: none; } .ic .f-blue { fill: var(--ic-blue); stroke: none; } .ic .f-pink { fill: var(--ic-pink); stroke: none; } .ic .f-purple { fill: var(--ic-purple); stroke: none; } .ic .f-orange { fill: var(--ic-orange); stroke: none; } .ic .f-teal { fill: var(--ic-teal); stroke: none; }
 .ic .t-paper { fill: var(--ic-paper); } .ic .t-yellow { fill: color-mix(in srgb, var(--ic-yellow) 45%, transparent); } .ic .t-green { fill: color-mix(in srgb, var(--ic-green) 22%, transparent); } .ic .t-orange { fill: color-mix(in srgb, var(--ic-orange) 22%, transparent); } .ic .t-blue { fill: color-mix(in srgb, var(--ic-blue) 18%, transparent); }
 /* MeBulb lamp mark */
 .mark .bulb-glass { fill: var(--bulb-glass); stroke: var(--bulb-line); stroke-width: 1.5; stroke-linejoin: round; }
@@ -249,7 +249,8 @@ g.mk .hit { pointer-events: all; } g.mk .hit-s { pointer-events: stroke; } g.mk 
 .hdl.tip { fill: var(--sel); } .hdl.hole { fill: #fde6e2; stroke: #d6331f; } .hdl.rot { fill: var(--sel); cursor: grab; }
 .rotln { stroke: var(--sel); pointer-events: none; }
 .vtx { fill: #fff; stroke: var(--sel); pointer-events: none; } .vtx.first { fill: var(--sel); }
-.marquee { fill: rgba(29, 108, 224, .08); stroke: var(--sel); stroke-dasharray: 4 3; pointer-events: none; }
+.marquee { fill: rgba(29, 108, 224, .10); stroke: #1d6ce0; pointer-events: none; }
+.marquee.cross { fill: rgba(43, 160, 64, .12); stroke: #2b9a3e; stroke-dasharray: 5 3; }
 .snap { fill: none; stroke: #e0007a; pointer-events: none; } .snap.grid { stroke: #0b8a8a; }
 .gridln { stroke: rgba(17, 120, 200, .22); fill: none; pointer-events: none; }
 .vp rect { fill: rgba(17, 163, 181, .04); stroke: #11a3b5; pointer-events: none; }
@@ -534,3 +535,19 @@ body.painting #viewer g.mk, body.painting #viewer g.mk .hit { cursor: copy !impo
 .recent .ic { width: 22px; height: 22px; flex: none; color: var(--muted); }
 .recent span { display: flex; flex-direction: column; min-width: 0; }
 .recent small { font-size: 11.5px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- colour processing overlay (between the drawing and the markups) ---- */
+.page { isolation: isolate; }
+.cadj { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.cadj.c-sat { background: #808080; mix-blend-mode: saturation; }
+.range-ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--faint); margin-top: 2px; }
+
+/* ---- print dialog ---- */
+.print-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+.print-prev { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px; background: var(--panel-2); border-radius: 8px; }
+.pp-paper { position: relative; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .3); overflow: hidden; }
+.pp-paper canvas { position: absolute; }
+.pp-info { margin: 0; font-size: 12px; color: var(--muted); text-align: center; line-height: 1.5; }
+.pp-info .bad { color: var(--bad); }
+.pp-nav { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+@media (max-width: 720px) { .print-grid { grid-template-columns: 1fr; } }

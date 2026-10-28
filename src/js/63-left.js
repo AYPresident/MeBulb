@@ -19,7 +19,7 @@ async function drawThumb(doc, i, btn) {
     const page = await doc.pdf.getPage(i + 1); const pg = doc.pages[i]; const dpr = window.devicePixelRatio || 1; const sc = (132 * dpr) / pg.w;
     const vp = page.getViewport({ scale: sc, rotation: page.rotate }); const c = document.createElement('canvas'); c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
     const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
-    await hideOwnAnnots(doc, i); await page.render({ canvasContext: ctx, canvas: c, viewport: vp, annotationMode: annotMode(doc) }).promise;
+    await hideOwnAnnots(doc, i); await page.render({ canvasContext: ctx, canvas: c, viewport: vp, annotationMode: annotMode(doc) }).promise; colorAdjCanvas(ctx, c.width, c.height, colorAdjFor(doc, i));
     const slot = btn.querySelector('.tcv'); if (slot) { slot.innerHTML = ''; slot.appendChild(c); }
   } catch (e) { /* page may have been removed */ }
 }

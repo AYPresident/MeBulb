@@ -60,29 +60,8 @@ function arrangeSelected(kind) {
 }
 function cycleDoc(dir) { if (state.docs.length < 2) return; const i = state.docs.findIndex((d) => d.id === state.activeId); switchDoc(state.docs[(i + dir + state.docs.length) % state.docs.length].id); }
 
-// ----- print: renders pages with their markups and hands them to the system print dialog
-async function printDoc() {
-  const doc = activeDoc(); if (!doc) return; const cur = currentPage() + 1;
-  const r = await openDialog({ title: 'Print', body: `${field('Pages', `<input type="text" name="range" value="${doc.numPages <= 1 ? '1' : 'all'}" placeholder="e.g. all, ${cur} or 1-3">`)}${field('Quality', '<select name="q"><option value="150">Standard (150 dpi)</option><option value="220" selected>High (220 dpi)</option><option value="300">Best (300 dpi, slower)</option></select>')}<label class="check"><input type="checkbox" name="marks" checked> Include markups</label>`, buttons: [{ label: 'Cancel', value: false }, { label: 'Print…', value: true, primary: true }] });
-  if (!r || !r.value) return; const idxs = /^\s*all\s*$/i.test(r.form.range) ? [...Array(doc.numPages).keys()] : parseRange(r.form.range, doc.numPages); if (!idxs.length) { toast('Enter pages like all, 2 or 1-3', 'error'); return; }
-  const busy = $('#busy'); busy.hidden = false; const imgs = [];
-  try {
-    for (const [k, i] of idxs.entries()) {
-      busy.textContent = `Preparing page ${k + 1} of ${idxs.length}…`; const pg = doc.pages[i]; const s = Math.min(+r.form.q / 72, Math.sqrt(40e6 / (pg.w * pg.h)));
-      const c = await renderToCanvas(doc, i, s); if (r.form.marks) await drawMarkupsOnCanvas(doc, i, c, s);
-      imgs.push({ url: c.toDataURL('image/jpeg', 0.92), w: pg.w, h: pg.h });
-    }
-    busy.hidden = true; printImages(imgs, doc.name);
-  } catch (e) { console.error(e); toast('Print failed: ' + e.message, 'error'); } finally { busy.hidden = true; }
-}
+// ----- markups drawn onto a rendered page (printing)
 async function drawMarkupsOnCanvas(doc, i, canvas, s) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}" viewBox="0 0 ${doc.pages[i].w} ${doc.pages[i].h}">${doc.markups.filter((m) => m.page === i && layerVisible(doc, m.layer)).map((m) => dl(m, doc).map(primSvg).join('')).join('')}</svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}" viewBox="0 0 ${doc.pages[i].w} ${doc.pages[i].h}">${[...(doc.flat || []).filter((f) => f.page === i && !f.inView).flatMap((f) => f.markups), ...doc.markups.filter((m) => m.page === i && layerVisible(doc, m.layer))].map((m) => dl(m, doc).map(primSvg).join('')).join('')}</svg>`;
   const img = new Image(); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); await img.decode(); canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-}
-function printImages(imgs, title) {
-  const fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.appendChild(fr);
-  const d = fr.contentDocument; const first = imgs[0];
-  d.open(); d.write(`<!doctype html><html><head><title>${esc(title)}</title><style>@page{size:${num(first.w / 72, 3)}in ${num(first.h / 72, 3)}in;margin:0}html,body{margin:0;padding:0}img{display:block;width:100vw;height:100vh;object-fit:contain;page-break-after:always;break-after:page}img:last-child{page-break-after:auto;break-after:auto}</style></head><body>${imgs.map((m) => `<img src="${m.url}">`).join('')}</body></html>`); d.close();
-  const go = () => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } finally { setTimeout(() => fr.remove(), 60000); } };
-  const all = [...d.images]; Promise.all(all.map((im) => (im.complete ? 0 : new Promise((res) => { im.onload = im.onerror = res; })))).then(go);
 }

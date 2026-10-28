@@ -49,11 +49,11 @@ function renderProps() {
   if (!has('pen', 'highlight', 'note', 'stamp', 'image', 'texthl', 'strikeout', 'textedit')) html += field('Line style', `<select data-k="style.dash">${['solid', 'dashed', 'dotted', 'dashdot'].map((d) => `<option value="${d}"${s.dash === d ? ' selected' : ''}>${d === 'dashdot' ? 'Dash-dot' : d[0].toUpperCase() + d.slice(1)}</option>`).join('')}</select>`);
   html += field('Opacity', `<div class="range"><input type="range" min="0.05" max="1" step="0.05" data-k="style.opacity" value="${s.opacity}"><output>${Math.round(s.opacity * 100)}%</output></div>`);
   if (has('rect', 'polygon', 'cloud', 'area', 'perimeter', 'volume')) html += field('Border', `<label class="check"><input type="checkbox" data-k="style.cloud"${s.cloud ? ' checked' : ''}> Cloud border</label>${s.cloud ? `<div class="range"><input type="range" min="5" max="40" step="1" data-k="style.cloudArc" value="${s.cloudArc || 14}"><output>${s.cloudArc || 14} pt arcs</output></div>` : ''}`);
-  if (has('line', 'arrow', 'polyline', 'callout')) {
-    const ends = ['none', 'arrow', 'open', 'dot', 'tick']; const opt = (k) => ends.map((e) => `<option value="${e}"${s[k] === e ? ' selected' : ''}>${e[0].toUpperCase() + e.slice(1)}</option>`).join('');
-    html += `<div class="field two">${!has('callout') ? `<div><label>Start</label><select data-k="style.arrowStart">${opt('arrowStart')}</select></div>` : ''}<div><label>${has('callout') ? 'Leader end' : 'End'}</label><select data-k="style.arrowEnd">${opt('arrowEnd')}</select></div></div>`;
+  if (has('line', 'arrow', 'polyline', 'callout', 'length', 'polylength') && !has('rect', 'ellipse', 'text', 'area', 'count')) {
+    const lenDef = has('length', 'polylength') ? 'butt' : 'none'; const opt = (k) => leOptions(s[k] || (k === 'arrowEnd' && has('callout') ? 'arrow' : lenDef));
+    html += `<div class="field two">${!has('callout') ? `<div><label>Line start</label><select data-k="style.arrowStart">${opt('arrowStart')}</select></div>` : ''}<div><label>${has('callout') ? 'Leader end' : 'Line end'}</label><select data-k="style.arrowEnd">${opt('arrowEnd')}</select></div></div>`;
   }
-  if (has('count')) html += field('Symbol', `<div class="range"><input type="range" min="2" max="24" step="0.5" data-k="style.size" value="${s.size || 6}"><output>${s.size || 6} pt</output></div><label class="check"><input type="checkbox" data-k="style.numbered"${s.numbered ? ' checked' : ''}> Number each item</label>`);
+  if (has('count')) html += `<div class="field two"><div><label>Symbol</label><select data-k="style.symbol">${COUNT_SYMBOLS.map(([v, l]) => `<option value="${v}"${(s.symbol || 'circle') === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></div><div><label>Size</label><input type="number" class="num" min="2" max="40" step="0.5" data-k="style.size" value="${s.size || 6}"></div></div><label class="check"><input type="checkbox" data-k="style.numbered"${s.numbered ? ' checked' : ''}> Number each item</label>`;
   html += '</section>';
 
   // ---- text
@@ -289,3 +289,5 @@ async function placeOnPagesDialog(m) {
   pushUndo(doc); const made = placeOnPages(doc, m, pages); renderAllMarks(doc); refreshPanels(); state.linkOpen = m.link; openRight('linked');
   toast(`${linkOf(doc, m).name} placed on ${made.length} more page${made.length > 1 ? 's' : ''}`);
 }
+
+function leOptions(cur) { return LINE_ENDS.map(([v, l]) => `<option value="${v}"${(cur || 'none') === v ? ' selected' : ''}>${l}</option>`).join(''); }

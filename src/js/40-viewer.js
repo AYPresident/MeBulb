@@ -9,13 +9,13 @@ function mountDoc(doc) {
   $('#empty').hidden = true;
   doc.pageEls = doc.pages.map((pg, i) => {
     const el = document.createElement('div'); el.className = 'page'; el.dataset.i = i;
-    el.innerHTML = `<canvas class="base"></canvas><canvas class="detail" hidden></canvas><svg class="ov" xmlns="http://www.w3.org/2000/svg"><g class="grid"></g><g class="vports"></g><g class="search"></g><g class="marks"></g><g class="draft"></g><g class="sel"></g></svg>`;
+    el.innerHTML = `<canvas class="base"></canvas><canvas class="detail" hidden></canvas><svg class="ov" xmlns="http://www.w3.org/2000/svg"><g class="grid"></g><g class="vports"></g><g class="search"></g><g class="flat"></g><g class="marks"></g><g class="draft"></g><g class="sel"></g></svg>`;
     V.pages.appendChild(el); return el;
   });
   layoutPages(doc);
   if (!doc.fitted) { doc.fitted = true; fitWidth(false); }
   V.el.scrollTop = doc.scrollTop; V.el.scrollLeft = doc.scrollLeft;
-  renderAllMarks(doc); renderSearchHits(); renderFormLayers(); scheduleRender(); updateZoomUI(); updatePageUI();
+  renderAllMarks(doc); renderSearchHits(); renderFormLayers(); renderColorAdj(doc); scheduleRender(); updateZoomUI(); updatePageUI();
 }
 
 function layoutPages(doc = activeDoc()) {
@@ -132,7 +132,7 @@ function renderMarks(doc, i) {
   if (!doc || !doc.pageEls || !doc.pageEls[i] || doc !== activeDoc()) return;
   const g = doc.pageEls[i].querySelector('g.marks');
   g.innerHTML = doc.markups.filter((m) => m.page === i && layerVisible(doc, m.layer)).map((m) => markupSvg(m, doc, { hideText: state.editing && state.editing.id === m.id })).join('');
-  renderSel(doc, i); renderPageExtras(doc, i);
+  renderSel(doc, i); renderPageExtras(doc, i); renderFlatLayer(doc, i);
 }
 // grid and viewport outlines (not markups; never exported)
 function renderPageExtras(doc, i) {
@@ -197,7 +197,7 @@ function renderDraft() {
     s += markupSvg(dr.m, d, opts);
     if (dr.mode === 'multi' && !dr.boxDrag) dr.m.pts.slice(0, -1).forEach((p, k) => { s += `<circle class="vtx${k === 0 ? ' first' : ''}" cx="${num(p[0], 2)}" cy="${num(p[1], 2)}" r="${num(3.2 / z, 2)}" stroke-width="${num(1 / z, 3)}"/>`; });
   }
-  if (state.marquee && d.pageEls[state.marquee.page]) { const q = state.marquee; const b = boxRect(q.a, q.b); const target = d.pageEls[q.page].querySelector('g.draft'); target.innerHTML = `<rect class="marquee" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" stroke-width="${1 / z}"/>`; }
+  if (state.marquee && d.pageEls[state.marquee.page]) { const q = state.marquee; const b = boxRect(q.a, q.b); const target = d.pageEls[q.page].querySelector('g.draft'); target.innerHTML = `<rect class="marquee${q.b[0] < q.a[0] ? ' cross' : ''}" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" stroke-width="${1 / z}"/>`; }
   if (state.snapHint && d.pageEls[state.snapHint.page]) s += snapMarker(state.snapHint, z);
   const page = dr ? dr.page : state.snapHint ? state.snapHint.page : -1;
   if (page >= 0 && s) d.pageEls[page].querySelector('g.draft').insertAdjacentHTML('beforeend', s);

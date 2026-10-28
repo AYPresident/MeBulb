@@ -169,6 +169,8 @@ const ICONS = {
   search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>',
   layers: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
   pages: '<rect x="4" y="3" width="11" height="14" rx="1"/><path d="M9 21h10a1 1 0 001-1V7"/>',
+  colorproc: '<circle cx="12" cy="12" r="8"/><path class="f-mute" d="M12 4a8 8 0 010 16z"/><path class="s-blue" d="M12 4v16"/>',
+  unflatten: '<path d="M4 18h16"/><path class="s-blue" d="M7 14l5-9 5 9"/><path d="M8 21h8"/>',
   pdf: '<path d="M6 3h8l4 4v13a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M14 3v4h4"/><path class="s-red" d="M8 13h8M8 16h5"/>',
   share: '<circle cx="6" cy="12" r="2.4"/><circle class="s-green" cx="18" cy="6" r="2.4"/><circle class="s-blue" cx="18" cy="18" r="2.4"/><path d="M8.2 11l7.6-4M8.2 13l7.6 4"/>',
   bookmark: '<path d="M6 3h12v18l-6-4-6 4z"/>',

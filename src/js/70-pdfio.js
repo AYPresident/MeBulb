@@ -70,9 +70,10 @@ async function openSource(name, src, opts = {}) {
       const ext = await extractPlanmark(await src.all()).catch((e) => { console.warn(e); return null; });
       if (ext) { doc.src = new MemSource(ext.bytes); data = ext.data; doc.diskMatches = false; }
     }
-    if (data) { doc.markups = data.markups || []; doc.scales = data.scales || {}; doc.layers = data.layers || []; doc.links = data.links || {}; doc.viewports = data.viewports || {}; doc.align = data.align || null; doc.tomb = data.tomb || null; }
+    if (data) { doc.markups = data.markups || []; doc.scales = data.scales || {}; doc.layers = data.layers || []; doc.links = data.links || {}; doc.viewports = data.viewports || {}; doc.align = data.align || null; doc.tomb = data.tomb || null; doc.colorAdj = data.colorAdj || null; doc.ownSig = data.ownSig || {}; }
     doc.base = { src: doc.src, appends: [] }; doc.reader = doc.src === src ? R : await openReader(doc.src); doc.viewReader = doc.reader;
     await loadPdfInto(doc);
+    if (data && data.ownSig) await stripOwnedFromView(doc, data.ownSig);
   } catch (e) {
     console.error(e); if (e && e.name === 'PasswordException') return null;
     toast(`Could not open ${name}: ${e.message || e}`, 'error'); return null;
@@ -270,20 +271,12 @@ async function buildPdf(doc, { flatten }) {
   const editApplied = await bakeTextEdits(pdfDoc, doc, fonts, imgCache);
   bakeOcr(pdfDoc, doc, fonts);
   applyFormValues(pdfDoc, doc, fonts.reg, flatten);
-  for (let i = 0; i < pages.length; i++) {
-    const page = pages[i]; const pg = doc.pages[i]; if (!pg) continue; const M = invertT(pg.T); const cm = `${M.map((v) => num(v, 6)).join(' ')} cm`;
-    const ms = doc.markups.filter((m) => m.page === i && m.type !== 'textedit' && (!flatten || layerVisible(doc, m.layer)));
-    if (!ms.length) continue;
-    if (flatten) {
-      const ops = new Ops(); ops.s.push(cm); ms.forEach((m) => dl(m, doc).forEach((p) => ops.prim(p)));
-      const mb = page.getMediaBox(); const res = await resourcesFor(pdfDoc, ops, fonts, imgCache);
-      const xref = ctx.register(ctx.flateStream(ops.toString(), { Type: 'XObject', Subtype: 'Form', FormType: 1, BBox: [mb.x - 1e4, mb.y - 1e4, mb.x + mb.width + 1e4, mb.y + mb.height + 1e4], Resources: res }));
-      const name = page.node.newXObject('PMFlat', xref);
-      page.node.normalize();
-      const start = ctx.register(ctx.stream('q\n')); const end = ctx.register(ctx.stream(`\nQ\nq ${name.toString()} Do Q\n`));
-      if (!page.node.wrapContentStreams(start, end)) { const c = page.node.Contents(); page.node.set(PDFName.of('Contents'), ctx.obj(c ? [start, page.node.get(PDFName.of('Contents')), end] : [end])); }
-      continue;
-    }
+  await scanFlat(doc);
+  const savedFlat = doc.flat; if (flatten) doc.flat = [...(doc.flat || []), ...[...Array(pages.length).keys()].flatMap((i) => exportFlat(doc, i))];
+  try { const sigs = await ownedContentFull(pdfDoc, doc, fonts, imgCache); if (!flatten) doc.ownSigPending = sigs; } finally { doc.flat = savedFlat; }
+  for (let i = 0; i < pages.length && !flatten; i++) {
+    const page = pages[i]; if (!doc.pages[i]) continue;
+    const ms = doc.markups.filter((m) => m.page === i && m.type !== 'textedit'); if (!ms.length) continue;
     for (const ref of await annotsForPage(pdfDoc, fonts, imgCache, doc, i, page.ref, ms)) page.node.addAnnot(ref);
   }
   if (!flatten) { cleanupLinks(doc); const ref = ctx.register(ctx.flateStream(new TextEncoder().encode(payloadJson(doc, editApplied)), { Type: 'MeBulbData' })); pdfDoc.catalog.set(PDFName.of('MeBulbData'), ref); }
@@ -341,6 +334,7 @@ async function saveDoc(mode = 'save') {
     if (mode !== 'flatten') {
       if (appendOnly) { doc.base.appends.push(appendOnly.bytes); doc.reader = await openReader(baseSource(doc)); }
       else { doc.base = { src: new MemSource(full), appends: [] }; doc.reader = await openReader(doc.base.src); }
+      if (doc.ownSigPending) { doc.ownSig = doc.ownSigPending; doc.ownSigPending = null; }
       doc.diskMatches = !!(H ? doc.path : doc.handle); doc.dirty = false; doc.savedAt = nowISO(); renderTabs(); sessionSaved(doc);
       const ms = Math.round(performance.now() - t0); setStatus(`Saved ${doc.name} in ${ms < 1000 ? ms + ' ms' : (ms / 1000).toFixed(1) + ' s'}${appendOnly ? ` (${fmtBytes(appendOnly.bytes.length)} added)` : ' (whole file rewritten)'}`);
     }
@@ -358,6 +352,8 @@ function remapPages(doc, f) {
   doc.markups = doc.markups.filter((m) => { const n = f(m.page); if (n == null) return false; m.page = n; return true; });
   const sc = {}; Object.entries(doc.scales).forEach(([k, v]) => { const n = f(+k); if (n != null) sc[n] = v; }); doc.scales = sc;
   const vp = {}; Object.entries(doc.viewports || {}).forEach(([k, v]) => { const n = f(+k); if (n != null) vp[n] = v; }); doc.viewports = vp; cleanupLinks(doc);
+  if (doc.flat) doc.flat = doc.flat.filter((F) => { const n = f(F.page); if (n == null) return false; F.page = n; F.markups.forEach((m) => { m.page = n; }); return true; });
+  if (doc.colorAdj && doc.colorAdj.pages) { const cp = {}; Object.entries(doc.colorAdj.pages).forEach(([k, v]) => { const n = f(+k); if (n != null) cp[n] = v; }); doc.colorAdj.pages = cp; }
   if (doc.align) { const ref = f(doc.align.ref); if (ref == null) doc.align = null; else { const T = {}; Object.entries(doc.align.T || {}).forEach(([k, v]) => { const n = f(+k); if (n != null) T[n] = v; }); doc.align = { ref, T }; } }
   [...state.sel].forEach((id) => { if (!getMarkup(id, doc)) state.sel.delete(id); });
 }
@@ -417,4 +413,4 @@ async function extractPages(idxs, asNew = true) {
 }
 
 // the document now shows different bytes (page operations, undo of one): saves go out as a whole file
-function setDocSource(doc, src) { doc.src = src; doc.bytes = null; doc.base = { src, appends: [] }; doc.reader = null; doc.viewReader = null; doc.diskMatches = false; }
+function setDocSource(doc, src) { doc.src = src; doc.bytes = null; doc.base = { src, appends: [] }; doc.reader = null; doc.viewReader = null; doc.diskMatches = false; doc.ownSig = {}; doc.flatScanned = new Set(); }

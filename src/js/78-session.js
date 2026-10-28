@@ -7,7 +7,7 @@
 // a recovery copy is kept in the MeBulb folder under AppData.
 // The transport is a class, so a server-based one can replace FolderTransport later (for
 // consultants without Egnyte access) without touching the merge logic.
-const SESS_META = ['scales', 'layers', 'links', 'viewports', 'align'];
+const SESS_META = ['scales', 'layers', 'links', 'viewports', 'align', 'colorAdj', 'flat'];
 const PEER_COLORS = ['#e8590c', '#2b8a3e', '#1971c2', '#c2255c', '#6741d9', '#0c8599', '#e67700', '#5c940d'];
 const SESS = { hint: false };
 const sanit = (s) => String(s || '').replace(/[\\/:*?"<>|~\x00-\x1f]/g, '_').replace(/[. ]+$/, '').slice(0, 80) || 'user';

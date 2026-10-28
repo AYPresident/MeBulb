@@ -248,7 +248,9 @@ function onPointerUp(e) {
     const g = I.drag; I.drag = null;
     if (g.kind === 'marquee') {
       const q = state.marquee; state.marquee = null; const b = boxRect(q.a, q.b);
-      if (b.w > 2 || b.h > 2) doc.markups.forEach((m) => { if (m.page !== q.page || !layerVisible(doc, m.layer)) return; const mb = markupBBox(m, doc); if (mb.x >= b.x && mb.y >= b.y && mb.x2 <= b.x + b.w && mb.y2 <= b.y + b.h) state.sel.add(m.id); });
+      // left to right (blue): only markups entirely inside; right to left (green): anything the window touches
+      const crossing = q.b[0] < q.a[0];
+      if (b.w > 2 || b.h > 2) doc.markups.forEach((m) => { if (m.page !== q.page || !layerVisible(doc, m.layer)) return; const mb = markupBBox(m, doc); if (crossing ? markupTouchesRect(m, doc, b, mb) : mb.x >= b.x && mb.y >= b.y && mb.x2 <= b.x + b.w && mb.y2 <= b.y + b.h) state.sel.add(m.id); });
       renderDraft(); refreshSelection(); return;
     }
     if (g.kind === 'label') { const m = getMarkup(g.id); if (g.moved && m) { touch(m); refreshPanels(); finishLabelDrag(m, g.had); } return; }
