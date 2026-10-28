@@ -108,15 +108,24 @@ const rerenderOverlaysSoon = debounce(() => { const d = activeDoc(); if (d) { vi
 function fitWidth(keepPage = true) { const d = activeDoc(); if (!d) return; const i = currentPage(); const pg = d.pages[i]; const z = (V.el.clientWidth - 40) / pg.w; setZoom(z); if (keepPage) goToPage(i); }
 function fitPage() { const d = activeDoc(); if (!d) return; const i = currentPage(); const pg = d.pages[i]; const z = Math.min((V.el.clientWidth - 40) / pg.w, (V.el.clientHeight - 40) / pg.h); setZoom(z); goToPage(i); }
 function currentPage() {
-  const d = activeDoc(); if (!d || !d.pageEls || !d.pageEls.length) return 0; const mid = V.el.scrollTop + V.el.clientHeight / 2;
+  const d = activeDoc(); if (!d || !d.pageEls || !d.pageEls.length) return 0; if (state.pageMode === 'single' && d.singleCur != null) return clamp(d.singleCur, 0, d.numPages - 1); const mid = V.el.scrollTop + V.el.clientHeight / 2;
   let best = 0, bd = Infinity; d.pageEls.forEach((el, i) => { const t = el.offsetTop, b = t + el.offsetHeight; const dd = mid < t ? t - mid : mid > b ? mid - b : 0; if (dd < bd) { bd = dd; best = i; } });
   return best;
 }
 function goToPage(i, at) {
   const d = activeDoc(); if (!d || !d.pageEls) return; i = clamp(i, 0, d.numPages - 1); const el = d.pageEls[i];
+  if (state.pageMode === 'single' && d.singleCur !== i) applyPageMode(i);
   if (at) { V.el.scrollTop = el.offsetTop + at[1] * d.zoom - V.el.clientHeight / 2; V.el.scrollLeft = el.offsetLeft + at[0] * d.zoom - V.el.clientWidth / 2; }
   else V.el.scrollTop = el.offsetTop - 16;
   updatePageUI(); scheduleRender();
+}
+// next / previous page (Ctrl+Right / Ctrl+Left): zoomed in, stay on the same spot of the drawing,
+// through the page alignment when the sheets are aligned; zoomed out, show the top of the page
+function stepPage(dir) {
+  const d = activeDoc(); if (!d || !d.pageEls) return; const i = currentPage(); const j = clamp(i + dir, 0, d.numPages - 1); if (j === i) return;
+  const el = d.pageEls[i]; const pg = d.pages[i]; const cx = (V.el.scrollLeft + V.el.clientWidth / 2 - el.offsetLeft) / d.zoom, cy = (V.el.scrollTop + V.el.clientHeight / 2 - el.offsetTop) / d.zoom;
+  const inside = cx >= 0 && cy >= 0 && cx <= pg.w && cy <= pg.h; const zoomedIn = pg.h * d.zoom > V.el.clientHeight * 1.02 || pg.w * d.zoom > V.el.clientWidth * 1.02;
+  if (inside && zoomedIn) goToPage(j, mapPage(d, i, j, [cx, cy])); else goToPage(j);
 }
 function zoomToBox(page, b) {
   const d = activeDoc(); if (!d) return; const pad = 60;
@@ -146,20 +155,24 @@ function renderPageExtras(doc, i) {
   vg.innerHTML = state.showViewports ? vps.map((v) => { const fs = 10 / Math.max(z, 0.3); return `<g class="vp" data-vp="${v.id}"><rect x="${v.x}" y="${v.y}" width="${v.w}" height="${v.h}" stroke-width="${num(1.2 / z, 3)}" stroke-dasharray="${num(6 / z, 2)} ${num(4 / z, 2)}"/><text x="${num(v.x + 4 / z, 2)}" y="${num(v.y + fs + 2 / z, 2)}" font-size="${num(fs, 2)}">${esc(v.name)} \u00b7 ${esc(v.scale.label || '')}</text></g>`; }).join('') : '';
 }
 function renderAllMarks(doc = activeDoc()) { if (!doc || !doc.pageEls) return; for (let i = 0; i < doc.numPages; i++) renderMarks(doc, i); }
-function renderMarkupEl(m, doc = activeDoc()) {
+function renderMarkupEl(m, doc = activeDoc(), peer) {
   const el = doc.pageEls && doc.pageEls[m.page]; if (!el) return; const g = el.querySelector(`g.mk[data-id="${m.id}"]`);
   if (!g) { renderMarks(doc, m.page); return; }
   const tmp = document.createElementNS('http://www.w3.org/2000/svg', 'g'); tmp.innerHTML = markupSvg(m, doc, { hideText: state.editing && state.editing.id === m.id });
   g.replaceWith(tmp.firstChild);
+  // a unit's clearance warnings depend on its neighbours: redraw the others on the page when one changes
+  if (m.type === 'equip' && !peer) doc.markups.forEach((x) => { if (x !== m && x.type === 'equip' && x.page === m.page) renderMarkupEl(x, doc, true); });
 }
 function handlesFor(m) {
   const H = [];
   const pts = m.pts;
   if (m.type === 'sketch') return sketchHandles(m, activeDoc());
-  if (BOX_TYPES.has(m.type)) { const b = boxRect(pts[0], pts[1]); [[b.x, b.y], [b.x + b.w, b.y], [b.x + b.w, b.y + b.h], [b.x, b.y + b.h]].forEach((p, k) => H.push({ h: 'c' + k, p })); }
-  else if (m.type === 'callout') { H.push({ h: 'v0', p: pts[0], kind: 'tip' }); const b = boxRect(pts[1], pts[2]); [[b.x, b.y], [b.x + b.w, b.y], [b.x + b.w, b.y + b.h], [b.x, b.y + b.h]].forEach((p, k) => H.push({ h: 'b' + k, p })); }
+  const sides = (b, tag) => [[b.x + b.w / 2, b.y], [b.x + b.w, b.y + b.h / 2], [b.x + b.w / 2, b.y + b.h], [b.x, b.y + b.h / 2]].forEach((p, k) => H.push({ h: tag + k, p, kind: 'side' }));
+  if (BOX_TYPES.has(m.type)) { const b = TEXT_TYPES.has(m.type) ? textBox(m) : boxRect(pts[0], pts[1]); [[b.x, b.y], [b.x + b.w, b.y], [b.x + b.w, b.y + b.h], [b.x, b.y + b.h]].forEach((p, k) => H.push({ h: 'c' + k, p })); sides(b, 'e'); }
+  else if (m.type === 'callout') { H.push({ h: 'v0', p: pts[0], kind: 'tip' }); const lds = calloutLeaders(m); H.push({ h: 'n', p: lds[0].knee, kind: 'knee' }); (m.leaders || []).forEach((ld, k) => { H.push({ h: 'l' + k, p: ld.tip, kind: 'tip' }, { h: 'm' + k, p: lds[k + 1].knee, kind: 'knee' }); }); const b = textBox(m); [[b.x, b.y], [b.x + b.w, b.y], [b.x + b.w, b.y + b.h], [b.x, b.y + b.h]].forEach((p, k) => H.push({ h: 'b' + k, p })); sides(b, 'f'); }
   else if (m.type === 'pen' || m.type === 'highlight') { const b = G.bbox(pts); [[b.x, b.y], [b.x2, b.y], [b.x2, b.y2], [b.x, b.y2]].forEach((p, k) => H.push({ h: 's' + k, p })); }
   else if (m.type !== 'note' && m.type !== 'textedit' && !QUAD_TYPES.has(m.type)) pts.forEach((p, k) => H.push({ h: 'v' + k, p }));
+  if (CV.has(m)) Object.entries(m.curves).forEach(([k, c]) => { k = +k; if (k < CV.segs(pts, CV.closed(m))) H.push({ h: 'q' + k, p: CV.mid(pts[k], pts[(k + 1) % pts.length], c), kind: 'curve' }); });
   if (m.holes) m.holes.forEach((hole, hk) => hole.forEach((p, hi) => H.push({ h: `h${hk}.${hi}`, p, kind: 'hole' })));
   return H;
 }
@@ -171,7 +184,8 @@ function renderSel(doc, i) {
     s += `<rect class="sel-box" x="${num(b.x - pad, 2)}" y="${num(b.y - pad, 2)}" width="${num(b.w + 2 * pad, 2)}" height="${num(b.h + 2 * pad, 2)}" stroke-width="${num(1 / z, 3)}" stroke-dasharray="${num(4 / z, 2)} ${num(3 / z, 2)}"/>`;
     if (state.sel.size <= 30 && !isLocked(m, doc)) for (const H of handlesFor(m)) {
       if (H.kind === 'rot') { const c = m.pts[0]; s += `<line class="rotln" x1="${num(c[0], 2)}" y1="${num(c[1], 2)}" x2="${num(H.p[0], 2)}" y2="${num(H.p[1], 2)}" stroke-width="${num(1 / z, 3)}"/><circle class="hdl rot" data-m="${m.id}" data-h="rot" cx="${num(H.p[0], 2)}" cy="${num(H.p[1], 2)}" r="${num(hs * 0.6, 2)}" stroke-width="${num(1.2 / z, 3)}"/>`; continue; }
-      s += `<rect class="hdl${H.kind === 'tip' ? ' tip' : ''}${H.kind === 'hole' ? ' hole' : ''}" data-m="${m.id}" data-h="${H.h}" x="${num(H.p[0] - hs / 2, 2)}" y="${num(H.p[1] - hs / 2, 2)}" width="${num(hs, 2)}" height="${num(hs, 2)}" stroke-width="${num(1.2 / z, 3)}"/>`;
+      if (H.kind === 'curve') { s += `<circle class="hdl curve" data-m="${m.id}" data-h="${H.h}" cx="${num(H.p[0], 2)}" cy="${num(H.p[1], 2)}" r="${num(hs * 0.55, 2)}" stroke-width="${num(1.2 / z, 3)}"/>`; continue; }
+      s += `<rect class="hdl${H.kind === 'tip' ? ' tip' : ''}${H.kind === 'hole' ? ' hole' : ''}${H.kind === 'side' ? ' side' : ''}${H.kind === 'knee' ? ' knee' : ''}" data-m="${m.id}" data-h="${H.h}" x="${num(H.p[0] - hs / 2, 2)}" y="${num(H.p[1] - hs / 2, 2)}" width="${num(hs, 2)}" height="${num(hs, 2)}" stroke-width="${num(1.2 / z, 3)}"/>`;
     }
   }
   if (doc.sess) s += remoteSelSvg(doc, i, z);
@@ -195,7 +209,10 @@ function renderDraft() {
     const opts = { noHit: true, open: dr.mode === 'multi' && !dr.boxDrag };
     if (dr.m.type === 'calibrate') opts.draftLabel = `${num(G.dist(dr.m.pts[0], dr.m.pts[1]) / 72, 3)} in on paper`;
     s += markupSvg(dr.m, d, opts);
-    if (dr.mode === 'multi' && !dr.boxDrag) dr.m.pts.slice(0, -1).forEach((p, k) => { s += `<circle class="vtx${k === 0 ? ' first' : ''}" cx="${num(p[0], 2)}" cy="${num(p[1], 2)}" r="${num(3.2 / z, 2)}" stroke-width="${num(1 / z, 3)}"/>`; });
+    if (dr.mode === 'multi' && !dr.boxDrag) {
+      dr.m.pts.slice(0, -1).forEach((p, k) => { s += `<circle class="vtx${k === 0 ? ' first' : ''}" cx="${num(p[0], 2)}" cy="${num(p[1], 2)}" r="${num(3.2 / z, 2)}" stroke-width="${num(1 / z, 3)}"/>`; });
+      if (dr.m.curves) Object.entries(dr.m.curves).forEach(([k, c]) => { k = +k; const a = dr.m.pts[k], b = dr.m.pts[k + 1]; if (!a || !b) return; const h = CV.mid(a, b, c); const r = 3 / z; s += `<path class="vtx bend" d="M${num(h[0], 2)} ${num(h[1] - r, 2)}L${num(h[0] + r, 2)} ${num(h[1], 2)}L${num(h[0], 2)} ${num(h[1] + r, 2)}L${num(h[0] - r, 2)} ${num(h[1], 2)}Z" stroke-width="${num(1 / z, 3)}"/>`; });
+    }
   }
   if (state.marquee && d.pageEls[state.marquee.page]) { const q = state.marquee; const b = boxRect(q.a, q.b); const target = d.pageEls[q.page].querySelector('g.draft'); target.innerHTML = `<rect class="marquee${q.b[0] < q.a[0] ? ' cross' : ''}" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" stroke-width="${1 / z}"/>`; }
   if (state.snapHint && d.pageEls[state.snapHint.page]) s += snapMarker(state.snapHint, z);

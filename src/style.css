@@ -133,6 +133,8 @@ body.no-propbar #propbar { display: none; }
 #propbar input.dim-in { width: 60px; font-variant-numeric: tabular-nums; }
 .pb-tog { height: 24px; min-width: 24px; border: 1px solid var(--line-2); border-radius: 3px; background: var(--surface); font-weight: 700; padding: 0 5px; }
 .pb-tog.on { background: var(--accent-2); border-color: var(--accent); color: var(--accent); }
+.pb-seg { gap: 0 !important; } .pb-seg .pb-tog { padding: 0 3px; display: inline-flex; align-items: center; justify-content: center; } .pb-seg .pb-tog svg { width: 17px; height: 17px; }
+.pb-seg .pb-tog:first-child { border-radius: 3px 0 0 3px; } .pb-seg .pb-tog:last-child { border-radius: 0 3px 3px 0; margin-left: -1px; }
 .pb-hint { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .pop { position: fixed; z-index: 56; padding: 8px; background: var(--surface); border: 1px solid var(--line-2); border-radius: 6px; box-shadow: var(--shadow); }
 
@@ -269,7 +271,10 @@ g.mk .hit { pointer-events: all; } g.mk .hit-s { pointer-events: stroke; } g.mk 
 .hdl { fill: #fff; stroke: var(--sel); cursor: pointer; }
 .hdl.tip { fill: var(--sel); } .hdl.hole { fill: #fde6e2; stroke: #d6331f; } .hdl.rot { fill: var(--sel); cursor: grab; }
 .rotln { stroke: var(--sel); pointer-events: none; }
-.vtx { fill: #fff; stroke: var(--sel); pointer-events: none; } .vtx.first { fill: var(--sel); }
+.vtx { fill: #fff; stroke: var(--sel); pointer-events: none; } .vtx.first { fill: var(--sel); } .vtx.bend { fill: #ffd84d; }
+.hdl.curve { fill: #ffd84d; cursor: move; } #viewer.picking .page { cursor: crosshair; } .hdl.knee { fill: #ffd84d; cursor: move; }
+.hdl[data-h="e0"], .hdl[data-h="e2"], .hdl[data-h="f0"], .hdl[data-h="f2"] { cursor: ns-resize; } .hdl[data-h="e1"], .hdl[data-h="e3"], .hdl[data-h="f1"], .hdl[data-h="f3"] { cursor: ew-resize; }
+.hdl[data-h="c0"], .hdl[data-h="c2"], .hdl[data-h="b0"], .hdl[data-h="b2"] { cursor: nwse-resize; } .hdl[data-h="c1"], .hdl[data-h="c3"], .hdl[data-h="b1"], .hdl[data-h="b3"] { cursor: nesw-resize; }
 .marquee { fill: rgba(29, 108, 224, .10); stroke: #1d6ce0; pointer-events: none; }
 .marquee.cross { fill: rgba(43, 160, 64, .12); stroke: #2b9a3e; stroke-dasharray: 5 3; }
 .snap { fill: none; stroke: #e0007a; pointer-events: none; } .snap.grid { stroke: #0b8a8a; }

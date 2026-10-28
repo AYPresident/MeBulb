@@ -19,7 +19,7 @@ function sampleMarkup(it) {
   const geo = { line: [[-60, 20], [60, -20]], arrow: [[-60, 20], [60, -20]], length: [[-60, 0], [60, 0]], polyline: [[-60, 20], [0, -20], [60, 20]], polylength: [[-60, 20], [0, -20], [60, 20]], angle: [[-50, 20], [0, -30], [50, 20]], radius: [[0, 0], [40, 0]], count: [[0, 0]], note: [[-9, -9]], pen: [[-50, 10], [-20, -15], [10, 10], [40, -12]], highlight: [[-50, 0], [50, 0]] };
   const box = [[-60, -30], [60, 30]]; const poly = [[-60, 30], [-50, -30], [40, -25], [60, 25]];
   const pts = it.shape ? it.shape.pts.map((p) => p.slice()) : geo[t] || (['area', 'perimeter', 'volume', 'polygon', 'cloud'].includes(t) ? poly : t === 'callout' ? [[-80, 40], [-20, -30], [70, 10]] : box);
-  return { id: 'PM-sample', type: t === 'sketchrect' || t === 'sketchcircle' ? 'rect' : t, page: 0, pts: at(pts), style: s, text: it.shape && it.shape.text != null ? it.shape.text : t === 'text' || t === 'callout' ? it.name || 'Text' : it.text || (t === 'stamp' ? 'APPROVED' : ''), runs: it.shape && it.shape.runs || null, subject: it.subject || it.name, author: state.author, created: nowISO(), modified: nowISO(), depth: it.depth, asset: it.asset, ext: it.ext ? deep(it.ext) : undefined };
+  return { id: 'PM-sample', type: t === 'sketchrect' || t === 'sketchcircle' ? 'rect' : t, page: 0, pts: at(pts), style: s, text: it.shape && it.shape.text != null ? it.shape.text : t === 'text' || t === 'callout' ? it.name || 'Text' : it.text || (t === 'stamp' ? 'APPROVED' : ''), runs: it.shape && it.shape.runs || null, curves: it.shape && it.shape.curves ? deep(it.shape.curves) : undefined, subject: it.subject || it.name, author: state.author, created: nowISO(), modified: nowISO(), depth: it.depth, asset: it.asset, ext: it.ext ? deep(it.ext) : undefined };
 }
 // every markup of a tool (a grouped tool has several), laid out around (300, 400)
 function toolMarkups(it) {
@@ -183,6 +183,6 @@ function toolAssetImages(ids) {
 function noteRecentTool(m) {
   if (!m || !TOOLS[m.type] || ['textedit', 'sketch', 'image'].includes(m.type)) return; const c = G.bbox(m.pts); const cx = (c.x + c.x2) / 2, cy = (c.y + c.y2) / 2;
   const it = { name: m.subject || TOOLS[m.type].label, tool: m.type, style: deep(m.style), subject: m.subject, text: m.type === 'stamp' ? m.text : undefined, stampId: m.type === 'stamp' ? m.stampId : undefined, depth: m.depth,
-    shape: m.type === 'count' || m.type === 'stamp' && m.asset ? undefined : { pts: m.pts.map(([x, y]) => [x - cx, y - cy]), text: TEXT_TYPES.has(m.type) ? m.text : null, runs: m.runs ? deep(m.runs) : null } };
+    shape: m.type === 'count' || m.type === 'stamp' && m.asset ? undefined : { pts: m.pts.map(([x, y]) => [x - cx, y - cy]), text: TEXT_TYPES.has(m.type) ? m.text : null, runs: m.runs ? deep(m.runs) : null, curves: CV.has(m) ? deep(m.curves) : undefined } };
   const key = JSON.stringify([it.tool, it.style, it.subject]); state.recentTools = [it, ...(state.recentTools || []).filter((x) => JSON.stringify([x.tool, x.style, x.subject]) !== key)].slice(0, 12); store.set('recentTools', state.recentTools); if (panelShown('toolsets')) renderToolsets();
 }

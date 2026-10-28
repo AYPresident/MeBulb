@@ -61,11 +61,11 @@ function equipPrims(m, doc, opts = {}) {
   const bad = clash ? new Set(clash.zones) : new Set();
   // zones under the unit
   g.zones.forEach((z, i) => { const Z = EQ_ZONE[z.kind] || EQ_ZONE.service; const hot = bad.has(i);
-    out.push({ k: 'path', d: P.poly(z.pts, true), stroke: hot ? '#e03131' : Z.stroke, width: hot ? Math.max(1, s.width) : Math.max(0.35, s.width * 0.6), dash: 'dashed', fill: hot ? '#ff8787' : Z.fill, fillOpacity: hot ? 0.3 : 0.14, opacity: s.opacity });
+    out.push({ k: 'path', d: P.poly(z.pts, true), stroke: hot ? '#e03131' : Z.stroke, width: hot ? Math.max(1, s.width) : Math.max(0.35, s.width * 0.6), dash: 'dashed', fill: hot ? '#ff8787' : Z.fill, fillOpacity: hot ? 0.3 : 0.14, opacity: s.opacity, role: 'zone', zone: z, pts: z.pts });
     // airflow: arrows pointing away from the unit
     if (z.kind !== 'service') { const bb = G.bbox(z.poly); const mid = [(bb.x + bb.x2) / 2, (bb.y + bb.y2) / 2]; const out1 = z.side === 'front' ? [0, 1] : z.side === 'back' ? [0, -1] : z.side === 'left' ? [-1, 0] : [1, 0]; const dir = z.kind === 'intake' ? -1 : 1; const len = Math.min(z.dist || 600, 900) * 0.45;
       const a0 = [mid[0] - out1[0] * len * 0.5 * dir, mid[1] - out1[1] * len * 0.5 * dir], a1 = [mid[0] + out1[0] * len * 0.5 * dir, mid[1] + out1[1] * len * 0.5 * dir]; const p0 = g.T(a0), p1 = g.T(a1);
-      const st = { width: Math.max(0.5, s.width * 0.8) }; const ah = arrowHead(p1, p0, 'arrow', st); out.push({ k: 'path', d: P.poly([p0, ah.cut]), stroke: Z.stroke, width: st.width, fill: 'none', opacity: s.opacity }, ...ah.prims.map((p) => ({ ...p, stroke: Z.stroke, fill: p.fill && p.fill !== 'none' ? Z.stroke : p.fill })));
+      const st = { width: Math.max(0.5, s.width * 0.8) }; const ah = arrowHead(p1, p0, 'arrow', st); out.push({ k: 'path', d: P.poly([p0, ah.cut]), stroke: Z.stroke, width: st.width, fill: 'none', opacity: s.opacity, role: 'flow', seg: [p0, p1] }, ...ah.prims.map((p) => ({ ...p, stroke: Z.stroke, fill: p.fill && p.fill !== 'none' ? Z.stroke : p.fill, role: 'flowhead' })));
     }
   });
   // zone labels: along each side, in the part of the zone that is not covered by a shorter zone on that side
@@ -79,18 +79,18 @@ function equipPrims(m, doc, opts = {}) {
         const along = side === 'front' || side === 'back' ? bb0.w : bb0.h; const p = side === 'front' ? [(bb0.x + bb0.x2) / 2, bb0.y2 + mid] : side === 'back' ? [(bb0.x + bb0.x2) / 2, bb0.y - mid] : side === 'left' ? [bb0.x - mid, (bb0.y + bb0.y2) / 2] : [bb0.x2 + mid, (bb0.y + bb0.y2) / 2];
         const str = `${Math.round(to)} ${[z.label || Z.label, ...same].join(' · ')}`; const fit = Math.min((s.fontSize || 8) * 0.7, band * k * 0.6, (along * k * 0.9) / Math.max(4, str.length * 0.55)); if (fit < 2.2) return;
         let a = (side === 'front' || side === 'back' ? 0 : Math.PI / 2) * (m.flip ? -1 : 1) + g.T.a; a = Math.atan2(Math.sin(a), Math.cos(a)); if (a > Math.PI / 2 + 1e-6) a -= Math.PI; if (a <= -Math.PI / 2 - 1e-6) a += Math.PI; // keep text readable
-        const c = g.T(p); out.push({ k: 'text', x: c[0] - Math.sin(a) * fit * 0.35, y: c[1] + Math.cos(a) * fit * 0.35, size: fit, str, color: bad.has(i) ? '#c92a2a' : Z.stroke, font: s.font, anchor: 'middle', rot: a, opacity: s.opacity });
+        const c = g.T(p); out.push({ k: 'text', x: c[0] - Math.sin(a) * fit * 0.35, y: c[1] + Math.cos(a) * fit * 0.35, size: fit, str, color: bad.has(i) ? '#c92a2a' : Z.stroke, font: s.font, anchor: 'middle', rot: a, opacity: s.opacity, role: 'zlabel' });
       });
     });
   }
   // the unit
-  out.push({ k: 'path', d: P.poly(g.body, true), stroke: clash && clash.body ? '#e03131' : s.stroke, width: clash && clash.body ? Math.max(1.2, s.width * 1.5) : s.width, fill: s.fill && s.fill !== 'none' ? s.fill : '#ffffff', fillOpacity: s.fill && s.fill !== 'none' ? s.fillOpacity : 0.85, opacity: s.opacity, hit: 'box' });
-  g.lines.forEach((l) => { if (l.length > 1) out.push({ k: 'path', d: P.poly(l), stroke: s.stroke, width: Math.max(0.25, s.width * 0.45), fill: 'none', opacity: s.opacity }); });
+  out.push({ k: 'path', d: P.poly(g.body, true), stroke: clash && clash.body ? '#e03131' : s.stroke, width: clash && clash.body ? Math.max(1.2, s.width * 1.5) : s.width, fill: s.fill && s.fill !== 'none' ? s.fill : '#ffffff', fillOpacity: s.fill && s.fill !== 'none' ? s.fillOpacity : 0.85, opacity: s.opacity, hit: 'box', role: 'body' });
+  g.lines.forEach((l) => { if (l.length > 1) out.push({ k: 'path', d: P.poly(l), stroke: s.stroke, width: Math.max(0.25, s.width * 0.45), fill: 'none', opacity: s.opacity, role: 'line', pts: l }); });
   // front marker: a small triangle on the front edge
   const bb = G.bbox(eqBody(eq)); const tri = [[-1, 0], [1, 0], [0, 1]].map(([x, y]) => [x * Math.min(bb.w, bb.h) * 0.08, bb.y2 - Math.min(bb.w, bb.h) * 0.11 + y * Math.min(bb.w, bb.h) * 0.09]);
-  out.push({ k: 'path', d: P.poly(tri.map(g.T), true), stroke: 'none', fill: s.stroke, opacity: s.opacity });
+  out.push({ k: 'path', d: P.poly(tri.map(g.T), true), stroke: 'none', fill: s.stroke, opacity: s.opacity, role: 'mark', pts: tri.map(g.T) });
   // discharge straight up (condensers): a circle with a dot
-  if ((eq.air || []).some((a) => a.side === 'up') && show.air !== false) { const c = g.T([(bb.x + bb.x2) / 2, (bb.y + bb.y2) / 2 - bb.h * 0.08]); const r = Math.min(bb.w, bb.h) * 0.22 * k; out.push({ k: 'path', d: P.ellipse(c[0], c[1], r, r), stroke: EQ_ZONE.discharge.stroke, width: Math.max(0.4, s.width * 0.6), fill: 'none', opacity: s.opacity }, { k: 'path', d: P.ellipse(c[0], c[1], r * 0.15, r * 0.15), stroke: 'none', fill: EQ_ZONE.discharge.stroke, opacity: s.opacity }); }
+  if ((eq.air || []).some((a) => a.side === 'up') && show.air !== false) { const c = g.T([(bb.x + bb.x2) / 2, (bb.y + bb.y2) / 2 - bb.h * 0.08]); const r = Math.min(bb.w, bb.h) * 0.22 * k; out.push({ k: 'path', d: P.ellipse(c[0], c[1], r, r), stroke: EQ_ZONE.discharge.stroke, width: Math.max(0.4, s.width * 0.6), fill: 'none', opacity: s.opacity, role: 'mark' }, { k: 'path', d: P.ellipse(c[0], c[1], r * 0.15, r * 0.15), stroke: 'none', fill: EQ_ZONE.discharge.stroke, opacity: s.opacity, role: 'mark' }); }
   // tag and model
   if (show.label !== false) {
     // inside the unit when it fits (shrinking down to 4 pt), otherwise above everything the unit draws
@@ -99,9 +99,32 @@ function equipPrims(m, doc, opts = {}) {
     let z = z0; while (z > 4 && (size(z).w > B.w * 0.9 || size(z).h > B.h * 0.85)) z -= 0.5; const inside = size(z).w <= B.w * 0.9 && size(z).h <= B.h * 0.85;
     if (!inside) z = z0; const all = inside ? B : G.bbox([...g.body, ...g.zones.flatMap((q) => q.pts)]); const h = size(z).h;
     const y0 = inside ? (B.y + B.y2) / 2 - h / 2 + z * 0.8 : all.y - h + z * 0.6;
-    lines.forEach((t, i) => out.push({ k: 'text', x: (all.x + all.x2) / 2, y: y0 + i * z * 0.95 + (i ? z * 0.05 : 0), size: i ? z * 0.8 : z, str: t, color: clash ? '#c92a2a' : s.fontColor || s.stroke, bold: i === 0, font: s.font, anchor: 'middle', opacity: s.opacity }));
+    lines.forEach((t, i) => out.push({ k: 'text', x: (all.x + all.x2) / 2, y: y0 + i * z * 0.95 + (i ? z * 0.05 : 0), size: i ? z * 0.8 : z, str: t, color: clash ? '#c92a2a' : s.fontColor || s.stroke, bold: i === 0, font: s.font, anchor: 'middle', opacity: s.opacity, role: 'label' }));
   }
   if (clash) { const B = G.bbox(g.body); const r = Math.max(3, (s.fontSize || 8) * 0.6); const c = [B.x2, B.y]; out.push({ k: 'path', d: P.ellipse(c[0], c[1], r, r), stroke: '#ffffff', width: 0.6, fill: '#e03131' }, { k: 'text', x: c[0], y: c[1] + r * 0.45, size: r * 1.3, str: '!', color: '#ffffff', bold: true, anchor: 'middle' }); }
+  return out;
+}
+// How a unit goes into the PDF for other apps: the body as a plain Square or Polygon at its exact size,
+// each clearance zone a dashed Polygon, airflow arrows, text boxes for the tag and zone sizes, all grouped
+// (see sketchParts). Clash warnings are live checks in MeBulb and are left out.
+function equipParts(m, doc) {
+  const s = m.style; const g = eqGeom(doc, m); const prims = equipPrims(m, doc, { noClash: true }); const gid = m.group || 'EQ-' + m.id;
+  const base = { page: m.page, layer: m.layer, author: m.author, created: m.created, modified: m.modified, status: m.status, group: gid, subject: m.subject };
+  const body = g.body; const bb = G.bbox(body); const axis = body.length === 4 && body.every((p) => (Math.abs(p[0] - bb.x) < 0.01 || Math.abs(p[0] - bb.x2) < 0.01) && (Math.abs(p[1] - bb.y) < 0.01 || Math.abs(p[1] - bb.y2) < 0.01));
+  const bp = prims.find((p) => p.role === 'body') || {};
+  const contents = [m.tag, m.eq && m.eq.name, m.eq && `${Math.round(m.eq.w)} × ${Math.round(m.eq.d)} mm`, m.comment].filter(Boolean).join('\n');
+  const out = [{ ...base, id: m.id, type: axis ? 'rect' : 'polygon', pts: axis ? [[bb.x, bb.y], [bb.x2, bb.y2]] : body.map((p) => p.slice()), style: { stroke: s.stroke, width: s.width, fill: bp.fill, fillOpacity: bp.fillOpacity, opacity: s.opacity, dash: 'solid' }, comment: m.comment, _contents: contents, ext: { ...(m.ext || {}), groupPrimary: m.group ? undefined : true, groupName: m.group ? undefined : m.tag || 'Equipment' } }];
+  prims.forEach((p, k) => {
+    const st = { stroke: p.stroke && p.stroke !== 'none' ? p.stroke : p.fill, width: p.width || 0, fill: p.fill || 'none', fillOpacity: p.fillOpacity == null ? 1 : p.fillOpacity, opacity: s.opacity, dash: p.dash || 'solid' };
+    if (p.role === 'zone') out.push({ ...base, id: `${m.id}#z${k}`, type: 'polygon', pts: p.pts.map((q) => q.slice()), subject: ((EQ_ZONE[p.zone.kind] || EQ_ZONE.service).label || 'Clearance'), style: st, ext: {} });
+    else if (p.role === 'flow') out.push({ ...base, id: `${m.id}#f${k}`, type: 'arrow', pts: p.seg, style: { ...st, fill: 'none', arrowStart: 'none', arrowEnd: 'arrow' }, ext: {} });
+    else if (p.role === 'line') out.push({ ...base, id: `${m.id}#k${k}`, type: 'polyline', pts: p.pts.map((q) => q.slice()), style: { ...st, fill: 'none' }, ext: {}, _prims: [p] });
+    else if (p.role === 'mark') { if (p.pts) out.push({ ...base, id: `${m.id}#m${k}`, type: 'polygon', pts: p.pts.map((q) => q.slice()), style: st, ext: {}, _prims: [p] }); else { const b = primsBBox([p]); const w = p.width || 0; out.push({ ...base, id: `${m.id}#m${k}`, type: 'ellipse', pts: [[b.x + w / 2 + 1, b.y + w / 2 + 1], [b.x2 - w / 2 - 1, b.y2 - w / 2 - 1]], style: st, ext: {}, _prims: [p] }); } }
+  });
+  // text: the tag block as one text box, each zone size on its own
+  const textBoxOf = (ps, id) => { const b = primsBBox(ps); if (!b) return; const p0 = ps[0]; out.push({ ...base, id, type: 'text', pts: [[b.x, b.y], [b.x2, b.y2]], text: ps.map((p) => p.str).join('\n'), fixedH: true, style: { font: p0.font, fontSize: p0.size, bold: !!p0.bold, fontColor: p0.color, stroke: 'none', width: 0, fill: 'none', align: 'center', valign: 'middle', pad: 0.5, lineH: 1.1, opacity: s.opacity }, ext: {}, _prims: ps }); };
+  const lab = prims.filter((p) => p.role === 'label'); if (lab.length) textBoxOf(lab, m.id + '#l');
+  prims.filter((p) => p.role === 'zlabel').forEach((p, k) => textBoxOf([p], `${m.id}#t${k}`));
   return out;
 }
 function equipBBox(m, doc) { const g = eqGeom(doc, m); return G.bbox([...g.body, ...g.zones.flatMap((z) => z.pts)]); }

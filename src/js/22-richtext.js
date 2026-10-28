@@ -205,7 +205,7 @@ function rtFormat(key, val) {
 }
 // formatting for whole markups (selected, not being edited)
 function rtFormatWhole(ms, key, val) {
-  const doc = activeDoc(); if (!ms.length) return; pushUndo(doc);
+  const doc = activeDoc(); if (!ms.length) return; pushUndo(doc); ms = withLinkedSketches(doc, ms);
   const textMs = ms.filter((m) => TEXT_TYPES.has(m.type));
   let v = val; if (val === 'toggle') v = !(textMs.length ? textMs.every((m) => rtAll(m, key)) : ms.every((m) => (RT_STYLE[key] ? !!m.style[RT_STYLE[key]] : false)));
   ms.forEach((m) => {

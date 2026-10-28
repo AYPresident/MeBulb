@@ -17,7 +17,7 @@ const TOOLS = {
   arrow: { label: 'Arrow', key: 'a', icon: 'arrow', mode: 'line', subject: 'Arrow', style: { arrowEnd: 'arrow' } },
   rect: { label: 'Rectangle', key: 'r', icon: 'rect', mode: 'box', subject: 'Rectangle', style: {} },
   ellipse: { label: 'Ellipse', key: 'e', icon: 'ellipse', mode: 'box', subject: 'Ellipse', style: {} },
-  polygon: { label: 'Polygon', key: 'g', icon: 'polygon', mode: 'multi', closed: true, subject: 'Polygon', style: {} },
+  polygon: { label: 'Polygon', key: 'g', icon: 'polygon', mode: 'multi', closed: true, dragBox: true, subject: 'Polygon', style: {} },
   polyline: { label: 'Polyline', key: 'y', icon: 'polyline', mode: 'multi', subject: 'Polyline', style: {} },
   cloud: { label: 'Cloud (click points, or drag a box)', short: 'Cloud', key: 'k', icon: 'cloud', mode: 'multi', closed: true, dragBox: true, subject: 'Cloud', style: { cloud: true, cloudArc: 14 } },
   stamp: { label: 'Stamp', key: 's', icon: 'stamp', mode: 'point', subject: 'Stamp', text: 'APPROVED', style: { stroke: '#2e9e3e', width: 2, fontColor: '#2e9e3e', fill: 'none' } },
@@ -25,9 +25,9 @@ const TOOLS = {
   calibrate: { label: 'Calibrate scale', short: 'Calibrate', key: 'K', icon: 'calibrate', mode: 'line', measure: true, style: { stroke: '#11a3b5', width: 1.25, dash: 'dashed' } },
   length: { label: 'Length', key: 'm', icon: 'length', mode: 'line', measure: true, subject: 'Length', style: { stroke: '#1f5fd1', fontColor: '#1f5fd1', width: 1.25, fontSize: 10, arrowStart: 'arrow', arrowEnd: 'arrow' } },
   polylength: { label: 'Polylength', key: 'M', icon: 'polylength', mode: 'multi', measure: true, subject: 'Polylength', style: { stroke: '#1f5fd1', fontColor: '#1f5fd1', width: 1.25, fontSize: 10, arrowStart: 'butt', arrowEnd: 'butt' } },
-  area: { label: 'Area', key: 'A', icon: 'area', mode: 'multi', closed: true, measure: true, subject: 'Area', style: { stroke: '#2e9e3e', fill: '#2e9e3e', fillOpacity: 0.22, fontColor: '#1d6b29', width: 1.25, fontSize: 11 } },
-  perimeter: { label: 'Perimeter', key: 'P', icon: 'perimeter', mode: 'multi', closed: true, measure: true, subject: 'Perimeter', style: { stroke: '#8e3fd1', fontColor: '#8e3fd1', width: 1.25, fontSize: 10 } },
-  volume: { label: 'Volume', key: 'V', icon: 'volume', mode: 'multi', closed: true, measure: true, subject: 'Volume', style: { stroke: '#f08a00', fill: '#f08a00', fillOpacity: 0.2, fontColor: '#a35d00', width: 1.25, fontSize: 11 } },
+  area: { label: 'Area', key: 'A', icon: 'area', mode: 'multi', closed: true, dragBox: true, measure: true, subject: 'Area', style: { stroke: '#2e9e3e', fill: '#2e9e3e', fillOpacity: 0.22, fontColor: '#1d6b29', width: 1.25, fontSize: 11 } },
+  perimeter: { label: 'Perimeter', key: 'P', icon: 'perimeter', mode: 'multi', closed: true, dragBox: true, measure: true, subject: 'Perimeter', style: { stroke: '#8e3fd1', fontColor: '#8e3fd1', width: 1.25, fontSize: 10 } },
+  volume: { label: 'Volume', key: 'V', icon: 'volume', mode: 'multi', closed: true, dragBox: true, measure: true, subject: 'Volume', style: { stroke: '#f08a00', fill: '#f08a00', fillOpacity: 0.2, fontColor: '#a35d00', width: 1.25, fontSize: 11 } },
   count: { label: 'Count', key: 'C', icon: 'count', mode: 'count', measure: true, subject: 'Count', style: { stroke: '#d1308f', fill: '#d1308f', fillOpacity: 0.85, width: 1, fontSize: 10, size: 6, symbol: 'circle' } },
   angle: { label: 'Angle', key: 'G', icon: 'angle', mode: 'multi', maxPts: 3, measure: true, subject: 'Angle', style: { stroke: '#11a3b5', fontColor: '#0b7482', width: 1.25, fontSize: 10 } },
   radius: { label: 'Radius', key: 'R', icon: 'radius', mode: 'line', measure: true, subject: 'Radius', style: { stroke: '#11a3b5', fontColor: '#0b7482', width: 1.25, fontSize: 10 } },
@@ -41,7 +41,11 @@ const TOOLS = {
   edittext: { label: 'Edit PDF text', short: 'Edit text', key: 'x', icon: 'edittext', mode: 'textedit', subject: 'Text edit', style: { fontColor: '#000000', cover: '#ffffff', fontSize: 10, stroke: '#000000', width: 0 } },
   textedit: { label: 'Text edit', icon: 'edittext', subject: 'Text edit' },
   alignpts: { label: 'Align pages by grid points', short: 'Align by points', icon: 'align', mode: 'alignpick', style: {} },
+  // reference marks for lining pages up when the drawings have no grid to read (see 27-align.js)
+  refpt: { label: 'Reference point (for lining pages up)', short: 'Ref point', icon: 'refpt', mode: 'point', subject: 'Reference point', style: { stroke: '#c2255c', width: 1, fontSize: 10, fontColor: '#c2255c', fill: 'none' } },
+  gridline: { label: 'Grid line (for lining pages up)', short: 'Grid line', icon: 'gridline', mode: 'line', subject: 'Grid line', style: { stroke: '#c2255c', width: 0.75, dash: 'dashdot', fontSize: 10, fontColor: '#c2255c', fill: 'none' } },
 };
+const REF_TYPES = new Set(['refpt', 'gridline']);
 const MEASURE_TYPES = new Set(['length', 'polylength', 'area', 'perimeter', 'volume', 'count', 'angle', 'radius']);
 const BOX_TYPES = new Set(['rect', 'ellipse', 'text', 'stamp', 'image']);
 const CUTOUT_TYPES = new Set(['area', 'volume']);
@@ -97,6 +101,84 @@ const P = {
     const l = pts[pts.length - 1]; d.push(['L', l[0], l[1]]); return d;
   },
   toD(d) { return d.map((s) => s[0] + (s.length > 1 ? s.slice(1).map((v) => num(v, 2)).join(' ') : '')).join(''); },
+};
+
+// ----- curved segments (polylines, polygons and the measured polys) ------------------------
+// m.curves[k] bends the segment from pts[k] to pts[k+1] (k = n-1 is a polygon's closing side).
+// It keeps the point the curve passes through halfway, relative to the segment ([along, across]
+// as fractions of its length), so moving, turning or resizing the markup carries the bend along.
+const CURVE_TYPES = new Set(['polyline', 'polygon', 'cloud', 'polylength', 'area', 'perimeter', 'volume']);
+const CV = {
+  has(m) { return !!(m && m.curves && CURVE_TYPES.has(m.type) && Object.keys(m.curves).length); },
+  closed(m) { return m.type === 'polygon' || m.type === 'cloud' || m.type === 'area' || m.type === 'perimeter' || m.type === 'volume'; },
+  // the point halfway along a bent segment, in page units
+  mid(a, b, c) { const dx = b[0] - a[0], dy = b[1] - a[1]; return [a[0] + c[0] * dx - c[1] * dy, a[1] + c[0] * dy + c[1] * dx]; },
+  // a halfway point -> [along, across] for segment a-b
+  rel(a, b, h) { const dx = b[0] - a[0], dy = b[1] - a[1]; const l2 = dx * dx + dy * dy || 1; const rx = h[0] - a[0], ry = h[1] - a[1]; return [(rx * dx + ry * dy) / l2, (ry * dx - rx * dy) / l2]; },
+  // quadratic control point of a bent segment
+  ctl(a, b, c) { const h = CV.mid(a, b, c); return [2 * h[0] - (a[0] + b[0]) / 2, 2 * h[1] - (a[1] + b[1]) / 2]; },
+  at(a, c, b, t) { const u = 1 - t; return [u * u * a[0] + 2 * u * t * c[0] + t * t * b[0], u * u * a[1] + 2 * u * t * c[1] + t * t * b[1]]; },
+  segs(pts, closed) { return pts.length < 2 ? 0 : closed && pts.length > 2 ? pts.length : pts.length - 1; },
+  // absolute control points per segment (null for straight ones)
+  ctls(pts, curves, closed) { const n = pts.length, out = []; for (let k = 0; k < CV.segs(pts, closed); k++) { const c = curves && curves[k]; out.push(c ? CV.ctl(pts[k], pts[(k + 1) % n], c) : null); } return out; },
+  // the shape as points, bent segments broken into short straight pieces (measuring, hit tests, PDF vertices).
+  // step: aim for pieces about that long (clouds want even arcs); otherwise enough pieces to be exact to well under 0.1%
+  flat(pts, curves, closed, step) {
+    if (!curves || pts.length < 2) return pts; const n = pts.length; const out = [pts[0]]; const S = CV.segs(pts, closed);
+    for (let k = 0; k < S; k++) {
+      const a = pts[k], b = pts[(k + 1) % n], c = curves[k];
+      if (!c) { out.push(b); continue; }
+      const C = CV.ctl(a, b, c); const L = G.dist(a, C) + G.dist(C, b); const N = step ? Math.max(1, Math.round(L / step)) : clamp(Math.ceil(L / 3), 12, 64);
+      for (let j = 1; j <= N; j++) out.push(CV.at(a, C, b, j / N));
+    }
+    if (closed && S === n) out.pop();
+    return out;
+  },
+  pts(m) { return CV.has(m) ? CV.flat(m.pts, m.curves, CV.closed(m)) : m.pts; },
+  // path commands with the bends as cubic Béziers (the same curves PDF and SVG draw)
+  path(pts, ctl, closed) {
+    const n = pts.length; if (!n) return []; const d = [['M', pts[0][0], pts[0][1]]]; const S = closed && n > 2 ? n : n - 1;
+    for (let k = 0; k < S; k++) {
+      const a = pts[k], b = pts[(k + 1) % n], c = ctl && ctl[k];
+      if (c) d.push(['C', a[0] + (2 / 3) * (c[0] - a[0]), a[1] + (2 / 3) * (c[1] - a[1]), b[0] + (2 / 3) * (c[0] - b[0]), b[1] + (2 / 3) * (c[1] - b[1]), b[0], b[1]]);
+      else if (k < n - 1) d.push(['L', b[0], b[1]]);
+    }
+    if (closed && n > 2) d.push(['Z']); return d;
+  },
+  // a bend that carries on smoothly from the previous side (an arc-like curve), or a gentle one
+  auto(pts, k) {
+    const a = pts[k], b = pts[k + 1]; const p = k > 0 ? pts[k - 1] : null; const cx = b[0] - a[0], cy = b[1] - a[1]; const cl = Math.hypot(cx, cy); if (cl < 1e-6) return [0.5, 0.25];
+    if (p) { const dx = a[0] - p[0], dy = a[1] - p[1]; const dl = Math.hypot(dx, dy); const dot = dl ? (dx * cx + dy * cy) / dl : 0;
+      if (dl > 1e-6 && dot > cl * 0.15) { const t = (cl * cl) / 2 / dot; const C = [a[0] + (dx / dl) * t, a[1] + (dy / dl) * t]; const h = [(a[0] + 2 * C[0] + b[0]) / 4, (a[1] + 2 * C[1] + b[1]) / 4]; const r = CV.rel(a, b, h); if (Math.abs(r[1]) > 0.02 && Math.abs(r[1]) < 0.6) return r; } }
+    return [0.5, 0.25];
+  },
+  // split segment k at the point nearest p: a new vertex at k+1, the bend shared by both halves
+  insert(m, k, p) {
+    const n = m.pts.length, a = m.pts[k], b = m.pts[(k + 1) % n], c = m.curves && m.curves[k]; const shifted = {};
+    if (m.curves) Object.entries(m.curves).forEach(([j, v]) => { j = +j; if (j > k) shifted[j + 1] = v; else if (j < k) shifted[j] = v; });
+    let q;
+    if (c) {
+      const C = CV.ctl(a, b, c); let bt = 0.5, bd = Infinity; for (let j = 0; j <= 64; j++) { const t = j / 64; const d = G.dist(CV.at(a, C, b, t), p); if (d < bd) { bd = d; bt = t; } }
+      const t = clamp(bt, 0.02, 0.98); q = CV.at(a, C, b, t); const c1 = [a[0] + (C[0] - a[0]) * t, a[1] + (C[1] - a[1]) * t], c2 = [C[0] + (b[0] - C[0]) * t, C[1] + (b[1] - C[1]) * t];
+      shifted[k] = CV.rel(a, q, [(a[0] + 2 * c1[0] + q[0]) / 4, (a[1] + 2 * c1[1] + q[1]) / 4]); shifted[k + 1] = CV.rel(q, b, [(q[0] + 2 * c2[0] + b[0]) / 4, (q[1] + 2 * c2[1] + b[1]) / 4]);
+    } else { const dx = b[0] - a[0], dy = b[1] - a[1]; const l2 = dx * dx + dy * dy || 1; const t = clamp(((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2, 0, 1); q = [a[0] + dx * t, a[1] + dy * t]; }
+    m.pts.splice(k + 1, 0, q); if (m.curves || c) m.curves = shifted; return k + 1;
+  },
+  // drop vertex k; the sides either side become one straight side
+  remove(m, k) {
+    const n = m.pts.length; if (!m.curves) { m.pts.splice(k, 1); return; } const out = {};
+    Object.entries(m.curves).forEach(([j, v]) => { j = +j; if (j === k || j === k - 1 || (k === 0 && j === n - 1)) return; out[j > k ? j - 1 : j] = v; });
+    m.pts.splice(k, 1); m.curves = out;
+  },
+  // which side of the markup is near p? -> {k, d}
+  nearSeg(m, p) {
+    const closed = CV.closed(m); const n = m.pts.length; let best = null;
+    for (let k = 0; k < CV.segs(m.pts, closed); k++) {
+      const a = m.pts[k], b = m.pts[(k + 1) % n]; const c = m.curves && m.curves[k];
+      const line = c ? CV.flat([a, b], { 0: c }, false) : [a, b]; for (let j = 1; j < line.length; j++) { const d = G.segDist(p, line[j - 1], line[j]); if (!best || d < best.d) best = { k, d }; }
+    }
+    return best;
+  },
 };
 
 // Line endings, the same set as PDF annotations (and Bluebeam): value -> PDF /LE name
@@ -172,8 +254,21 @@ function textLayout(m) {
   const h = Math.max(b.h, lay.height + 2 * pad);
   return { x: b.x, y: b.y, w: b.w, h, lay, lh: size * (s.lineH || 1.2), pad, size };
 }
+// A callout's leaders, the way Revu draws them: from the arrow tip to a knee, then level into the side of
+// the box facing the knee. The knee is set by dragging its handle (m.knee); otherwise it sits a short
+// run out from the middle of the side facing the tip. Extra leaders (m.leaders: [{tip, knee}]) work the same.
+function calloutLeader(L, s, tip, knee) {
+  const x1 = L.x, x2 = L.x + L.w, y1 = L.y, y2 = L.y + L.h; const cx = (x1 + x2) / 2; const stub = Math.max(10, (s.fontSize || 12) * 1.1);
+  if (knee && knee[0] > x1 - 0.5 && knee[0] < x2 + 0.5) knee = null; // a knee inside the box's width means "automatic"
+  if (!knee) { const right = tip[0] >= cx; const y = (y1 + y2) / 2; return { tip, knee: [right ? x2 + stub : x1 - stub, y], attach: [right ? x2 : x1, y], auto: true }; }
+  const right = knee[0] > cx; return { tip, knee, attach: [right ? x2 : x1, clamp(knee[1], y1, y2)], auto: false };
+}
+function calloutLeaders(m, L) { L = L || textLayout(m); const s = m.style; return [calloutLeader(L, s, m.pts[0], m.knee), ...(m.leaders || []).map((ld) => calloutLeader(L, s, ld.tip, ld.knee))]; }
+// the box a text box or callout shows (it grows to fit its text)
+function textBox(m) { const L = textLayout(m); return { x: L.x, y: L.y, w: L.w, h: L.h }; }
+// height follows the text, unless the box was made taller by hand (then it only grows)
 function fitTextBox(m) {
-  const L = textLayout(m); const h = Math.max(L.lay.height + 2 * L.pad, L.size + 2 * L.pad);
+  const L = textLayout(m); const need = Math.max(L.lay.height + 2 * L.pad, L.size + 2 * L.pad); const cur = m.type === 'callout' ? boxRect(m.pts[1], m.pts[2]).h : boxRect(m.pts[0], m.pts[1]).h; const h = m.fixedH ? Math.max(need, cur) : need;
   if (m.type === 'text') m.pts = [[L.x, L.y], [L.x + L.w, L.y + h]]; else if (m.type === 'callout') m.pts = [m.pts[0], [L.x, L.y], [L.x + L.w, L.y + h]];
 }
 function textPrims(L, s, hideText) {
@@ -186,10 +281,10 @@ function textPrims(L, s, hideText) {
 }
 
 // ----- measurement info --------------------------------------------------------
-function netArea(m) { let A = G.area(m.pts); if (m.holes) m.holes.forEach((h) => { if (h.length > 2) A -= G.area(h); }); return Math.max(0, A); }
+function netArea(m) { let A = G.area(CV.pts(m)); if (m.holes) m.holes.forEach((h) => { if (h.length > 2) A -= G.area(h); }); return Math.max(0, A); }
 function measureInfo(m, doc) {
   if (m.type === 'sketch') { const A = sketchSize(doc, m); return { kind: 'Size', value: A.shape === 'circle' ? A.d : A.w * A.h, unit: '', text: `${sizeLabel(doc, m)} · ${areaLabel(doc, m)}`, area: areaLabel(doc, m) }; }
-  const sc = scaleForMarkup(doc, m); const u = UNITS[sc.unit] || UNITS.in; const pts = m.pts;
+  const sc = scaleForMarkup(doc, m); const u = UNITS[sc.unit] || UNITS.in; const pts = CV.pts(m);
   switch (m.type) {
     case 'length': case 'polylength': { const L = G.len(pts); return { kind: 'Length', value: lenValue(L, sc), unit: u.label, text: fmtLen(L, sc) }; }
     case 'perimeter': { const L = G.len(pts, true); return { kind: 'Length', value: lenValue(L, sc), unit: u.label, text: fmtLen(L, sc) }; }
@@ -208,19 +303,21 @@ function dl(m, doc, opts = {}) {
   const stroke = (d, extra = {}) => ({ k: 'path', d, stroke: s.stroke, width: s.width, dash: s.dash, opacity: s.opacity, fill: 'none', blend: s.blend, ...extra });
   const shape = (d, extra = {}) => ({ k: 'path', d, stroke: s.width > 0 ? s.stroke : 'none', width: s.width, dash: s.dash, opacity: s.opacity, fill: s.fill, fillOpacity: s.fillOpacity, blend: s.blend, ...extra });
   const outline = (p, closed) => (s.cloud && closed && p.length > 2 ? P.cloud(p, s.cloudArc || 14) : P.poly(p, closed));
+  const curved = CV.has(m); const fp = curved ? CV.flat(pts, m.curves, CV.closed(m) && !opts.open) : pts; // fp: the drawn shape as points
+  const outlineC = (p, closed) => (!curved ? outline(p, closed) : (s.cloud || m.type === 'cloud') && closed && p.length > 2 ? P.cloud(CV.flat(p, m.curves, true, s.cloudArc || 14), s.cloudArc || 14) : CV.path(p, CV.ctls(p, m.curves, closed), closed));
   switch (m.type) {
     case 'rect': out.push(shape(outline(G.rectPts(pts[0], pts[1]), true))); break;
     case 'ellipse': { const b = boxRect(pts[0], pts[1]); out.push(shape(P.ellipse(b.x + b.w / 2, b.y + b.h / 2, b.w / 2, b.h / 2))); break; }
     case 'line': case 'arrow': case 'polyline': case 'calibrate': {
       if (pts.length < 2) break;
-      const p = pts.map((x) => x.slice());
-      const a1 = arrowHead(p[p.length - 1], p[p.length - 2], s.arrowEnd, s); const a0 = arrowHead(p[0], p[1], s.arrowStart, s);
-      p[p.length - 1] = a1.cut; p[0] = a0.cut;
-      out.push(stroke(P.poly(p)), ...a0.prims, ...a1.prims);
+      const p = pts.map((x) => x.slice()); const n = p.length; const ctl = CV.has(m) ? CV.ctls(pts, m.curves, false) : null; // arrowheads follow a bent end's tangent
+      const a1 = arrowHead(p[n - 1], (ctl && ctl[n - 2]) || p[n - 2], s.arrowEnd, s); const a0 = arrowHead(p[0], (ctl && ctl[0]) || p[1], s.arrowStart, s);
+      p[n - 1] = a1.cut; p[0] = a0.cut;
+      out.push(stroke(ctl ? CV.path(p, ctl, false) : P.poly(p)), ...a0.prims, ...a1.prims);
       if (m.type === 'calibrate' && opts.draftLabel) out.push(...labelPrims([opts.draftLabel], (pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2, 0, s));
       break;
     }
-    case 'polygon': case 'cloud': if (pts.length >= 2) out.push(shape(outline(pts, pts.length > 2 && !opts.open), { fill: pts.length > 2 ? s.fill : 'none' })); break;
+    case 'polygon': case 'cloud': if (pts.length >= 2) out.push(shape(outlineC(pts, pts.length > 2 && !opts.open), { fill: pts.length > 2 ? s.fill : 'none' })); break;
     case 'pen': case 'highlight': out.push(stroke(P.smooth(pts), { cap: 'round', join: 'round', dash: 'solid' })); break;
     case 'texthl': for (let k = 0; k + 3 < pts.length; k += 4) out.push({ k: 'path', d: P.poly(pts.slice(k, k + 4), true), fill: s.stroke, fillOpacity: 1, stroke: 'none', opacity: s.opacity, blend: s.blend || 'multiply', hit: 'box' }); break;
     case 'strikeout':
@@ -240,12 +337,21 @@ function dl(m, doc, opts = {}) {
       break;
     }
     case 'callout': {
-      const L = textLayout(m); const tip = pts[0];
-      const cands = [[L.x, L.y + L.h / 2], [L.x + L.w, L.y + L.h / 2], [L.x + L.w / 2, L.y], [L.x + L.w / 2, L.y + L.h]];
-      let best = cands[0]; for (const c of cands) if (G.dist(c, tip) < G.dist(best, tip)) best = c;
-      const ah = arrowHead(tip, best, s.arrowEnd || 'arrow', s);
-      out.push(stroke([['M', best[0], best[1]], ['L', ah.cut[0], ah.cut[1]]], { width: Math.max(s.width, 0.75), stroke: s.stroke }), ...ah.prims);
+      const L = textLayout(m);
+      calloutLeaders(m, L).forEach((ld) => { const ah = arrowHead(ld.tip, ld.knee, s.arrowEnd || 'arrow', s); out.push(stroke(P.poly([ld.attach, ld.knee, ah.cut]), { width: Math.max(s.width, 0.75), stroke: s.stroke, join: 'miter' }), ...ah.prims); });
       out.push(...textPrims(L, s, opts.hideText));
+      break;
+    }
+    case 'refpt': {
+      const [x, y] = pts[0]; const r = Math.max(4, (s.fontSize || 10) * 0.55); const col = s.fontColor || s.stroke;
+      out.push({ k: 'path', d: P.ellipse(x, y, r, r), stroke: s.stroke, width: s.width, fill: '#ffffff', fillOpacity: 0.5, opacity: s.opacity, hit: 'box' }, stroke(P.poly([[x - r * 1.9, y], [x + r * 1.9, y]]), { dash: 'solid' }), stroke(P.poly([[x, y - r * 1.9], [x, y + r * 1.9]]), { dash: 'solid' }));
+      if (m.text) out.push({ k: 'text', x: x + r * 1.3, y: y - r * 1.2, size: s.fontSize || 10, str: m.text, color: col, bold: true, opacity: s.opacity, font: famOf(s.font) });
+      break;
+    }
+    case 'gridline': {
+      if (pts.length < 2) break; const [a, b] = pts; const Ln = G.dist(a, b) || 1; const ux = (b[0] - a[0]) / Ln, uy = (b[1] - a[1]) / Ln; const fs = s.fontSize || 10; const R = fs * 0.95; const c = [a[0] - ux * R, a[1] - uy * R];
+      out.push(stroke(P.poly([a, b])), { k: 'path', d: P.ellipse(c[0], c[1], R, R), stroke: s.stroke, width: Math.max(0.75, s.width), fill: '#ffffff', fillOpacity: 1, opacity: s.opacity, hit: 'box' });
+      if (m.text) out.push({ k: 'text', x: c[0], y: c[1] + fs * 0.36, size: fs, str: m.text, color: s.fontColor || s.stroke, bold: true, anchor: 'middle', opacity: s.opacity, font: famOf(s.font) });
       break;
     }
     case 'note': {
@@ -277,18 +383,18 @@ function dl(m, doc, opts = {}) {
     // ---- measurements ----
     case 'length': case 'polylength': {
       if (pts.length < 2) break;
-      { const p = pts.map((x) => x.slice()); const a0 = arrowHead(p[0], p[1], s.arrowStart || 'butt', s), a1 = arrowHead(p[p.length - 1], p[p.length - 2], s.arrowEnd || 'butt', s); p[0] = a0.cut; p[p.length - 1] = a1.cut; out.push(stroke(P.poly(p)), ...a0.prims.map((x) => ({ ...x, dash: 'solid' })), ...a1.prims.map((x) => ({ ...x, dash: 'solid' }))); }
-      const info = measureInfo(m, doc); const tot = G.len(pts); const at = G.along(pts, tot / 2); const ang = uprightAngle(at.angle);
+      { const p = pts.map((x) => x.slice()); const n = p.length; const ctl = curved ? CV.ctls(pts, m.curves, false) : null; const a0 = arrowHead(p[0], (ctl && ctl[0]) || p[1], s.arrowStart || 'butt', s), a1 = arrowHead(p[n - 1], (ctl && ctl[n - 2]) || p[n - 2], s.arrowEnd || 'butt', s); p[0] = a0.cut; p[n - 1] = a1.cut; out.push(stroke(ctl ? CV.path(p, ctl, false) : P.poly(p)), ...a0.prims.map((x) => ({ ...x, dash: 'solid' })), ...a1.prims.map((x) => ({ ...x, dash: 'solid' }))); }
+      const info = measureInfo(m, doc); const tot = G.len(fp); const at = G.along(fp, tot / 2); const ang = uprightAngle(at.angle);
       const size = s.fontSize || 10; const up = [Math.sin(ang), -Math.cos(ang)]; const nLines = m.text ? 2 : 1; const off = size * (0.55 + 0.6 * nLines);
       out.push(...labelPrims([m.text, info.text], at.p[0] + up[0] * off, at.p[1] + up[1] * off, ang, s));
       break;
     }
     case 'area': case 'perimeter': case 'volume': {
       if (pts.length < 2) break;
-      const closed = pts.length > 2 && !opts.open; let d = outline(pts, closed); let evenodd = false;
+      const closed = pts.length > 2 && !opts.open; let d = outlineC(pts, closed); let evenodd = false;
       if (closed && m.holes && m.holes.length && CUTOUT_TYPES.has(m.type)) { m.holes.forEach((h) => { if (h.length > 2) d = d.concat(P.poly(h, true)); }); evenodd = true; }
       out.push(shape(d, { fill: m.type === 'perimeter' || !closed ? 'none' : s.fill, evenodd }));
-      if (pts.length > 2) { const info = measureInfo(m, doc); const c = G.centroid(pts); out.push(...labelPrims([m.text, info.text, m.type === 'volume' ? info.sub : null], c[0], c[1], 0, s)); }
+      if (pts.length > 2) { const info = measureInfo(m, doc); const c = G.centroid(fp); out.push(...labelPrims([m.text, info.text, m.type === 'volume' ? info.sub : null], c[0], c[1], 0, s)); }
       break;
     }
     case 'count': {
@@ -329,14 +435,15 @@ function dl(m, doc, opts = {}) {
 
 // bounding box of a markup in page units (for selection, marquee, hit)
 function markupBBox(m, doc) {
-  if (m.type === 'text' || m.type === 'callout') { const L = textLayout(m); const pts = [[L.x, L.y], [L.x + L.w, L.y + L.h]]; if (m.type === 'callout') pts.push(m.pts[0]); return G.bbox(pts); }
+  if (m.type === 'text' || m.type === 'callout') { const L = textLayout(m); const pts = [[L.x, L.y], [L.x + L.w, L.y + L.h]]; if (m.type === 'callout') calloutLeaders(m, L).forEach((ld) => pts.push(ld.tip, ld.knee)); return G.bbox(pts); }
   if (m.type === 'note') return { x: m.pts[0][0], y: m.pts[0][1], w: 18, h: 18, x2: m.pts[0][0] + 18, y2: m.pts[0][1] + 18 };
+  if (REF_TYPES.has(m.type)) { const b = primsBBox(dl(m, doc)); return b ? { ...b, w: b.x2 - b.x, h: b.y2 - b.y } : G.bbox(m.pts); }
   if (m.type === 'sketch') return sketchBBox(m, doc);
   if (m.type === 'equip') return equipBBox(m, doc);
   if (m.type === 'textedit') { const b = G.bbox(m.pts); if (m.text) { const w = textWidth(m.text, m.style.fontSize, m.style.bold, m.style.font, m.style.italic); const e = [m.base[0] + Math.cos(m.ang || 0) * w, m.base[1] + Math.sin(m.ang || 0) * w]; return G.bbox([...m.pts, e]); } return b; }
   if (m.type === 'radius') { const r = G.dist(m.pts[0], m.pts[1]); const c = m.pts[0]; return { x: c[0] - r, y: c[1] - r, w: 2 * r, h: 2 * r, x2: c[0] + r, y2: c[1] + r }; }
   if (m.type === 'count') { const r = m.style.size || 6; const b = G.bbox(m.pts); return { x: b.x - r, y: b.y - r, w: b.w + 2 * r, h: b.h + 2 * r, x2: b.x2 + r, y2: b.y2 + r }; }
-  return G.bbox(m.pts);
+  return G.bbox(CV.pts(m));
 }
 
 // does a markup touch a rectangle? (crossing window selection) Uses the drawn geometry,

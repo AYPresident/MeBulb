@@ -59,15 +59,16 @@ function sketchPrims(m, doc, opts = {}) {
   const s = m.style; const sc = scaleForMarkup(doc, m); const c = m.pts[0]; const rot = sketchRot(doc, m);
   const A = sketchSize(doc, m), B = sketchTrans(doc, m); const out = [];
   const ga = sizeGeom(A, sc, c, rot); const gb = B ? sizeGeom(B, sc, c, rot) : null;
-  const line = (pts, extra = {}) => ({ k: 'path', d: P.poly(pts), stroke: s.stroke, width: Math.max(0.35, s.width * 0.6), opacity: s.opacity, fill: 'none', ...extra });
-  out.push({ k: 'path', d: ga.d, stroke: s.stroke, width: s.width, dash: s.dash, opacity: s.opacity, fill: s.fill, fillOpacity: s.fillOpacity, hit: 'box' });
+  // role: what each piece is when the sketch goes out to other apps as separate markups (sketchParts)
+  const line = (pts, extra = {}) => ({ k: 'path', d: P.poly(pts), stroke: s.stroke, width: Math.max(0.35, s.width * 0.6), opacity: s.opacity, fill: 'none', role: 'line', ...extra });
+  out.push({ k: 'path', d: ga.d, stroke: s.stroke, width: s.width, dash: s.dash, opacity: s.opacity, fill: s.fill, fillOpacity: s.fillOpacity, hit: 'box', role: 'shape' });
   // symbol on the continuing shape (the new size when transitioning)
   const sym = (g) => {
     if (s.symbol === 'x') out.push(line([g.corners[0], g.corners[2]]), line([g.corners[1], g.corners[3]]));
     else if (s.symbol === 'diag') out.push(line([g.corners[0], g.corners[2]]));
   };
   if (gb) {
-    out.push({ k: 'path', d: gb.d, stroke: s.stroke, width: s.width, dash: 'solid', opacity: s.opacity, fill: 'none' });
+    out.push({ k: 'path', d: gb.d, stroke: s.stroke, width: s.width, dash: 'solid', opacity: s.opacity, fill: 'none', role: 'trans' });
     const pa = A.shape === 'circle' && B.shape === 'circle' ? ga.quad : ga.corners, pb = A.shape === 'circle' && B.shape === 'circle' ? gb.quad : gb.corners;
     for (let i = 0; i < 4; i++) out.push(line([pa[i], pb[i]], { dash: 'dashed', width: Math.max(0.35, s.width * 0.5) }));
     sym(gb);
@@ -78,7 +79,7 @@ function sketchPrims(m, doc, opts = {}) {
     const dimLine = (p0, p1, nx, ny, txt) => {
       const a = [p0[0] + nx * off, p0[1] + ny * off], b = [p1[0] + nx * off, p1[1] + ny * off];
       out.push(line([a, b], { width: 0.5 }), line([[a[0] - nx * tk, a[1] - ny * tk], [a[0] + nx * tk, a[1] + ny * tk]], { width: 0.5 }), line([[b[0] - nx * tk, b[1] - ny * tk], [b[0] + nx * tk, b[1] + ny * tk]], { width: 0.5 }));
-      const ang = uprightAngle(Math.atan2(b[1] - a[1], b[0] - a[0])); out.push(...labelPrims([txt], (a[0] + b[0]) / 2 + nx * fs * 1.15, (a[1] + b[1]) / 2 + ny * fs * 1.15, ang, { ...s, fontSize: fs, fontColor: col }, { noBg: true }));
+      const ang = uprightAngle(Math.atan2(b[1] - a[1], b[0] - a[0])); out.push(...labelPrims([txt], (a[0] + b[0]) / 2 + nx * fs * 1.15, (a[1] + b[1]) / 2 + ny * fs * 1.15, ang, { ...s, fontSize: fs, fontColor: col }, { noBg: true }).map((p) => ({ ...p, role: 'dimtext' })));
     };
     const ux = Math.cos(rot), uy = Math.sin(rot);
     dimLine(ga.corners[3], ga.corners[2], -uy, ux, fmtInch(A.w, sc)); // width along the bottom edge
@@ -89,10 +90,36 @@ function sketchPrims(m, doc, opts = {}) {
   if (L) {
     if (L.leader) {
       const lw = Math.max(0.4, (s.width || 1) * 0.55); const tip = L.leader.tip, from = L.leader.from;
-      const ah = arrowHead(tip, from, 'arrow', { ...s, width: lw }); out.push({ k: 'path', d: P.poly([from, ah.cut]), stroke: s.fontColor || s.stroke, width: lw, opacity: s.opacity, fill: 'none' }, ...ah.prims.map((p) => ({ ...p, fill: s.fontColor || s.stroke })));
+      const ah = arrowHead(tip, from, 'arrow', { ...s, width: lw }); out.push({ k: 'path', d: P.poly([from, ah.cut]), stroke: s.fontColor || s.stroke, width: lw, opacity: s.opacity, fill: 'none', role: 'leader' }, ...ah.prims.map((p) => ({ ...p, fill: s.fontColor || s.stroke, role: 'leader' })));
     }
-    out.push(...labelPrims(L.lines, L.x, L.y, 0, s).map((p) => ({ ...p, part: 'label' })));
+    out.push(...labelPrims(L.lines, L.x, L.y, 0, s).map((p) => ({ ...p, part: 'label', role: 'label' })));
   }
+  return out;
+}
+// How a sketch goes into the PDF for other apps (Revu): the shape as a plain Square, Circle or Polygon
+// at exactly its size, the label as its own text box, line work as ink and the label's leader as an
+// arrow, all in one group so they move together. Revu redraws a markup from its dictionary when it is
+// edited there, so a single annotation holding the label as well came back the wrong size.
+function sketchParts(m, doc) {
+  const s = m.style; const sc = scaleForMarkup(doc, m); const c = m.pts[0]; const rot = sketchRot(doc, m);
+  const A = sketchSize(doc, m), B = sketchTrans(doc, m); const ga = sizeGeom(A, sc, c, rot), gb = B ? sizeGeom(B, sc, c, rot) : null;
+  const name = sketchName(doc, m); const gid = m.group || 'SK-' + m.id; const prims = sketchPrims(m, doc);
+  const base = { page: m.page, layer: m.layer, author: m.author, created: m.created, modified: m.modified, status: m.status, group: gid, subject: m.subject };
+  const deg = ((((rot * 180) / Math.PI) % 90) + 90) % 90; const square = Math.min(deg, 90 - deg) < 0.01;
+  const shapeOf = (size, g) => size.shape === 'circle' ? { type: 'ellipse', pts: [[c[0] - g.r, c[1] - g.r], [c[0] + g.r, c[1] + g.r]] } : square ? (() => { const b = G.bbox(g.corners); return { type: 'rect', pts: [[b.x, b.y], [b.x2, b.y2]] }; })() : { type: 'polygon', pts: g.corners.map((p) => p.slice()) };
+  const out = [{ ...base, ...shapeOf(A, ga), id: m.id, style: { ...s, cloud: false }, comment: m.comment, _contents: [name, sizeLabel(doc, m), m.comment].filter(Boolean).join('\n'), ext: { ...(m.ext || {}), groupPrimary: m.group ? undefined : true, groupName: m.group ? undefined : name || 'Sketch' } }];
+  if (gb) out.push({ ...base, ...shapeOf(B, gb), id: m.id + '#t', style: { ...s, fill: 'none', dash: 'solid', cloud: false }, ext: {} });
+  // line work (symbol, transition connectors, dimension lines): one ink markup per line weight and style
+  const inks = new Map(); prims.filter((p) => p.role === 'line').forEach((p) => { const key = `${p.width}|${p.dash || 'solid'}`; if (!inks.has(key)) inks.set(key, []); inks.get(key).push({ pts: p.d.filter((q) => q[0] === 'M' || q[0] === 'L').map((q) => [q[1], q[2]]), p }); });
+  [...inks.values()].forEach((L, k) => { const p0 = L[0].p; out.push({ ...base, id: `${m.id}#k${k}`, type: 'pen', pts: L[0].pts, style: { stroke: p0.stroke, width: p0.width, dash: p0.dash || 'solid', opacity: s.opacity }, ext: { extraInk: L.slice(1).map((x) => x.pts) }, _prims: L.map((x) => x.p) }); });
+  // dimension figures: small text boxes, drawn as they are on screen
+  prims.filter((p) => p.role === 'dimtext').forEach((p, k) => { const w = textWidth(p.str, p.size, p.bold, p.font, p.italic); const a = p.rot || 0; const cos = Math.cos(a), sin = Math.sin(a); const cx = p.x - sin * p.size * -0.3, cy = p.y + cos * p.size * -0.3;
+    const b = G.bbox([[-w / 2 - 1, -p.size * 0.62], [w / 2 + 1, -p.size * 0.62], [w / 2 + 1, p.size * 0.62], [-w / 2 - 1, p.size * 0.62]].map(([x, y]) => [cx + x * cos - y * sin, cy + x * sin + y * cos]));
+    out.push({ ...base, id: `${m.id}#d${k}`, type: 'text', pts: [[b.x, b.y], [b.x2, b.y2]], text: p.str, fixedH: true, style: { font: p.font, fontSize: p.size, bold: p.bold, italic: p.italic, fontColor: p.color, stroke: 'none', width: 0, fill: 'none', align: 'center', valign: 'middle', pad: 0.5, lineH: 1.18, opacity: s.opacity }, ext: {}, _prims: [p] }); });
+  const L = sketchLabelBox(m, doc);
+  if (L && L.leader) { const lw = Math.max(0.4, (s.width || 1) * 0.55); out.push({ ...base, id: m.id + '#a', type: 'arrow', pts: [L.leader.from, L.leader.tip], style: { stroke: s.fontColor || s.stroke, width: lw, opacity: s.opacity, arrowStart: 'none', arrowEnd: 'arrow' }, ext: {} }); }
+  if (L) { const fs = s.fontSize || 9; const b = L.box;
+    out.push({ ...base, id: m.id + '#l', type: 'text', pts: [[b.x - 1, b.y], [b.x + b.w + 1, b.y + b.h]], text: L.lines.join('\n'), fixedH: true, style: { font: s.font, fontSize: fs, bold: s.bold, italic: s.italic, fontColor: s.fontColor || s.stroke, stroke: 'none', width: 0, fill: s.labelBg === false ? 'none' : '#ffffff', fillOpacity: 0.86, align: 'center', valign: 'middle', pad: fs * 0.15, lineH: 1.18, opacity: s.opacity }, ext: {} }); }
   return out;
 }
 // where the label goes: preset position, the centre, or wherever it was dragged (m.labelOff)

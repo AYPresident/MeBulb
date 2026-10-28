@@ -40,7 +40,9 @@ const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) pro
   // flatten page 1 markups (allow unflatten), save, reopen, unflatten
   const before = await ev(() => mebulb.activeDoc().markups.filter((m) => m.page === 0).length);
   // a count is one annotation per counted item (Revu count groups)
-  const beforeAnn = await ev(() => mebulb.activeDoc().markups.filter((m) => m.page === 0).reduce((n, m) => n + (m.type === 'count' ? m.pts.length : 1), 0));
+  // annotations written: a count is one per counted item (Revu count groups); sketches, equipment and
+  // multi-leader callouts go out as several grouped markups
+  const beforeAnn = await ev(() => { const d = mebulb.activeDoc(); return d.markups.filter((m) => m.page === 0).reduce((n, m) => n + (m.type === 'count' ? m.pts.length : m.type === 'sketch' ? mebulb.sketchParts(m, d).length : m.type === 'equip' ? mebulb.equipParts(m, d).length : m.type === 'callout' && m.leaders && m.leaders.length ? mebulb.calloutParts(m, d).length : 1), 0); });
   await ev(() => mebulb.runCommand('doc.flatten')); await page.waitForSelector('#modal select[name=which]');
   await page.selectOption('#modal select[name=which]', 'page'); await page.click('#modal footer .btn.primary'); await page.waitForTimeout(300);
   const after = await ev(() => ({ left: mebulb.activeDoc().markups.filter((m) => m.page === 0).length, flat: mebulb.activeDoc().flat.length }));

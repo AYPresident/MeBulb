@@ -23,7 +23,7 @@ there open here.
 
 - `00-core` utilities, geometry, font metrics · `10-units` units and scales
 - `20-markup` markup types and drawing (screen SVG and PDF use the same primitives)
-- `22-richtext` rich text runs and editor · `25-sketch` sketch-to-scale risers · `26-equip` equipment top views to scale with clearances and clash checks · `27-align` page alignment by gridlines
+- `22-richtext` rich text runs and editor · `25-sketch` sketch-to-scale risers · `26-equip` equipment top views to scale with clearances and clash checks · `27-align` page alignment by grid bubbles or hand-placed reference points and grid lines
 - `30-state` application state, undo · `40-viewer` page rendering · `45-content` PDF content parsing (snapping, text)
 - `46-forms` form fields · `47-textedit` PDF text editing · `48-ocr` text recognition · `49-fonts` installed fonts and embedding
 - `50-tools`, `51-editops` drawing tools and editing commands
@@ -58,7 +58,8 @@ official Electron GitHub release).
 (`test/run-all.js`; pass suite names to run some, e.g. `node test/run-all.js revu btx`):
 `flow`, `flow2`, `flow3`, `r4`, `r5`, `label`, `incr`, `textmark`, `revu` (Bluebeam measurements,
 counts and Revu-flattened markups, using sample files in `test/fixtures`), `stamps`, `btx` (tool sets),
-`equip` (equipment and clearances), `ocr`, and `igs` (client drawings, skipped unless `IGS_DIR` has them). The tests need
+`equip` (equipment and clearances), `r7` (curves and nodes, area rectangles, linked sketches and their
+Revu output, callout knees and leaders, reference-mark alignment, same-spot page flipping), `ocr`, and `igs` (client drawings, skipped unless `IGS_DIR` has them). The tests need
 `qpdf` and `pdftotext`/`pdftoppm` (poppler-utils). `test/desktop.js` runs the Linux Electron build under
 `xvfb-run`, including a two-person live session.
 
@@ -73,6 +74,11 @@ pull request, and keeps the web build and the test screenshots.
   desktop bridge) and saved by appending an incremental update, so a 400 MB set saves in well under a second.
 - **Bluebeam Revu**: markups carry Revu's intent (`/IT`), measurement dictionaries, count groups and
   rich-text captions, so Revu treats them as its own; tool sets go both ways as `.btx` files.
+- **Compound markups go out as plain ones.** Revu redraws a markup from its dictionary when it is edited
+  there, so a sketch is written as an exact Square/Circle/Polygon plus a FreeText label, ink and an arrow,
+  grouped; a callout's extra leaders are grouped polylines. MeBulb reads them back as the one markup.
+- **Curves** in polylines and polygons are stored as the point each bent side passes through halfway,
+  relative to the side, and go out to other apps as short straight pieces.
 - **Flatten / unflatten** keeps the markups as JSON inside the flattened drawing, so unflatten brings
   back real, editable annotations (text boxes stay text boxes).
 - **Live sessions** write small change files into a hidden `.mebulb` folder beside the PDF; Egnyte

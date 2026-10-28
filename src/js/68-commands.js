@@ -56,8 +56,8 @@ function buildCommands() {
   add('view.fitWidth', 'Fit width', () => fitWidth(), { ...G_VIEW, icon: 'fitw', enabled: hasDoc });
   add('view.fitPage', 'Fit page', fitPage, { ...G_VIEW, icon: 'fitp', enabled: hasDoc });
   add('view.actualSize', 'Actual size', () => setZoom(1), { ...G_VIEW, icon: 'actual', enabled: hasDoc });
-  add('view.nextPage', 'Next page', () => goToPage(currentPage() + 1), { ...G_VIEW, icon: 'chevr', enabled: hasDoc });
-  add('view.prevPage', 'Previous page', () => goToPage(currentPage() - 1), { ...G_VIEW, icon: 'chevl', enabled: hasDoc });
+  add('view.nextPage', 'Next page', () => stepPage(1), { ...G_VIEW, icon: 'chevr', enabled: hasDoc });
+  add('view.prevPage', 'Previous page', () => stepPage(-1), { ...G_VIEW, icon: 'chevl', enabled: hasDoc });
   add('view.firstPage', 'First page', () => goToPage(0), { ...G_VIEW, icon: 'first', enabled: hasDoc });
   add('view.lastPage', 'Last page', () => goToPage(activeDoc().numPages - 1), { ...G_VIEW, icon: 'last', enabled: hasDoc });
   add('view.back', 'Previous view', () => viewHistory(-1), { ...G_VIEW, icon: 'back-view', enabled: () => hasDoc() && VH.i > 0 });
@@ -86,7 +86,8 @@ function buildCommands() {
   add('doc.color', 'Colour processing…', colorDialog, { ...G_DOC, icon: 'colorproc', enabled: hasDoc });
   add('doc.flatten', 'Flatten markups…', flattenDialog, { ...G_DOC, icon: 'flatten', enabled: hasDoc });
   add('doc.unflatten', 'Unflatten markups…', unflattenDialog, { ...G_DOC, icon: 'unflatten', enabled: hasDoc });
-  add('doc.alignGrid', 'Align pages to grid…', autoAlignDialog, { ...G_DOC, icon: 'align', enabled: hasDoc });
+  add('doc.alignGrid', 'Align pages…', autoAlignDialog, { ...G_DOC, icon: 'align', enabled: hasDoc });
+  add('doc.refCopy', 'Copy reference marks to pages…', copyRefMarksDialog, { ...G_DOC, icon: 'refpt', enabled: hasDoc });
   add('doc.alignPoints', 'Align this page by points', () => startAlignPick(currentPage()), { ...G_DOC, icon: 'alignpts', enabled: hasDoc });
   add('doc.scale', 'Set page scale…', () => scaleDialog(currentPage()), { ...G_DOC, icon: 'scale', enabled: hasDoc });
   // sketch

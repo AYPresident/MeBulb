@@ -76,14 +76,14 @@ function revuDecorate(A, m, doc, ctx, M, info) {
     const sc = scaleForMarkup(doc, m); A.Subtype = B[0]; A.IT = B[1]; A.MeasurementTypes = B[2]; if (!m.subject) A.Subj = T16(B[3]);
     A.Measure = measureDict(ctx, sc); A.Label = T16(m.text || ''); const cap = revuCaption(info.text, s); A.DS = cap.DS; A.RC = cap.RC;
     if (m.type === 'length') { A.Cap = true; A.L = [...P(m.pts[0]), ...P(m.pts[m.pts.length - 1])]; }
-    if (m.type === 'perimeter') A.Vertices = [...m.pts, m.pts[0]].map(P).flat();
+    if (m.type === 'perimeter') { const fp = CV.pts(m); A.Vertices = [...fp, fp[0]].map(P).flat(); }
     if (m.type === 'radius' && m.ext && m.ext.it === 'CircleDimension') { A.Subtype = 'Circle'; A.IT = 'CircleDimension'; A.MeasurementTypes = 384; delete A.Vertices; if (!m.subject) A.Subj = T16('Diameter Measurement'); }
     else if (m.type === 'radius') { const [c, e] = m.pts; A.Vertices = [c, e, c].map(P).flat(); }
     if (m.type === 'volume' && m.depth != null) { A.Depth = +(+m.depth).toFixed(6); A.DepthUnit = [numberFormat({ U: (UNITS[sc.unit] || UNITS.in).label, C: 1, D: 100 })]; }
   }
   if (m.type === 'callout') {
-    const L = textLayout(m); const tip = m.pts[0]; const cands = [[L.x, L.y + L.h / 2], [L.x + L.w, L.y + L.h / 2], [L.x + L.w / 2, L.y], [L.x + L.w / 2, L.y + L.h]]; let best = cands[0]; for (const c of cands) if (G.dist(c, tip) < G.dist(best, tip)) best = c;
-    A.IT = 'FreeTextCallout'; A.CL = [...P(tip), ...P(best), ...P(best)]; A.LE = LE_TO_PDF[s.arrowEnd || 'arrow'] || 'OpenArrow';
+    const L = textLayout(m); const ld = calloutLeader(L, s, m.pts[0], m.knee); // start (arrow), knee, end on the box
+    A.IT = 'FreeTextCallout'; A.CL = [...P(ld.tip), ...P(ld.knee), ...P(ld.attach)].map((v) => +v.toFixed(3)); A.LE = LE_TO_PDF[s.arrowEnd || 'arrow'] || 'OpenArrow';
     const box = G.bbox([[L.x, L.y], [L.x + L.w, L.y + L.h]].map(P)); A.RD = [box.x - A.Rect[0], box.y - A.Rect[1], A.Rect[2] - box.x2, A.Rect[3] - box.y2].map((v) => +Math.max(0, v).toFixed(3));
   }
   if (TEXT_TYPES.has(m.type)) { A.C = filled ? rgb01(s.fill) : []; if (filled) A.FillOpacity = +(s.fillOpacity == null ? 1 : s.fillOpacity).toFixed(3); }
@@ -156,7 +156,7 @@ async function importAnnotations(doc, payload) {
       if (isOurs(d)) {
         pageHide.add(refKey(ref)); const id = (mid || nm).split('#')[0]; const m = known.get(id) || known.get(nm); if (m) seen.add(m.id); if (m && m.ext && m.ext.ref === refKey(ref)) imported.add(refKey(ref)); // keeps its object number
         // edited in Revu since MeBulb saved it? take the change
-        const mod = pdfDate2ms(pdfText(d.get(PDFName.of('M')))); if (m && !mid.includes('#') && mod && mod > (Date.parse(m.modified || 0) || 0) + 2000) { const c = await toMarkup(R, d, ref, i, T, layerByName, doc); if (c) mergeExternal(m, c); }
+        const mod = pdfDate2ms(pdfText(d.get(PDFName.of('M')))); if (m && !mid.includes('#') && mod && mod > (Date.parse(m.modified || 0) || 0) + 2000) { const c = await toMarkup(R, d, ref, i, T, layerByName, doc); if (c) mergeExternal(m, c, doc); }
         continue;
       }
       foreign.push({ ref, d });
@@ -168,6 +168,15 @@ async function importAnnotations(doc, payload) {
   // markups MeBulb wrote that are gone from the file were deleted in another app
   const removed = (doc.markups || []).filter((m) => written.has(m.id) && !seen.has(m.id));
   return { markups: out, hide, imported, removed };
+}
+// a sketch's shape moved or resized in another app: follow it (the size is shared by its linked pages)
+function mergeSketch(m, c, doc) {
+  const b = G.bbox(c.pts); const nc = [(b.x + b.x2) / 2, (b.y + b.y2) / 2]; if (G.dist(nc, m.pts[0]) > 0.3) { m.pts = [nc]; syncLinked(doc, [m]); }
+  const sc = scaleForMarkup(doc, m); const cur = sketchSize(doc, m); const w = c.style.width || 0; const turned = Math.round(sketchRotDeg(doc, m) / 90) % 2 === 1;
+  const iw = Math.max(0, b.w - w) * sc.inPerPt, ih = Math.max(0, b.h - w) * sc.inPerPt; const near = (a, v) => Math.abs(a - v) <= Math.max(0.02 * v, 0.2);
+  if (c.type === 'ellipse' && cur.shape === 'circle' && !near(iw, cur.d)) setSketchSize(doc, m, { shape: 'circle', d: roundInch(iw, sc) });
+  else if (c.type === 'rect' && cur.shape === 'rect') { const W = turned ? ih : iw, H = turned ? iw : ih; if (!near(W, cur.w) || !near(H, cur.h)) setSketchSize(doc, m, { shape: 'rect', w: roundInch(W, sc), h: roundInch(H, sc) }); }
+  m.modified = c.modified; m.ext = { ...(m.ext || {}), editedOutside: true };
 }
 // Annotations from another app -> MeBulb markups. Revu groups (members point at the first one with
 // /IRT and /RT /Group) stay together as a MeBulb group; count groups become one count markup.
@@ -294,7 +303,7 @@ async function toMarkup(R, d, ref, i, T, layerByName, doc) {
       // Revu insets the text by the margin, one point and half the border; the border runs inside the rectangle
       style.pad = +((style._margin || 0) + 1 + w / 2).toFixed(3); delete style._margin; const h2 = w / 2;
       const box = [tp(inner[0] + h2, inner[3] - h2), tp(inner[2] - h2, inner[1] + h2)];
-      if (m.type === 'callout') { const cl = nums('CL') || []; const tip = cl.length >= 2 ? tp(cl[0], cl[1]) : box[0]; m.pts = [tip, ...box]; style.arrowEnd = LE_FROM_PDF[leNames[0]] || 'open'; } else m.pts = box;
+      if (m.type === 'callout') { const cl = nums('CL') || []; const tip = cl.length >= 2 ? tp(cl[0], cl[1]) : box[0]; m.pts = [tip, ...box]; style.arrowEnd = LE_FROM_PDF[leNames[0]] || 'open'; if (cl.length >= 6) { const kn = tp(cl[2], cl[3]), en = tp(cl[4], cl[5]); if (G.dist(kn, en) > 0.5) m.knee = kn; } } else m.pts = box;
       m.text = contents; const runs = parseRC(pdfText(g('RC')), style); if (runs) setRuns(m, runs); break;
     }
     case 'Text': { m.type = 'note'; m.pts = [tp(rect[0], rect[3])]; style.fill = stroke; style.stroke = darken(stroke); m.comment = contents; break; }
@@ -369,9 +378,10 @@ async function stampFromAP(R, d, doc) {
   } catch (e) { console.warn('stamp import', e); return null; }
 }
 // an annotation MeBulb wrote was changed in another app: take its geometry and text
-function mergeExternal(m, c) {
+function mergeExternal(m, c, doc) {
+  if (m.type === 'sketch' && doc) { mergeSketch(m, c, doc); return; }
   const simple = ['rect', 'ellipse', 'line', 'arrow', 'polyline', 'polygon', 'cloud', 'pen', 'highlight', 'text', 'callout', 'note', 'length', 'polylength', 'area', 'perimeter', 'angle', 'count'];
-  if (c.type === m.type && simple.includes(m.type)) { m.pts = c.pts; if (TEXT_TYPES.has(m.type)) { m.text = c.text; m.runs = c.runs || null; } m.style = { ...m.style, stroke: c.style.stroke, opacity: c.style.opacity, width: c.style.width }; }
+  if (c.type === m.type && simple.includes(m.type)) { m.pts = c.pts; if (TEXT_TYPES.has(m.type)) { m.text = c.text; m.runs = c.runs || null; } if (m.type === 'callout') { if (c.knee) m.knee = c.knee; else delete m.knee; } m.style = { ...m.style, stroke: c.style.stroke, opacity: c.style.opacity, width: c.style.width }; }
   else { const a = G.bbox(m.pts), b = G.bbox(c.pts); const dx = (b.x + b.x2) / 2 - (a.x + a.x2) / 2, dy = (b.y + b.y2) / 2 - (a.y + a.y2) / 2; if (Math.hypot(dx, dy) > 0.5) m.pts = m.pts.map((p) => [p[0] + dx, p[1] + dy]); }
   m.modified = c.modified; m.ext = { ...(m.ext || {}), editedOutside: true };
 }

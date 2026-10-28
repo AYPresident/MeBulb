@@ -91,6 +91,7 @@ function renderProps() {
     html += '<section class="psec"><h3>Markup</h3>';
     html += field('Subject', `<input type="text" data-k="subject" value="${esc(one.subject)}" maxlength="80">`);
     if (MEASURE_TYPES.has(one.type)) html += field('Label', `<input type="text" data-k="text" value="${esc(one.text || '')}" placeholder="Optional, shown with the value" maxlength="80">`);
+    if (REF_TYPES.has(one.type)) html += field('Name', `<input type="text" id="prop-text" data-k="text" value="${esc(one.text || '')}" placeholder="${one.type === 'gridline' ? 'A, B, 1, 2…' : 'R1'}" maxlength="12">`) + '<p class="muted sm">Pages line up on marks with the same name: put the same names on the same places of every page, then <b>Align pages</b> in the Measurements panel.</p>';
     html += field(one.type === 'note' ? 'Note' : 'Comment', `<textarea id="prop-comment" data-k="comment" rows="${one.type === 'note' ? 5 : 3}" placeholder="${one.type === 'note' ? 'Write a note' : 'Add a comment'}">${esc(one.comment || '')}</textarea>`);
     html += `<div class="field two"><div><label>Status</label><select data-k="status">${STATUSES.map((x) => `<option${one.status === x ? ' selected' : ''}>${x}</option>`).join('')}</select></div><div><label>Layer</label><select data-k="layer"><option value="">None</option>${doc.layers.map((l) => `<option value="${l.id}"${one.layer === l.id ? ' selected' : ''}>${esc(l.name)}</option>`).join('')}</select></div></div>`;
     html += `<label class="check"><input type="checkbox" data-k="locked"${one.locked ? ' checked' : ''}> Lock position and content</label>`;
@@ -164,7 +165,7 @@ function applyProp(k, v, live) {
   if (k === 'style.variant') { applyToSelection((m) => { m.style = { ...m.style, variant: v }; if (m.type === 'strikeout' && /^(Strikethrough|Underline)$/.test(m.subject)) m.subject = v === 'under' ? 'Underline' : 'Strikethrough'; }); return; }
   if (k === 'locked') { applyToSelection((m) => { m.locked = v; }, { ignoreLock: true }); refreshSelection(); return; }
   if (!_propUndo) { pushUndo(doc); _propUndo = true; }
-  applyToSelection((m) => setField(m, k, v), { noUndo: true });
+  applyToSelection((m) => setField(m, k, v), { noUndo: true, linked: /^(style\.|layer$)/.test(k) });
   if (!live) _propUndo = false;
   renderSel(doc, T.ms[0].page);
 }

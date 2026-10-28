@@ -272,7 +272,7 @@ function placeToolItem(it, page, p) {
   pushUndo(doc);
   for (const m of ms) {
     const x = newMarkup(m.type, page, m.pts.map(([a, b]) => [a + dx, b + dy]), { style: deep(m.style), subject: m.subject || it.subject || it.name });
-    if (m.text) x.text = m.text; if (m.runs) x.runs = deep(m.runs); if (m.depth != null) x.depth = m.depth; if (x.type === 'volume' && x.depth == null) x.depth = defaultDepth(scaleAt(doc, page, p));
+    if (m.text) x.text = m.text; if (m.runs) x.runs = deep(m.runs); if (m.curves) x.curves = deep(m.curves); if (m.depth != null) x.depth = m.depth; if (x.type === 'volume' && x.depth == null) x.depth = defaultDepth(scaleAt(doc, page, p));
     if (m.asset && A[m.asset]) { doc.assets = doc.assets || {}; doc.assets[m.asset] = doc.assets[m.asset] || A[m.asset]; if (TOOL_ASSETS.img[m.asset]) { doc.assetImg = doc.assetImg || {}; doc.assetImg[m.asset] = TOOL_ASSETS.img[m.asset]; } x.asset = m.asset; }
     if (m.ext && (m.ext.it || m.ext.bsi)) x.ext = { it: m.ext.it, bsi: m.ext.bsi };
     if (gid) { x.group = gid; x.ext = { ...(x.ext || {}), groupPrimary: !!(m.ext && m.ext.groupPrimary), groupName: m.ext && m.ext.groupName || undefined }; }
@@ -299,7 +299,7 @@ async function addSelectionToToolset() {
   const m = selected()[0]; if (!m) return; const pick = await pickToolset(m.subject); if (!pick) return;
   const doc = activeDoc(); const isSk = m.type === 'sketch'; const sz = isSk ? sketchSize(doc, m) : null;
   const c = G.bbox(m.pts); const cx = (c.x + c.x2) / 2, cy = (c.y + c.y2) / 2;
-  const shape = isSk || m.type === 'count' ? undefined : { pts: m.pts.map(([x, y]) => [x - cx, y - cy]), text: TEXT_TYPES.has(m.type) ? m.text : null, runs: m.runs ? deep(m.runs) : null };
+  const shape = isSk || m.type === 'count' ? undefined : { pts: m.pts.map(([x, y]) => [x - cx, y - cy]), text: TEXT_TYPES.has(m.type) ? m.text : null, runs: m.runs ? deep(m.runs) : null, curves: CV.has(m) ? deep(m.curves) : undefined };
   pick.set.items.push({ name: pick.name, tool: isSk ? (sz.shape === 'circle' ? 'sketchcircle' : 'sketchrect') : m.type, style: deep(m.style), subject: m.subject, text: m.type === 'stamp' ? m.text : undefined, stampId: m.type === 'stamp' ? m.stampId : undefined, depth: m.depth, size: sz ? deep(sz) : undefined, shape });
   saveToolsets(); openRight('toolsets'); toast(`Added “${pick.name}” to ${pick.set.name}`);
 }

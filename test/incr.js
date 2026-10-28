@@ -37,7 +37,9 @@ const sh = (c) => { try { return execSync(c, { encoding: 'utf8', stdio: ['ignore
     return { b64: btoa(Array.from(all, (c) => String.fromCharCode(c)).join('')), app: u.bytes.length, base: d.src.size, ms, kind: u.kind, n: d.markups.length };
   });
   fs.writeFileSync(OUT + '/incr1.pdf', Buffer.from(r1.b64, 'base64'));
-  ok(r1.app > 1000 && r1.app < r1.base * 3, `appended ${r1.app} bytes to ${r1.base} (xref ${r1.kind}) in ${r1.ms.toFixed(0)} ms`);
+  // the append carries the markups (a few KB each with their appearances; sketches go out as several
+  // grouped parts) and the fonts they use, never the drawing itself
+  ok(r1.app > 1000 && r1.app < r1.n * 8000, `appended ${r1.app} bytes for ${r1.n} markups to ${r1.base} (xref ${r1.kind}) in ${r1.ms.toFixed(0)} ms`);
   console.log('qpdf:', sh(`qpdf --check ${OUT}/incr1.pdf 2>&1 | tail -2`).trim());
   ok(/No syntax or stream encoding errors/.test(sh(`qpdf --check ${OUT}/incr1.pdf 2>&1`)), 'qpdf finds no structural errors');
   const fonts1 = sh(`pdffonts ${OUT}/incr1.pdf`); console.log(fonts1.trim());

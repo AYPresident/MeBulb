@@ -231,33 +231,43 @@ async function resourcesFor(pdfDoc, ops, fonts, imgCache) {
   for (const [id, name] of ops.assets) { const key = 'asset:' + id; if (!imgCache.has(key)) { const [pg] = await pdfDoc.embedPdf(b64ToBytes(ops.doc.assets[id].pdf), [0]); imgCache.set(key, pg); } res.XObject[name] = imgCache.get(key).ref; }
   return ctx.obj(res);
 }
-const ANNOT_SUBTYPE = { equip: 'Square', rect: 'Square', ellipse: 'Circle', radius: 'Circle', line: 'Line', arrow: 'Line', length: 'Line', polyline: 'PolyLine', polylength: 'PolyLine', angle: 'PolyLine', polygon: 'Polygon', cloud: 'Polygon', area: 'Polygon', perimeter: 'Polygon', volume: 'Polygon', pen: 'Ink', highlight: 'Ink', text: 'FreeText', callout: 'FreeText', note: 'Text', stamp: 'Stamp', image: 'Stamp', count: 'Square', texthl: 'Highlight', strikeout: 'StrikeOut', sketch: 'Square' };
+const ANNOT_SUBTYPE = { equip: 'Square', rect: 'Square', ellipse: 'Circle', radius: 'Circle', line: 'Line', arrow: 'Line', length: 'Line', polyline: 'PolyLine', polylength: 'PolyLine', angle: 'PolyLine', polygon: 'Polygon', cloud: 'Polygon', area: 'Polygon', perimeter: 'Polygon', volume: 'Polygon', pen: 'Ink', highlight: 'Ink', text: 'FreeText', callout: 'FreeText', note: 'Text', stamp: 'Stamp', image: 'Stamp', count: 'Square', texthl: 'Highlight', strikeout: 'StrikeOut', sketch: 'Square', refpt: 'Stamp', gridline: 'Line' };
 
+// a callout with extra leaders: the callout itself (first leader) plus a grouped polyline per extra leader
+function calloutParts(m, doc) {
+  const s = m.style; const gid = m.group || 'CO-' + m.id; const L = textLayout(m); const lds = calloutLeaders(m, L);
+  const base = { page: m.page, layer: m.layer, author: m.author, created: m.created, modified: m.modified, status: m.status, group: gid, subject: m.subject };
+  return [{ ...m, leaders: null, group: gid, ext: { ...(m.ext || {}), groupPrimary: m.group ? (m.ext && m.ext.groupPrimary) || undefined : true, groupName: m.group ? m.ext && m.ext.groupName : 'Callout' } },
+    ...lds.slice(1).map((ld, k) => ({ ...base, id: `${m.id}#L${k}`, type: 'polyline', pts: [ld.tip, ld.knee, ld.attach], style: { stroke: s.stroke, width: Math.max(s.width, 0.75), opacity: s.opacity, dash: 'solid', arrowStart: s.arrowEnd || 'arrow', arrowEnd: 'none' }, ext: {} }))];
+}
 // rich text goes in as plain ASCII with XML character references: pdf.js (and others) read RC
 // as a byte string, so UTF-16 here would arrive as mojibake
 function xmlAsciiHex(x) { const a = x.replace(/[^\x20-\x7e]/gu, (c) => `&#${c.codePointAt(0)};`); let h = ''; for (let i = 0; i < a.length; i++) h += a.charCodeAt(i).toString(16).padStart(2, '0'); return PDFHexString.of(h); }
 // annotation objects for one page's markups, in whichever pdf-lib document is being written
 async function annotsForPage(pdfDoc, fonts, imgCache, doc, i, pageRef, ms) {
   const ctx = pdfDoc.context; const pg = doc.pages[i]; const M = invertT(pg.T); const cm = `${M.map((v) => num(v, 6)).join(' ')} cm`; const refs = []; const groups = new Map();
-  for (const m of ms) {
+  // sketches go out as several plain markups (see sketchParts)
+  for (const m of ms.flatMap((x) => (x.type === 'sketch' ? sketchParts(x, doc) : x.type === 'equip' ? equipParts(x, doc) : x.type === 'callout' && x.leaders && x.leaders.length ? calloutParts(x, doc) : [x]))) {
     const s = m.style; const base = { Type: 'Annot', F: 4, P: pageRef, C: (hexToRgb(s.stroke) || [0, 0, 0]).map((v) => +(v / 255).toFixed(4)), CA: s.opacity == null ? 1 : s.opacity, T: PDFHexString.fromText(m.author || ''), Subj: PDFHexString.fromText(m.subject || ''), M: PDFString.of(pdfDate(m.modified)), CreationDate: PDFString.of(pdfDate(m.created)) };
     if (m.type === 'count' && m.pts.length) { refs.push(...(await countAnnots(pdfDoc, fonts, imgCache, doc, i, pageRef, m, base))); continue; }
-    const prims = dl(m, doc); const vb = primsBBox(prims); if (!vb) continue;
+    const prims = m._prims || dl(m, doc); const vb = primsBBox(prims); if (!vb) continue;
     const corners = [[vb.x, vb.y], [vb.x2, vb.y], [vb.x2, vb.y2], [vb.x, vb.y2]].map((p) => applyT(M, p)); const rb = G.bbox(corners); const rect = [rb.x, rb.y, rb.x2, rb.y2];
     const ops = new Ops(doc); ops.s.push(cm); prims.forEach((p) => ops.prim(p));
     const res = await resourcesFor(pdfDoc, ops, fonts, imgCache);
     const ap = ctx.register(ctx.flateStream(ops.toString(), { Type: 'XObject', Subtype: 'Form', FormType: 1, BBox: rect, Resources: res }));
     const col = hexToRgb(m.type === 'note' ? s.fill : s.stroke) || [0, 0, 0]; let sub = ANNOT_SUBTYPE[m.type] || 'Square'; if (m.type === 'sketch' && sketchSize(doc, m).shape === 'circle') sub = 'Circle';
     const info = MEASURE_TYPES.has(m.type) ? measureInfo(m, doc) : null;
-    const contents = m.type === 'equip' ? [m.tag, m.eq && m.eq.name, m.eq && `${Math.round(m.eq.w)} × ${Math.round(m.eq.d)} mm`, m.comment].filter(Boolean).join('\n') : TEXT_TYPES.has(m.type) ? m.text : m.type === 'stamp' ? m.text : m.type === 'sketch' ? [sketchName(doc, m), sizeLabel(doc, m), m.comment].filter(Boolean).join('\n') : info ? info.text : [m.text, m.comment].filter(Boolean).join('\n');
+    const contents = m._contents != null ? m._contents : m.type === 'equip' ? [m.tag, m.eq && m.eq.name, m.eq && `${Math.round(m.eq.w)} × ${Math.round(m.eq.d)} mm`, m.comment].filter(Boolean).join('\n') : TEXT_TYPES.has(m.type) ? m.text : m.type === 'stamp' ? m.text : m.type === 'sketch' ? [sketchName(doc, m), sizeLabel(doc, m), m.comment].filter(Boolean).join('\n') : info ? info.text : [m.text, m.comment].filter(Boolean).join('\n');
     const A = {
-      ...base, Subtype: sub, Rect: rect, NM: PDFString.of((m.ext && m.ext.nm) || m.id), MeBulbId: PDFString.of(m.id), AP: { N: ap },
+      ...base, Subtype: sub, Rect: rect, NM: PDFString.of((m.ext && m.ext.nm) || m.id.replace(/[^A-Za-z0-9_.-]/g, '_')), MeBulbId: PDFString.of(m.id), AP: { N: ap },
       C: col.map((v) => +(v / 255).toFixed(4)), Contents: PDFHexString.fromText(contents || ''), Border: [0, 0, s.width || 0],
     };
     if (s.fill && s.fill !== 'none' && (sub === 'Square' || sub === 'Circle' || sub === 'Polygon')) A.IC = (hexToRgb(s.fill) || [1, 1, 1]).map((v) => v / 255);
     const pdfPts = m.pts.map((p) => applyT(M, p));
     if (sub === 'Line') A.L = [...pdfPts[0], ...pdfPts[pdfPts.length - 1]];
-    if (sub === 'PolyLine' || sub === 'Polygon') A.Vertices = pdfPts.flat();
+    // squares and circles: the border sits inside Rect minus RD, so other apps redraw them at exactly this size
+    if ((m.type === 'rect' || m.type === 'ellipse') && m.pts.length === 2) { const b = boxRect(m.pts[0], m.pts[1]); const hw = (s.width || 0) / 2; const ib = G.bbox([[b.x - hw, b.y - hw], [b.x + b.w + hw, b.y + b.h + hw]].map((p) => applyT(M, p))); A.RD = [ib.x - rect[0], ib.y - rect[1], rect[2] - ib.x2, rect[3] - ib.y2].map((v) => +Math.max(0, v).toFixed(3)); }
+    if (sub === 'PolyLine' || sub === 'Polygon') A.Vertices = (CV.has(m) ? CV.pts(m).map((p) => applyT(M, p)) : pdfPts).flat(); // bends go out as short straight pieces other viewers can draw
     if (sub === 'Ink') A.InkList = [pdfPts.flat(), ...((m.ext && m.ext.extraInk) || []).map((st) => st.map((p) => applyT(M, p)).flat())];
     if (QUAD_TYPES.has(m.type)) { if (m.type === 'strikeout' && s.variant === 'under') A.Subtype = 'Underline'; const q = []; for (let k = 0; k + 3 < pdfPts.length; k += 4) { const [tl, tr, br, bl] = pdfPts.slice(k, k + 4); q.push(...tl, ...tr, ...bl, ...br); } A.QuadPoints = q; }
     if (sub === 'FreeText') {
@@ -268,7 +278,8 @@ async function annotsForPage(pdfDoc, fonts, imgCache, doc, i, pageRef, ms) {
       A.RC = xmlAsciiHex(rtXhtml(m)); A.DS = PDFString.of(`font: ${s.bold ? 'bold ' : ''}${s.italic ? 'italic ' : ''}${cssFontName(s.font)} ${num(z, 2)}pt; text-align:${s.align || 'left'};${s.valign ? ` text-valign:${s.valign};` : ''} margin:${num(margin, 3)}pt; line-height:${num(z * (s.lineH || 1.2), 3)}pt; color:${cssColor(s.fontColor || s.stroke)}`);
     }
     if (sub === 'Text') A.Name = 'Comment';
-    if (sub === 'Stamp') A.Name = m.type === 'image' ? 'Image' : (m.text || 'Approved').replace(/[^A-Za-z0-9]+/g, '') || 'Approved';
+    if (m.type === 'refpt') A.Name = 'ReferencePoint';
+    else if (sub === 'Stamp') A.Name = m.type === 'image' ? 'Image' : (m.text || 'Approved').replace(/[^A-Za-z0-9]+/g, '') || 'Approved';
     revuDecorate(A, m, doc, ctx, M, info);
     // markups that came from another app keep their object number, so replies and links to them survive
     const reuse = m.ext && m.ext.ref && /^\d+ \d+$/.test(m.ext.ref) && doc.imported && doc.imported.has(m.ext.ref) ? PDFRef.of(+m.ext.ref.split(' ')[0], +m.ext.ref.split(' ')[1]) : null;

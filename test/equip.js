@@ -52,6 +52,9 @@ const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) pro
   ok(/No syntax or stream encoding errors/.test(execSync(`qpdf --check ${OUT}/equip.pdf 2>&1 || true`, { encoding: 'utf8' })), 'saved PDF passes qpdf');
   const t = execSync(`qpdf --qdf --object-streams=disable ${OUT}/equip.pdf - | strings | grep -ci "Subj <feff0043006f006e00640065006e007300650072>" || true`, { encoding: 'utf8' }).trim();
   ok(+t >= 3, `units are annotations other viewers show (${t} condensers)`);
+  const q = execSync(`qpdf --qdf --object-streams=disable ${OUT}/equip.pdf - | strings`, { encoding: 'utf8', maxBuffer: 64 << 20 });
+  const zones = (q.match(/\/MeBulbId \(PM-[^)]*#z\d+\)/g) || []).length, gn = (q.match(/\/GroupNesting/g) || []).length, labels = (q.match(/\/MeBulbId \(PM-[^)]*#l\)/g) || []).length;
+  ok(zones >= 9 && gn >= 3 && labels >= 3, `for Revu each unit is a body, its clearance zones as polygons and its tag as a text box, grouped (${zones} zones, ${gn} groups, ${labels} tags)`);
   const re = await ev(async (b) => { const bytes = Uint8Array.from(atob(b), (c) => c.charCodeAt(0)); const d = await mebulb.openBytes('Equip.pdf', bytes); await new Promise((r) => setTimeout(r, 800)); const ms = d.markups.filter((m) => m.type === 'equip'); return { n: ms.length, tags: ms.map((m) => m.tag).sort().join(), w: ms[0] && ms[0].eq.w }; }, b64);
   ok(re.n === 3 && re.tags === 'CU-01,CU-02,CU-03' && re.w === 900, 'reopened: units come back with their data ' + JSON.stringify(re));
   // CSV from data sheets

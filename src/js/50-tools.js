@@ -8,6 +8,7 @@ function setTool(t, opts = {}) {
   endCount();
   if (state.editing) commitEdit();
   if (state.placeItem) endPlace();
+  if (state.addLeaderFor && t !== 'select') endAddLeader();
   if (t !== 'equip' && state.placeEquip) { state.placeEquip = null; state.ghost = null; renderDraft(); if (typeof renderEquipPanelSoon === 'function') renderEquipPanelSoon(); }
   state.tool = t; state.toolLocked = !!opts.lock;
   if (t !== 'select') { state.sel.clear(); refreshSelection(); }
@@ -50,6 +51,7 @@ function newDraftMarkup(tool, page, pts) {
   if (tool === 'stamp') m.text = state.stampText;
   if (tool === 'volume') m.depth = state.volDepth != null ? state.volDepth : defaultDepth(scaleAt(activeDoc(), page, pts[0]));
   if (tool === 'texthl') { m.style = { ...toolStyle('highlight'), width: 0 }; m.subject = state.toolSubjects.highlight || 'Highlight'; }
+  if (REF_TYPES.has(tool)) m.text = nextRefLabel(activeDoc(), page, tool);
   return m;
 }
 
@@ -76,9 +78,12 @@ function onPointerDown(e) {
 function startPan(e) { I.pan = { x: e.clientX, y: e.clientY, sl: V.el.scrollLeft, st: V.el.scrollTop }; V.el.classList.add('panning'); try { V.el.setPointerCapture(e.pointerId); } catch { } }
 
 function selectDown(e, i) {
-  const doc = activeDoc(); const hEl = e.target.closest('.hdl');
+  const doc = activeDoc();
+  if (state.addLeaderFor) { const m = getMarkup(state.addLeaderFor); if (!m || m.type !== 'callout') { endAddLeader(); return; } if (i === m.page) { pushUndo(doc); m.leaders = [...(m.leaders || []), { tip: snapPoint(clientToPage(e, i), i), knee: null }]; touch(m); renderMarkupEl(m, doc); renderSel(doc, m.page); refreshPanels(); } else toast(`Click on page ${m.page + 1}, where the callout is`); e.preventDefault(); return; }
+  const hEl = e.target.closest('.hdl');
   if (hEl) { const m = getMarkup(hEl.dataset.m); if (!m) return; I.drag = { kind: 'handle', id: m.id, h: hEl.dataset.h, page: m.page, orig: deep(m.pts), origHoles: m.holes ? deep(m.holes) : null, moved: false, pid: e.pointerId }; capture(e); e.preventDefault(); return; }
   const mEl = e.target.closest('g.mk');
+  if (!state.painter && i >= 0 && (e.shiftKey || e.ctrlKey || e.metaKey) && !e.altKey && state.sel.size === 1 && polyEdit(e, i)) return;
   if (state.painter) { if (mEl) { const m = getMarkup(mEl.dataset.id); if (m && !state.sel.has(m.id)) { applyPropsTo([m]); toast('Properties applied · Esc to stop'); } } else endPainter(); e.preventDefault(); return; }
   const part = e.target.closest('[data-part="label"]');
   if (mEl && part && i >= 0) { const m = getMarkup(mEl.dataset.id); if (m && m.type === 'sketch' && !isLocked(m, doc) && (state.sel.has(m.id) || e.shiftKey)) {
@@ -97,6 +102,34 @@ function selectDown(e, i) {
   const p = clientToPage(e, i); state.marquee = { page: i, a: p, b: p }; I.drag = { kind: 'marquee', page: i }; capture(e); e.preventDefault();
 }
 function capture(e) { try { V.el.setPointerCapture(e.pointerId); } catch { } }
+// the one selected polyline / polygon: Shift+click on a side adds a node there (and drags it);
+// Ctrl+drag on a side bends it into a curve
+function polyEdit(e, i) {
+  const doc = activeDoc(); const m = selected(doc)[0]; if (!m || m.page !== i || !CURVE_TYPES.has(m.type) || isLocked(m, doc) || m.pts.length < 2) return false;
+  const p = clientToPage(e, i); const near = CV.nearSeg(m, p); if (!near || near.d > 6 / doc.zoom) return false;
+  if (m.pts.some((q) => G.dist(q, p) < 5 / doc.zoom)) return false; // on a node: leave it to the node's handle
+  if (e.shiftKey) {
+    pushUndo(doc); const orig0 = deep(m.pts); const k = CV.insert(m, near.k, p); touch(m); renderMarkupEl(m, doc); renderSel(doc, m.page); refreshPanels();
+    I.drag = { kind: 'handle', id: m.id, h: 'v' + k, page: m.page, orig: deep(m.pts), origHoles: m.holes ? deep(m.holes) : null, moved: true, pid: e.pointerId, before: orig0 }; capture(e); e.preventDefault(); return true;
+  }
+  I.drag = { kind: 'handle', id: m.id, h: 'q' + near.k, page: m.page, orig: deep(m.pts), origHoles: m.holes ? deep(m.holes) : null, moved: false, pid: e.pointerId }; capture(e); e.preventDefault(); return true;
+}
+// callouts: point at more than one thing
+function startAddLeader(m) { if (!m || m.type !== 'callout') return; if (state.tool !== 'select') setTool('select'); state.addLeaderFor = m.id; state.sel.clear(); state.sel.add(m.id); refreshSelection(); V.el.classList.add('picking'); updateDraftBar(); }
+function endAddLeader() { if (!state.addLeaderFor) return; state.addLeaderFor = null; V.el.classList.remove('picking'); updateDraftBar(); }
+function polyNodeMenu(m, h) {
+  const doc = activeDoc(); const k = +h.slice(1); const items = [];
+  const ed = (f) => () => { pushUndo(doc); f(); touch(m); renderMarkupEl(m, doc); renderSel(doc, m.page); refreshPanels(); };
+  if (m.type === 'callout') {
+    if (h[0] === 'l') items.push(['Remove leader', ed(() => { m.leaders.splice(k, 1); if (!m.leaders.length) delete m.leaders; })]);
+    if (h === 'n' && m.knee) items.push(['Reset knee', ed(() => { delete m.knee; })]);
+    if (h[0] === 'm' && m.leaders && m.leaders[k] && m.leaders[k].knee) items.push(['Reset knee', ed(() => { m.leaders[k].knee = null; })]);
+    items.push(['Add leader', () => startAddLeader(m)]); return items;
+  }
+  if (h[0] === 'v' && CURVE_TYPES.has(m.type) && m.pts.length > (CV.closed(m) ? 3 : 2)) items.push(['Delete node', () => { pushUndo(doc); CV.remove(m, k); touch(m); renderMarkupEl(m, doc); renderSel(doc, m.page); refreshPanels(); }]);
+  if (h[0] === 'q') items.push(['Straighten side', () => { pushUndo(doc); delete m.curves[k]; touch(m); renderMarkupEl(m, doc); renderSel(doc, m.page); refreshPanels(); }]);
+  return items;
+}
 
 function drawDown(e, i) {
   const doc = activeDoc(); const t = TOOLS[state.tool]; let p = snapPoint(clientToPage(e, i), i); const d = state.draft;
@@ -127,13 +160,16 @@ function drawDown(e, i) {
       state.draft = { mode: 'textsel', page: i, m: newDraftMarkup(state.tool, i, []), anchor: hit }; state.draft.m.pts = textQuads(doc, i, hit, hit); if (state.tool === 'strikeout') state.draft.m.subject = state.draft.m.style.variant === 'under' ? 'Underline' : 'Strikethrough'; capture(e); break;
     }
     case 'multi':
-      if (!d) { state.draft = { mode: 'multi', page: i, m: newDraftMarkup(state.tool, i, [p, p.slice()]), sx: e.clientX, sy: e.clientY, down: true, dragBox: !!t.dragBox, start: p }; capture(e); break; }
+      if (!d) { state.draft = { mode: 'multi', page: i, m: newDraftMarkup(state.tool, i, [p, p.slice()]), sx: e.clientX, sy: e.clientY, down: true, dragBox: !!t.dragBox, rect: !!(t.dragBox && t.closed && state.polyRect[state.tool]), start: p }; capture(e); break; }
+      if (d.rect) { const b = boxRect(d.start, p); if (b.w > 0.5 && b.h > 0.5) { d.m.pts = G.rectPts(d.start, p); d.boxDrag = true; finishDraft(); } return; } // second corner of a rectangle
       if (d.page !== i) return;
       {
-        const pts = d.m.pts; const real = pts.length - 1;
+        const pts = d.m.pts; const real = pts.length - 1; const bend = (e.ctrlKey || e.metaKey) && real > 0 && CURVE_TYPES.has(d.m.type);
         if (e.shiftKey && real > 0) p = G.snapAngle(pts[real - 1], p);
-        if (t.closed && real >= 3 && G.dist(p, pts[0]) < 8 / doc.zoom) { finishDraft(); return; }
+        if (t.closed && real >= 3 && G.dist(p, pts[0]) < 8 / doc.zoom) { d.closeBend = bend; finishDraft(); return; }
         pts[real] = p; pts.push(p.slice()); d.down = true; d.sx = e.clientX; d.sy = e.clientY;
+        // Ctrl+click: the side just finished is a curve; keep dragging to shape it
+        if (bend) { d.m.curves = d.m.curves || {}; d.m.curves[real - 1] = CV.auto(pts, real - 1); d.bend = real - 1; } else if (d.m.curves) delete d.m.curves[real - 1];
         if (t.maxPts && real + 1 >= t.maxPts) { finishDraft(); return; }
       }
       break;
@@ -145,7 +181,8 @@ function drawDown(e, i) {
     }
     case 'callout': state.draft = { mode: 'callout', page: i, m: newDraftMarkup('callout', i, [p, p.slice(), p.slice()]), start: p, sx: e.clientX, sy: e.clientY }; placeCalloutBox(state.draft, p, false); capture(e); break;
     case 'point':
-      if (state.tool === 'note') { const m = newDraftMarkup('note', i, [[p[0] - 9, p[1] - 9]]); addMarkup(m); state.sel.clear(); state.sel.add(m.id); refreshSelection(); toolDone(); setTimeout(() => { const c = $('#prop-comment'); if (c) c.focus(); }, 30); }
+      if (state.tool === 'refpt') { const m = newDraftMarkup('refpt', i, [p]); addMarkup(m); state.sel.clear(); state.sel.add(m.id); refreshSelection(); toolDone(); }
+      else if (state.tool === 'note') { const m = newDraftMarkup('note', i, [[p[0] - 9, p[1] - 9]]); addMarkup(m); state.sel.clear(); state.sel.add(m.id); refreshSelection(); toolDone(); setTimeout(() => { const c = $('#prop-comment'); if (c) c.focus(); }, 30); }
       else if (state.tool === 'stamp') {
         placeStamp(doc, i, p).then((m) => { if (!m) return; addMarkup(m); noteRecentTool(m); state.sel.clear(); state.sel.add(m.id); refreshSelection(); toolDone(); }).catch((err) => { console.error(err); toast('Could not place the stamp: ' + err.message, 'error'); });
       }
@@ -182,9 +219,12 @@ function onPointerMove(e) {
     case 'line': case 'click': p = snapPoint(p, i); d.m.pts[1] = e.shiftKey ? G.snapAngle(d.m.pts[0], p) : p; if (moved) d.moved = true; break;
     case 'free': { const last = d.m.pts[d.m.pts.length - 1]; if (G.dist(last, p) > 1.2 / doc.zoom) d.m.pts.push(p); break; }
     case 'multi': {
+      if (d.rect) { p = snapPoint(p, i); const a = d.start; if (e.shiftKey) { const q = Math.max(Math.abs(p[0] - a[0]), Math.abs(p[1] - a[1])); p = [a[0] + Math.sign(p[0] - a[0] || 1) * q, a[1] + Math.sign(p[1] - a[1] || 1) * q]; } if (d.down && moved) d.dragged = true; d.boxDrag = true; d.m.pts = G.rectPts(a, p); d.m.pts.push(p.slice()); break; }
       if (d.dragBox && d.down && d.m.pts.length === 2 && (moved || d.boxDrag)) { d.boxDrag = true; d.m.pts = G.rectPts(d.start, p); d.m.pts.push(p.slice()); break; }
       if (d.boxDrag) { d.m.pts = G.rectPts(d.start, p); d.m.pts.push(p.slice()); break; }
-      p = snapPoint(p, i); const pts = d.m.pts; if (e.shiftKey && pts.length > 1) p = G.snapAngle(pts[pts.length - 2], p); pts[pts.length - 1] = p; break;
+      if (d.bend != null && d.down) { if (moved || d.bent) { d.bent = true; const pts = d.m.pts; const a = pts[d.bend], b = pts[d.bend + 1]; d.m.curves[d.bend] = CV.rel(a, b, p); } break; } // Ctrl+drag shapes the curve
+      p = snapPoint(p, i); const pts = d.m.pts; if (e.shiftKey && pts.length > 1) p = G.snapAngle(pts[pts.length - 2], p); pts[pts.length - 1] = p;
+      rubberBend(d, e.ctrlKey || e.metaKey); break;
     }
     case 'callout': placeCalloutBox(d, p, moved); break;
     case 'textsel': { const hit = textHitAt(doc, i, p, 1); if (hit) d.m.pts = textQuads(doc, i, d.anchor, hit); break; }
@@ -207,7 +247,7 @@ function dragMove(e) {
     if (e.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
     const ms = g.movers.map((id) => getMarkup(id)).filter(Boolean); if (!ms.length) return;
     if (!g.moved) { pushUndo(doc); g.moved = true; }
-    ms.forEach((m) => { const o = g.orig[m.id]; const f = (q) => [q[0] + dx, q[1] + dy]; m.pts = o.pts.map(f); if (o.holes) m.holes = o.holes.map((h) => h.map(f)); if (o.base) m.base = f(o.base); renderMarkupEl(m, doc); });
+    ms.forEach((m) => { const o = g.orig[m.id]; const f = (q) => [q[0] + dx, q[1] + dy]; m.pts = o.pts.map(f); if (o.holes) m.holes = o.holes.map((h) => h.map(f)); if (o.base) m.base = f(o.base); if (o.knee) m.knee = f(o.knee); if (o.leaders) m.leaders = o.leaders.map((l) => ({ tip: f(l.tip), knee: l.knee ? f(l.knee) : null })); renderMarkupEl(m, doc); });
     syncLinked(doc, ms.filter((m) => m.type === 'sketch')).forEach((x) => renderMarkupEl(x, doc));
     new Set(ms.map((m) => m.page)).forEach((pg) => renderSel(doc, pg)); return;
   }
@@ -227,6 +267,13 @@ function applyHandle(m, h, p, orig, shift, origHoles) {
   if (m.type === 'sketch') { applySketchHandle(m, h, p, shift); return; }
   if (h[0] === 'h') { const [hk, hi] = h.slice(1).split('.').map(Number); if (m.holes && m.holes[hk]) m.holes[hk][hi] = p; return; }
   const k = +h.slice(1);
+  if (h === 'n') { m.knee = p; return; } // callout knee
+  if (h[0] === 'l' && m.leaders && m.leaders[k]) { m.leaders[k] = { ...m.leaders[k], tip: p }; return; } // extra leader tip
+  if (h[0] === 'm' && m.leaders && m.leaders[k]) { m.leaders[k] = { ...m.leaders[k], knee: p }; return; } // extra leader knee
+  if (h[0] === 'q') { // drag the middle of a curved side; dragged back onto the straight line, it straightens
+    const n = m.pts.length; const a = m.pts[k], b = m.pts[(k + 1) % n]; const c = CV.rel(a, b, p); m.curves = m.curves || {};
+    if (Math.abs(c[1]) < 0.012 && Math.abs(c[0] - 0.5) < 0.1 && !shift) delete m.curves[k]; else m.curves[k] = c; return;
+  }
   if (h[0] === 'v') {
     if (shift && orig.length > 1) { const ref = orig[k > 0 ? k - 1 : 1]; p = G.snapAngle(ref, p); }
     m.pts[k] = p; return;
@@ -236,6 +283,11 @@ function applyHandle(m, h, p, orig, shift, origHoles) {
     const ia = h[0] === 'c' ? 0 : 1; const cs = boxCorners(orig[ia], orig[ia + 1]); const opp = cs[(k + 2) % 4];
     if (shift && m.type === 'image' && m.imgW) { const ar = m.imgW / m.imgH; const w = Math.abs(p[0] - opp[0]); p = [p[0], opp[1] + Math.sign(p[1] - opp[1] || 1) * (w / ar)]; }
     m.pts[ia] = [Math.min(opp[0], p[0]), Math.min(opp[1], p[1])]; m.pts[ia + 1] = [Math.max(opp[0], p[0]), Math.max(opp[1], p[1])]; return;
+  }
+  if (h[0] === 'e' || h[0] === 'f') { // one edge of a box: top, right, bottom, left
+    const ia = h[0] === 'e' ? 0 : 1; const r = TEXT_TYPES.has(m.type) ? textBox({ ...m, pts: orig }) : boxRect(orig[ia], orig[ia + 1]); let x1 = r.x, y1 = r.y, x2 = r.x + r.w, y2 = r.y + r.h;
+    if (k === 0) y1 = Math.min(p[1], y2 - 2); else if (k === 1) x2 = Math.max(p[0], x1 + 2); else if (k === 2) y2 = Math.max(p[1], y1 + 2); else x1 = Math.min(p[0], x2 - 2);
+    m.pts[ia] = [x1, y1]; m.pts[ia + 1] = [x2, y2]; if (TEXT_TYPES.has(m.type) && (k === 0 || k === 2)) m.fixedH = true; return;
   }
   if (h[0] === 's') {
     const b = G.bbox(orig); const cs = [[b.x, b.y], [b.x2, b.y], [b.x2, b.y2], [b.x, b.y2]]; const opp = cs[(k + 2) % 4], cor = cs[k];
@@ -258,7 +310,7 @@ function onPointerUp(e) {
       expandGroups(doc); renderDraft(); refreshSelection(); return;
     }
     if (g.kind === 'label') { const m = getMarkup(g.id); if (g.moved && m) { touch(m); refreshPanels(); finishLabelDrag(m, g.had); } return; }
-    if (g.moved) { selected(doc).forEach(touch); refreshPanels(); }
+    if (g.moved) { const sel = selected(doc); withLinkedSketches(doc, sel.filter((m) => m.type === 'sketch' && m.link && (g.kind === 'handle' || (linkOf(doc, m) || {}).sync))).concat(sel).forEach(touch); refreshPanels(); }
     state.snapHint = null; renderDraft(); return;
   }
   const d = state.draft; if (!d) return;
@@ -271,19 +323,27 @@ function onPointerUp(e) {
     }
     case 'line': if (d.moved) finishDraft(); else { d.mode = 'click'; renderDraft(); } break;
     case 'free': d.m.pts = G.simplify(d.m.pts, 0.5 / doc.zoom); if (d.m.pts.length === 1) d.m.pts.push([d.m.pts[0][0] + 0.5, d.m.pts[0][1]]); finishDraft(); break;
-    case 'multi': d.down = false; if (d.boxDrag) { d.m.pts.pop(); finishDraft(); } break;
+    case 'multi': d.down = false; d.bend = null; d.bent = false; if (d.rect ? d.dragged : d.boxDrag) { d.m.pts.pop(); d.boxDrag = true; finishDraft(); } break;
     case 'callout': finishDraft(); break;
     case 'textsel': if (d.m.pts.length >= 4) finishDraft(); else cancelDraft(); break;
     case 'sketch': finishDraft(); break;
   }
 }
 
+function markupElAt(x, y) {
+  const els = document.elementsFromPoint(x, y); for (const el of els) { const g = el.closest && el.closest('g.mk'); if (g) return g; }
+  // selected markups: the selection box sits on top; take the selected markup whose box holds the point
+  const doc = activeDoc(); const i = pageAtClient(x, y); if (!doc || i < 0) return null; const p = clientToPage({ clientX: x, clientY: y }, i);
+  const hit = selected(doc).filter((m) => m.page === i).find((m) => { const b = markupBBox(m, doc); return p[0] >= b.x && p[0] <= b.x2 && p[1] >= b.y && p[1] <= b.y2; });
+  return hit ? doc.pageEls[i].querySelector(`g.mk[data-id="${CSS.escape(hit.id)}"]`) : null;
+}
 function onDblClick(e) {
   const d = state.draft;
   if (d && d.mode === 'multi') { finishDraft(); return; }
   if (state.tool === 'count' && state.countId) { endCount(); return; }
   if (state.tool !== 'select') return;
-  const mEl = e.target.closest('g.mk'); if (!mEl) return; const m = getMarkup(mEl.dataset.id); if (!m || isLocked(m)) return;
+  // the first click of a double-click may have started a drag (pointer captured), so look under the pointer
+  const mEl = e.target.closest('g.mk') || markupElAt(e.clientX, e.clientY); if (!mEl) return; const m = getMarkup(mEl.dataset.id); if (!m || isLocked(m)) return;
   if (TEXT_TYPES.has(m.type)) editText(m, false);
   else if (m.type === 'textedit') editPdfText(m);
   else if (m.type === 'sketch') { openRight('props'); setTimeout(() => { const c = $('#props [data-k="sz.w"], #props [data-k="sz.d"]'); if (c) { c.focus(); c.select(); } }, 20); }
@@ -295,7 +355,12 @@ function onDblClick(e) {
 function dedupe(pts, tol) { const out = []; for (const p of pts) if (!out.length || G.dist(out[out.length - 1], p) > tol) out.push(p); return out; }
 function finishDraft(fromToolChange) {
   const d = state.draft; if (!d) return; const doc = activeDoc(); state.draft = null; state.snapHint = null; const m = d.m; const t = TOOLS[m.type] || {};
-  if (d.mode === 'multi' && !d.boxDrag) { m.pts.pop(); m.pts = dedupe(m.pts, 0.5 / doc.zoom); }
+  if (d.mode === 'multi' && !d.boxDrag) {
+    m.pts.pop(); const cv = m.curves || {}; if (!d.closeBend) delete cv[m.pts.length - 1]; // the rubber band's bend, unless Ctrl closed the shape
+    if (!m.curves) m.pts = dedupe(m.pts, 0.5 / doc.zoom);
+    else { const tol = 0.5 / doc.zoom, out = [], nc = {}; m.pts.forEach((p, k) => { if (out.length && G.dist(out[out.length - 1], p) <= tol) return; if (out.length && cv[k - 1]) nc[out.length - 1] = cv[k - 1]; out.push(p); });
+      if (cv[m.pts.length - 1] && out.length > 2) nc[out.length - 1] = cv[m.pts.length - 1]; m.pts = out; if (Object.keys(nc).length) m.curves = nc; else delete m.curves; }
+  }
   if (d.mode === 'click' || d.mode === 'line') { if (G.dist(m.pts[0], m.pts[1]) < 1) { renderDraft(); return; } }
   const minPts = t.maxPts || (t.closed ? 3 : 2);
   if ((d.mode === 'multi') && m.pts.length < minPts) { renderDraft(); if (!fromToolChange) toast(`${t.short || t.label} needs at least ${minPts} points`); return; }
@@ -321,7 +386,12 @@ function finishDraft(fromToolChange) {
 }
 function cancelDraft() { if (!state.draft && !state.marquee) return; state.draft = null; state.marquee = null; state.snapHint = null; renderDraft(); }
 function endCount() { if (state.countId) { state.countId = null; updateDraftBar(); if (state.tool === 'count') toolDone(); } }
-function draftUndoPoint() { const d = state.draft; if (!d || d.mode !== 'multi') return; if (d.m.pts.length > 2) { d.m.pts.splice(d.m.pts.length - 2, 1); renderDraft(); } else cancelDraft(); }
+function draftUndoPoint() { const d = state.draft; if (!d || d.mode !== 'multi') return; if (d.m.pts.length > 2) { const r = d.m.pts.length - 2; d.m.pts.splice(r, 1); if (d.m.curves) Object.keys(d.m.curves).forEach((k) => { if (+k >= r - 1) delete d.m.curves[k]; }); renderDraft(); } else cancelDraft(); }
+// while drawing a poly, holding Ctrl shows the next side as a curve (click to keep it)
+function rubberBend(d, on) {
+  if (!d || d.mode !== 'multi' || d.boxDrag || !CURVE_TYPES.has(d.m.type)) return; const pts = d.m.pts; const k = pts.length - 2; if (k < 0) return;
+  if (on && k >= 0 && G.dist(pts[k], pts[k + 1]) > 1e-3) { d.m.curves = d.m.curves || {}; d.m.curves[k] = CV.auto(pts, k); } else if (d.m.curves) delete d.m.curves[k];
+}
 
 // ----- text editing (rich text: see 22-richtext.js) ---------------------------------
 function editText(m, isNew) {
@@ -379,7 +449,9 @@ function onKeyDown(e) {
   if (isTyping(e)) { if (combo && (mod || e.altKey || /^F\d+$/.test(combo)) && !TEXT_EDIT_KEYS.has(combo)) dispatchShortcut(e); return; }
   const doc = activeDoc();
   if (k === ' ') { if (!I.space) { I.space = true; V.el.classList.add('space'); } e.preventDefault(); return; }
-  if (k === 'Escape') { if (state.painter) { endPainter(); return; } if (state.alignPick) { cancelAlignPick(); return; } if (state.cutoutFor && state.tool === 'cutout') { state.cutoutFor = null; } if (state.draft) cancelDraft(); else if (state.countId) endCount(); else if (state.tool !== 'select') setTool('select'); else if (state.sel.size) { state.sel.clear(); refreshSelection(); } hideMenu(); closeMenus(); return; }
+  if (k === 'Control' || k === 'Meta') { ctrlChanged(true); return; }
+  if (k === 'Escape') { if (state.addLeaderFor) { endAddLeader(); return; } if (state.painter) { endPainter(); return; } if (state.alignPick) { cancelAlignPick(); return; } if (state.cutoutFor && state.tool === 'cutout') { state.cutoutFor = null; } if (state.draft) cancelDraft(); else if (state.countId) endCount(); else if (state.tool !== 'select') setTool('select'); else if (state.sel.size) { state.sel.clear(); refreshSelection(); } hideMenu(); closeMenus(); return; }
+  if (doc && k === 'Enter' && !mod && state.addLeaderFor) { e.preventDefault(); endAddLeader(); return; }
   if (doc && k === 'Enter' && !mod) { if (state.draft) { e.preventDefault(); finishDraft(); } else if (state.countId) endCount(); else { const ms = selected(); if (ms.length === 1 && TEXT_TYPES.has(ms[0].type)) { e.preventDefault(); editText(ms[0], false); } } return; }
   if (doc && (k === 'r' || k === 'R') && !mod && !e.altKey && state.tool === 'equip' && state.placeEquip) { e.preventDefault(); state.placeRot = (((state.placeRot || 0) + (e.shiftKey ? -90 : 90)) % 360 + 360) % 360; renderDraft(); return; }
   if (doc && k === 'Backspace' && state.draft && state.draft.mode === 'multi') { e.preventDefault(); draftUndoPoint(); return; }
@@ -397,7 +469,8 @@ function onKeyDown(e) {
   }
   dispatchShortcut(e);
 }
-function onKeyUp(e) { if (e.key === ' ') { I.space = false; V.el.classList.remove('space'); } }
+function onKeyUp(e) { if (e.key === ' ') { I.space = false; V.el.classList.remove('space'); } if (e.key === 'Control' || e.key === 'Meta') ctrlChanged(false); }
+function ctrlChanged(on) { const d = state.draft; if (d && d.mode === 'multi' && !d.down) { rubberBend(d, on); renderDraft(); } }
 
 function onWheel(e) {
   if (!(e.ctrlKey || e.metaKey)) return; e.preventDefault();
@@ -412,10 +485,12 @@ function onContextMenu(e) {
   if (state.countId) { endCount(); return; }
   const doc = activeDoc(); if (!doc) return; const i = pageAtClient(e.clientX, e.clientY);
   const mEl = e.target.closest('g.mk'); const items = [];
+  const hEl = e.target.closest('.hdl'); if (hEl) { const m = getMarkup(hEl.dataset.m); const its = m ? polyNodeMenu(m, hEl.dataset.h) : []; if (its.length) { showMenu(e.clientX, e.clientY, its); return; } }
   if (mEl) {
     const id = mEl.dataset.id; if (!state.sel.has(id)) { state.sel.clear(); state.sel.add(id); } if (state.tool !== 'select') setTool('select'); refreshSelection();
     const m = getMarkup(id);
     if (TEXT_TYPES.has(m.type)) items.push(['Edit text', () => editText(m, false)]);
+    if (m.type === 'callout') items.push(['Add leader', () => startAddLeader(m)]);
     if (m.type === 'textedit') items.push(['Edit text', () => editPdfText(m)]);
     if (m.type === 'sketch') {
       items.push(['Place on other pages\u2026', () => placeOnPagesDialog(m)]);
@@ -423,6 +498,15 @@ function onContextMenu(e) {
       if (m.link) items.push(['Unlink from set', () => sketchAction('unlink', m)], ['Delete on all pages', () => sketchAction('delall', m), 'danger']);
       if (m.labelOff) items.push(['Reset label position', () => resetLabel(m)]);
       items.push(['-']);
+    }
+    if (CURVE_TYPES.has(m.type) && i === m.page && state.sel.size === 1 && !isLocked(m, doc)) {
+      const p = clientToPage(e, i); const near = CV.nearSeg(m, p);
+      if (near && near.d < 8 / doc.zoom) {
+        const k = near.k; const ed = (f) => () => { pushUndo(doc); f(); touch(m); renderMarkupEl(m, doc); renderSel(doc, m.page); refreshPanels(); };
+        items.push(['Add node here', ed(() => CV.insert(m, k, p))]);
+        items.push(m.curves && m.curves[k] ? ['Straighten side', ed(() => { delete m.curves[k]; })] : ['Curve this side', ed(() => { m.curves = m.curves || {}; m.curves[k] = CV.auto(m.pts.concat([m.pts[0]]).slice(0), k); })]);
+        items.push(['-']);
+      }
     }
     if (CUTOUT_TYPES.has(m.type)) { items.push(['Add cutout', () => startCutout(m)]); if (m.holes && m.holes.length) items.push(['Remove cutouts', () => applyToSelection((x) => { x.holes = []; })]); items.push(['-']); }
     items.push(['Copy', () => copySelected(false)], ['Duplicate', duplicateSelected], ['Bring to front', () => reorderSelected(true)], ['Send to back', () => reorderSelected(false)]);

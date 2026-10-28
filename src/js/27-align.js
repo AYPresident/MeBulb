@@ -83,17 +83,18 @@ async function autoAlign(doc, ref, pages) {
 }
 async function autoAlignDialog() {
   const doc = activeDoc(); if (!doc) return; const ref0 = doc.align ? doc.align.ref : 0;
-  const r = await openDialog({ title: 'Align pages to the grid', body: `<p>MeBulb finds the grid bubbles (A, B, C… and 1, 2, 3…) on each sheet and lines the sheets up on them, so linked sketches and overlays land on the same grid position on every page.</p>${field('Reference page', `<select name="ref">${doc.pages.map((pg, i) => `<option value="${i}"${i === ref0 ? ' selected' : ''}>Page ${i + 1}${pg.label && pg.label !== String(i + 1) ? ' · ' + esc(pg.label) : ''}</option>`).join('')}</select>`)}${field('Pages to align', `<input type="text" name="range" value="all" placeholder="e.g. all or 2-5">`)}<label class="check"><input type="checkbox" name="move" checked> Move linked sketches to match</label><p class="muted sm">Grid labels drawn as lines instead of text (some CAD exports) can't be read; use <b>Align by points</b> for those sheets.</p>`,
+  const marks = hasRefMarks(doc);
+  const r = await openDialog({ title: 'Align pages', body: `<p>Line the sheets up so linked sketches and overlays land on the same spot of the building on every page.</p>${field('Line up using', `<select name="how"><option value="marks"${marks ? ' selected' : ''}>Reference points and grid lines I placed</option><option value="grid"${marks ? '' : ' selected'}>Grid bubbles on the drawings (A, B… 1, 2…)</option></select>`)}${field('Reference page (the others line up to it)', `<select name="ref">${doc.pages.map((pg, i) => `<option value="${i}"${i === ref0 ? ' selected' : ''}>Page ${i + 1}${pg.label && pg.label !== String(i + 1) ? ' · ' + esc(pg.label) : ''}</option>`).join('')}</select>`)}${field('Pages to align', `<input type="text" name="range" value="all" placeholder="e.g. all or 2-5">`)}<label class="check"><input type="checkbox" name="move" checked> Move linked sketches to match</label><p class="muted sm">No grid on the drawings, or bubbles drawn as linework? Place <b>Reference points</b> or <b>Grid lines</b> (Measurements panel) with the same names on each page and line up using those.</p>`,
     buttons: [{ label: 'Cancel', value: false }, { label: 'Align pages', value: true, primary: true }] });
   if (!r || !r.value) return; const ref = +r.form.ref; const pages = /^\s*all\s*$/i.test(r.form.range) ? [...Array(doc.numPages).keys()] : parseRange(r.form.range, doc.numPages);
   const busy = $('#busy'); busy.hidden = false; busy.textContent = 'Reading grid labels…'; await raf();
   try {
-    const before = snapshot(doc); const res = await autoAlign(doc, ref, pages);
-    if (res.noRef) { toast(`No grid labels found on page ${ref + 1}. Use Align by points instead.`, 'error'); return; }
+    const before = snapshot(doc); const byMarks = r.form.how === 'marks'; const res = byMarks ? alignByMarks(doc, ref, pages) : await autoAlign(doc, ref, pages);
+    if (res.noRef) { toast(byMarks ? `No reference points or grid lines on page ${ref + 1}. Place some there first.` : `No grid labels found on page ${ref + 1}. Place reference points or grid lines instead.`, 'error'); return; }
     doc.undo.push(before); doc.redo = []; markDirty(doc);
     const moved = r.form.move ? realignLinks(doc) : 0; renderAllMarks(doc); refreshPanels(); openRight('measure');
     const shifted = res.ok.filter((o) => { const T = doc.align.T[o.page]; return Math.hypot(T[4], T[5]) > 0.5 || Math.abs(T[1]) > 1e-4; }).length;
-    toast(`${res.ok.length} page${res.ok.length === 1 ? '' : 's'} aligned to page ${ref + 1}${shifted ? ` (${shifted} were offset)` : ''}${res.fail.length ? `. No grid match on page ${res.fail.map((p) => p + 1).join(', ')}` : ''}${moved ? `. ${moved} linked sketch${moved === 1 ? '' : 'es'} moved.` : ''}`, res.fail.length ? 'error' : undefined);
+    toast(`${res.ok.length} page${res.ok.length === 1 ? '' : 's'} aligned to page ${ref + 1}${shifted ? ` (${shifted} were offset)` : ''}${res.fail.length ? `. No ${byMarks ? 'matching marks' : 'grid match'} on page ${res.fail.map((p) => p + 1).join(', ')}` : ''}${moved ? `. ${moved} linked sketch${moved === 1 ? '' : 'es'} moved.` : ''}`, res.fail.length ? 'error' : undefined);
   } catch (e) { console.error(e); toast('Alignment failed: ' + (e.message || e), 'error'); } finally { busy.hidden = true; }
 }
 // put every synced linked sketch on its set's grid position
@@ -111,6 +112,62 @@ function syncLinked(doc, ms) {
   const changed = [];
   ms.forEach((m) => { const L = linkOf(doc, m); if (!L || !L.sync) return; linkSiblings(doc, m).forEach((x) => { if (x === m || x.page === m.page) return; x.pts = [mapPage(doc, m.page, x.page, m.pts[0])]; changed.push(x); }); });
   return changed;
+}
+
+// ----- reference marks drawn by hand ----------------------------------------------------------------
+// For sheets with no grid to read: name reference points (R1, R2…) and grid lines (A, B, 1, 2…) on the
+// reference page, put the same names on the same places of the other pages, and every page lines up.
+function nextRefLabel(doc, page, type) {
+  const used = new Set((doc ? doc.markups : []).filter((m) => m.type === type && m.page === page).map((m) => String(m.text || '').trim()));
+  if (type === 'refpt') { let n = 1; while (used.has('R' + n)) n++; return 'R' + n; }
+  const last = (doc ? doc.markups : []).filter((m) => m.type === 'gridline' && m.page === page).pop(); const num0 = last && /^\d+$/.test(last.text || '');
+  if (num0) { let n = +last.text + 1; while (used.has(String(n))) n++; return String(n); }
+  for (let k = 0; k < 26; k++) { const l = String.fromCharCode(65 + k); if (!used.has(l)) return l; } return String(used.size + 1);
+}
+// named points on a page: reference points, plus where named grid lines cross (labelled "A×1")
+function refMarks(doc, page) {
+  const pts = new Map(); const lines = [];
+  doc.markups.forEach((m) => { if (m.page !== page || !m.text) return; const t = String(m.text).trim().toUpperCase(); if (m.type === 'refpt') pts.set('P:' + t, m.pts[0]); else if (m.type === 'gridline' && m.pts.length > 1) lines.push({ t, a: m.pts[0], b: m.pts[1] }); });
+  const dirs = new Map(); lines.forEach((L) => { const d = [L.b[0] - L.a[0], L.b[1] - L.a[1]]; const n = Math.hypot(d[0], d[1]) || 1; dirs.set(L.t, [d[0] / n, d[1] / n]); });
+  for (let i = 0; i < lines.length; i++) for (let j = i + 1; j < lines.length; j++) {
+    const A = lines[i], B = lines[j]; const r = [A.b[0] - A.a[0], A.b[1] - A.a[1]], s = [B.b[0] - B.a[0], B.b[1] - B.a[1]]; const den = r[0] * s[1] - r[1] * s[0];
+    if (Math.abs(den) < Math.hypot(...r) * Math.hypot(...s) * 0.34) continue; // nearly parallel (under ~20°)
+    const t = ((B.a[0] - A.a[0]) * s[1] - (B.a[1] - A.a[1]) * s[0]) / den; const key = [A.t, B.t].sort().join('×'); pts.set('X:' + key, [A.a[0] + r[0] * t, A.a[1] + r[1] * t]);
+  }
+  return { pts, dirs };
+}
+// transform taking page `p` onto the reference page from the marks they share; null when none match
+function matchMarks(doc, ref, p) {
+  const R = refMarks(doc, ref), Q = refMarks(doc, p); const src = [], dst = [], names = [];
+  Q.pts.forEach((q, k) => { const r = R.pts.get(k); if (r) { src.push(q); dst.push(r); names.push(k.slice(2)); } });
+  if (!src.length) return null;
+  if (src.length === 1) { // one shared point: grid line directions (when there are any) give the turn
+    const both = [...Q.dirs.keys()].filter((t) => R.dirs.has(t)); if (both.length) { const t = both[0]; let a = Q.dirs.get(t); const b = R.dirs.get(t); if (a[0] * b[0] + a[1] * b[1] < 0) a = [-a[0], -a[1]]; /* lines drawn either way round */ src.push([src[0][0] + a[0] * 100, src[0][1] + a[1] * 100]); dst.push([dst[0][0] + b[0] * 100, dst[0][1] + b[1] * 100]); }
+  }
+  let T = fitSimilarity(src, dst); T = cleanAlign(T, src, dst); const s = Math.hypot(T[0], T[1]); if (s < 0.5 || s > 2) return null;
+  const rms = Math.sqrt(src.reduce((a, q, k) => { const v = tApply(T, q); return a + (v[0] - dst[k][0]) ** 2 + (v[1] - dst[k][1]) ** 2; }, 0) / src.length);
+  return { T, names, rms };
+}
+function alignByMarks(doc, ref, pages) {
+  const res = { ok: [], fail: [] }; if (!refMarks(doc, ref).pts.size) return { ...res, noRef: true };
+  doc.align = doc.align && doc.align.ref === ref ? doc.align : { ref, T: {} }; const refT = alignT(doc, ref);
+  for (const p of pages) { if (p === ref) continue; const m = matchMarks(doc, ref, p); if (m) { doc.align.T[p] = tMul(refT, m.T); res.ok.push({ page: p, labels: m.names, rms: m.rms }); } else res.fail.push(p); }
+  return res;
+}
+function hasRefMarks(doc) { return doc.markups.some((m) => REF_TYPES.has(m.type)); }
+// copy this page's reference marks to other pages at the same place on the sheet, ready to nudge into position
+function copyRefMarks(doc, from, pages) {
+  const src = doc.markups.filter((m) => m.page === from && REF_TYPES.has(m.type)); let n = 0;
+  pages.forEach((p) => { if (p === from || !doc.pages[p]) return; const have = new Set(doc.markups.filter((m) => m.page === p && REF_TYPES.has(m.type)).map((m) => m.type + ':' + String(m.text || '').toUpperCase()));
+    src.forEach((m) => { if (have.has(m.type + ':' + String(m.text || '').toUpperCase())) return; const x = { ...deep(m), id: uid(), page: p, pts: m.pts.map((q) => mapPage(doc, from, p, q)), created: nowISO(), modified: nowISO(), author: state.author }; delete x.group; doc.markups.push(x); n++; }); });
+  return n;
+}
+async function copyRefMarksDialog() {
+  const doc = activeDoc(); if (!doc) return; const i = currentPage(); const n0 = doc.markups.filter((m) => m.page === i && REF_TYPES.has(m.type)).length;
+  if (!n0) { toast('Put reference points or grid lines on this page first (Measurements panel)', 'error'); return; }
+  const r = await openDialog({ title: 'Copy reference marks', body: `<p>Copy the ${n0} reference mark${n0 === 1 ? '' : 's'} on page ${i + 1} to the same place on other pages. Then drag each copy onto the same feature of that drawing and align.</p>${field('Pages', '<input type="text" name="range" value="all" placeholder="e.g. all or 2-5">')}`, buttons: [{ label: 'Cancel', value: false }, { label: 'Copy', value: true, primary: true }] });
+  if (!r || !r.value) return; const pages = /^\s*all\s*$/i.test(r.form.range) ? [...Array(doc.numPages).keys()] : parseRange(r.form.range, doc.numPages);
+  pushUndo(doc); const n = copyRefMarks(doc, i, pages); renderAllMarks(doc); refreshPanels(); toast(n ? `${n} mark${n === 1 ? '' : 's'} copied. Move them onto the drawing on each page, then Align pages.` : 'Those pages already have these marks');
 }
 
 // ----- manual alignment: pick the same two grid intersections on both pages ---------------

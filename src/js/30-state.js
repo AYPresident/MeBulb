@@ -36,7 +36,7 @@ const state = {
   sel: new Set(), clipboard: null,
   draft: null, editing: null, countId: null,
   toolsets: migrateToolsets(store.get('toolsets', null)) || deep(DEFAULT_TOOLSETS),
-  recentTools: store.get('recentTools', []), placeItem: null,
+  recentTools: store.get('recentTools', []), placeItem: null, polyRect: store.get('polyRect', {}),
   stampText: 'APPROVED', stampId: store.get('stampId', 'txt:APPROVED'), volDepth: null, units: _units,
   leftTab: 'pages', rightTab: 'props', leftOpen: true, rightOpen: true, listOpen: false,
   reuse: store.get('reuse', false), snapMarkup: store.get('snapMarkup', true), snapContent: store.get('snapContent', true), snapGrid: store.get('snapGrid', false), showGrid: store.get('showGrid', false), gridSize: store.get('gridSize2', _metric ? 5 / 25.4 : 0.25),
@@ -52,8 +52,8 @@ const state = {
 
 function activeDoc() { return state.docs.find((d) => d.id === state.activeId) || null; }
 function getMarkup(id, doc = activeDoc()) { return doc ? doc.markups.find((m) => m.id === id) : null; }
-function mapMarkupPoints(m, f) { m.pts = m.pts.map(f); if (m.holes) m.holes = m.holes.map((h) => h.map(f)); if (m.base) m.base = f(m.base); }
-function markupGeom(m) { return { pts: deep(m.pts), holes: m.holes ? deep(m.holes) : null, base: m.base ? m.base.slice() : null }; }
+function mapMarkupPoints(m, f) { m.pts = m.pts.map(f); if (m.holes) m.holes = m.holes.map((h) => h.map(f)); if (m.base) m.base = f(m.base); if (m.knee) m.knee = f(m.knee); if (m.leaders) m.leaders = m.leaders.map((l) => ({ tip: f(l.tip), knee: l.knee ? f(l.knee) : null })); }
+function markupGeom(m) { return { pts: deep(m.pts), holes: m.holes ? deep(m.holes) : null, base: m.base ? m.base.slice() : null, knee: m.knee ? m.knee.slice() : null, leaders: m.leaders ? deep(m.leaders) : null }; }
 function selected(doc = activeDoc()) { return doc ? doc.markups.filter((m) => state.sel.has(m.id)) : []; }
 function layerOf(doc, id) { return id ? doc.layers.find((l) => l.id === id) : null; }
 function layerVisible(doc, id) { const l = layerOf(doc, id); return !l || l.visible !== false; }
@@ -113,8 +113,10 @@ function reorderSelected(front) {
   const rest = doc.markups.filter((m) => !state.sel.has(m.id)); doc.markups = front ? [...rest, ...ms] : [...ms, ...rest];
   new Set(ms.map((m) => m.page)).forEach((p) => renderMarks(doc, p));
 }
+// sketches placed on several pages share their look: a style change to one goes to all of them
+function withLinkedSketches(doc, ms) { const out = new Set(ms); ms.forEach((m) => { if (m.type === 'sketch' && m.link) linkSiblings(doc, m).forEach((x) => out.add(x)); }); return [...out]; }
 function applyToSelection(fn, opts = {}) {
-  const doc = activeDoc(); const ms = selected(doc).filter((m) => opts.ignoreLock || !isLocked(m)); if (!ms.length) return false;
+  const doc = activeDoc(); let ms = selected(doc).filter((m) => opts.ignoreLock || !isLocked(m)); if (!ms.length) return false; if (opts.linked) ms = withLinkedSketches(doc, ms).filter((m) => opts.ignoreLock || !isLocked(m));
   if (!opts.noUndo) pushUndo(doc); ms.forEach((m) => { fn(m); touch(m); });
   new Set(ms.map((m) => m.page)).forEach((p) => renderMarks(doc, p)); renderList(); return true;
 }

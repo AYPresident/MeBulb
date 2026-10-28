@@ -64,7 +64,8 @@ const stub = () => {
   await key('Escape'); await key('v');
   const rect = await ev(() => planmark.activeDoc().markups.find((m) => m.type === 'rect' && m.author !== 'Sample'));
   await click(300, 685); ok('select by edge', await ev((id) => planmark.state.sel.has(id), rect.id));
-  await drag(300, 685, 350, 705); let r2 = await ev((id) => planmark.activeDoc().markups.find((m) => m.id === id).pts, rect.id);
+  // grab the edge away from its middle: the middle is the side (resize) handle, as in Revu
+  await drag(300, 665, 350, 685); let r2 = await ev((id) => planmark.activeDoc().markups.find((m) => m.id === id).pts, rect.id);
   ok('move', near(r2[0][0], 350) && near(r2[0][1], 560), JSON.stringify(r2));
   await page.keyboard.press('Control+z'); await page.waitForTimeout(150); r2 = await ev((id) => planmark.activeDoc().markups.find((m) => m.id === id).pts, rect.id); ok('undo move', near(r2[0][0], 300), JSON.stringify(r2));
   await page.keyboard.press('Control+y'); await page.waitForTimeout(150); r2 = await ev((id) => planmark.activeDoc().markups.find((m) => m.id === id).pts, rect.id); ok('redo move', near(r2[0][0], 350));

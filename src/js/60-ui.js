@@ -72,13 +72,15 @@ function updateUndoUI() { renderToolbarsState(); }
 function updateDraftBar() {
   const bar = $('#draftbar'); const d = state.draft; let html = '';
   if (state.alignPick) html = alignPickText();
-  else if (d && d.mode === 'multi' && !d.boxDrag) { const t = TOOLS[d.m.type]; const n = d.m.pts.length - 1; html = `<span><b>${esc(t.short || t.label)}</b> · ${n} point${n === 1 ? '' : 's'} · click to add, double-click or Enter to finish</span><button class="btn sm" data-a="undo-pt">Remove point</button><button class="btn sm" data-a="cancel">Cancel</button><button class="btn sm primary" data-a="finish">Finish</button>`; }
+  else if (d && d.mode === 'multi' && d.rect) html = `<span><b>${esc(TOOLS[d.m.type].short || TOOLS[d.m.type].label)}</b> · rectangle: click the opposite corner, or drag (Shift for a square)</span><button class="btn sm" data-a="cancel">Cancel</button>`;
+  else if (d && d.mode === 'multi' && !d.boxDrag) { const t = TOOLS[d.m.type]; const n = d.m.pts.length - 1; html = `<span><b>${esc(t.short || t.label)}</b> · ${n} point${n === 1 ? '' : 's'} · click to add${CURVE_TYPES.has(d.m.type) ? ' (Ctrl+click curves the side, drag to shape it)' : ''}, double-click or Enter to finish</span><button class="btn sm" data-a="undo-pt">Remove point</button><button class="btn sm" data-a="cancel">Cancel</button><button class="btn sm primary" data-a="finish">Finish</button>`; }
   else if (d && d.mode === 'click') html = `<span><b>${esc(TOOLS[d.m.type].short || TOOLS[d.m.type].label)}</b> · click the end point (Shift snaps to 45°)</span><button class="btn sm" data-a="cancel">Cancel</button>`;
+  else if (state.addLeaderFor) html = '<span><b>Add leaders</b> · click each thing the callout should point to · Enter or Esc when done</span><button class="btn sm primary" data-a="end-leaders">Done</button>';
   else if (state.countId) { const m = getMarkup(state.countId); html = `<span><b>Counting</b> · ${m ? m.pts.length : 0} · click each item, Enter to finish</span><button class="btn sm primary" data-a="end-count">Finish</button>`; }
   else if (state.tool === 'calibrate') html = '<span><b>Calibrate</b> · click both ends of a known dimension</span>';
   bar.innerHTML = html; bar.hidden = !html;
 }
-function refreshPanels() { renderProps(); renderList(); if (panelShown('layers')) renderLayers(); updateSelDims(); if (panelShown('measure')) renderMeasurePanel(); renderLinkedPanelSoon(); if (panelShown('session')) renderSessionPanel(); renderToolbarsState(); }
+function refreshPanels() { renderProps(); renderList(); if (panelShown('layers')) renderLayers(); if (panelShown('equipment')) renderEquipPanelSoon(); updateSelDims(); if (panelShown('measure')) renderMeasurePanel(); renderLinkedPanelSoon(); if (panelShown('session')) renderSessionPanel(); renderToolbarsState(); }
 function refreshAll() { renderTabs(); renderAllMarks(); refreshPanels(); renderPanels(); updateUndoUI(); renderNavbar(); updatePageUI(); updateZoomUI(); renderToggles(); }
 
 // ----- icons (24px stroke icons drawn for this app) -----------------------------------------
@@ -119,6 +121,8 @@ const ICONS = {
   edittext: '<path d="M4 6V4h11v2M9.5 4v13M7 17h5"/><path class="s-orange" d="M14 20.5l1-3.2 5-5 2.2 2.2-5 5z"/>',
   ocr: '<path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3"/><path d="M8 9h8M8 15h5"/><path class="s-teal" d="M3 12h18" stroke-width="1.6"/>',
   align: '<path d="M7 3v18M17 3v18M3 7h18M3 17h18" stroke-dasharray="2.6 1.8" stroke-width="1.1"/><rect class="s-blue" x="5" y="5" width="14" height="14" rx="1" transform="rotate(-4 12 12)"/>',
+  refpt: '<circle class="s-pink" cx="12" cy="12" r="4.2"/><path d="M12 3v5.2M12 15.8V21M3 12h5.2M15.8 12H21"/>',
+  gridline: '<circle class="s-pink" cx="6.5" cy="6.5" r="3.6"/><path d="M6.5 10.1V21" stroke-dasharray="3.2 1.6 .5 1.6"/><path d="M10.1 6.5H21" stroke-dasharray="3.2 1.6 .5 1.6"/>',
   alignpts: '<path d="M7 3v18M17 3v18M3 7h18M3 17h18" stroke-dasharray="2.6 1.8" stroke-width="1.1"/><circle class="s-red" cx="7" cy="7" r="2.6"/><circle class="s-red" cx="17" cy="17" r="2.6"/>',
   transition: '<rect x="3" y="8" width="9" height="9"/><circle cx="17.5" cy="12.5" r="3.5"/><path class="s-blue" d="M9.5 4.5h6l-2-2M15.5 4.5l-2 2" stroke-width="1.4"/>',
   // ---- commands ----

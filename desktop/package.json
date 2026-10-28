@@ -1,7 +1,7 @@
 {
   "name": "mebulb",
   "productName": "MeBulb",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "MeBulb - PDF markup and takeoff for construction drawings. Not the brightest, but it gets the job done.",
   "main": "main.js",
   "private": true
