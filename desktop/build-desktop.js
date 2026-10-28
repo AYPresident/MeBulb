@@ -15,7 +15,7 @@ const cp = (a, b) => fs.cpSync(a, b, { recursive: true });
 rm(APP); fs.mkdirSync(WEB, { recursive: true });
 // 1. the page
 const tmp = path.join(OUT, 'index.tmp.html');
-execSync(`node ${path.join(ROOT, 'build.js')} ${tmp}`, { env: { ...process.env, DESKTOP: '1', PDFJS_BASE: 'app://mebulb/pdfjs/build', PDFLIB_URL: 'app://mebulb/vendor/pdf-lib.min.js' }, stdio: 'inherit' });
+execSync(`node ${path.join(ROOT, 'build.js')} ${tmp}`, { env: { ...process.env, DESKTOP: '1', PDFJS_BASE: 'app://mebulb/pdfjs/build', PDFLIB_URL: 'app://mebulb/vendor/pdf-lib.min.js', OCR_BASE: 'app://mebulb/ocr/' }, stdio: 'inherit' });
 const csp = "default-src 'self' app:; script-src 'self' app: 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' app: 'unsafe-inline'; img-src 'self' app: data: blob:; font-src 'self' app: data:; worker-src 'self' app: blob:; connect-src 'self' app: data: blob:; object-src 'none'; base-uri 'none'";
 const page = fs.readFileSync(tmp, 'utf8').replace('<meta charset="utf-8">', `<meta charset="utf-8">\n<meta http-equiv="Content-Security-Policy" content="${csp}">`);
 fs.writeFileSync(path.join(WEB, 'index.html'), `<!doctype html>\n<html lang="en">\n${page}</html>\n`); rm(tmp);
@@ -23,6 +23,7 @@ fs.writeFileSync(path.join(WEB, 'index.html'), `<!doctype html>\n<html lang="en"
 for (const f of ['pdf.min.mjs', 'pdf.worker.min.mjs']) { fs.mkdirSync(path.join(WEB, 'pdfjs/build'), { recursive: true }); fs.copyFileSync(path.join(PDFJS, 'build', f), path.join(WEB, 'pdfjs/build', f)); }
 for (const d of ['cmaps', 'standard_fonts', 'wasm', 'iccs']) if (fs.existsSync(path.join(PDFJS, d))) cp(path.join(PDFJS, d), path.join(WEB, 'pdfjs', d));
 fs.copyFileSync(path.join(PDFJS, 'LICENSE'), path.join(WEB, 'pdfjs/LICENSE'));
+cp(path.join(ROOT, 'vendor/ocr'), path.join(WEB, 'ocr'));
 fs.mkdirSync(path.join(WEB, 'vendor'), { recursive: true }); fs.copyFileSync(PDFLIB, path.join(WEB, 'vendor/pdf-lib.min.js'));
 fs.copyFileSync('/opt/npm-tools/node_modules/pdf-lib/LICENSE.md', path.join(WEB, 'vendor/pdf-lib-LICENSE.md'));
 // 3. shell

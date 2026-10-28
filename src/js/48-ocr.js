@@ -5,14 +5,25 @@
 // layer: searchable, highlightable, and written into saved PDFs as invisible text.
 let _ocrEngine = null;
 function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Could not load ' + src)); document.head.appendChild(s); }); }
+// Tesseract compiled to WebAssembly, shipped with MeBulb (OCR_BASE): runs offline in a worker
 async function tesseractEngine(progress) {
-  if (!window.Tesseract) await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
-  const worker = await window.Tesseract.createWorker('eng', 1, { logger: (m) => { if (m.status && progress) progress(m.status + (m.progress != null ? ` ${Math.round(m.progress * 100)}%` : '')); } });
+  const base = new URL(OCR_BASE, location.href).href; const w = new Worker(base + 'ocr-worker.js'); let n = 0; const pend = new Map();
+  w.onmessage = (e) => { const p = pend.get(e.data.id); if (!p) return; pend.delete(e.data.id); if (e.data.error) p.rej(new Error(e.data.error)); else p.res(e.data); };
+  w.onerror = (e) => { pend.forEach((p) => p.rej(new Error(e.message || 'OCR worker failed'))); pend.clear(); };
+  const call = (msg, transfer) => new Promise((res, rej) => { const id = ++n; pend.set(id, { res, rej }); w.postMessage({ ...msg, id }, transfer || []); });
+  if (progress) progress('Starting the text recognition engine…'); await call({ type: 'init', base });
   return {
     name: 'Tesseract',
-    async recognize(canvas) { const { data } = await worker.recognize(canvas); return (data.words || []).filter((w) => w.text && w.text.trim() && w.confidence > 35).map((w) => ({ str: w.text.trim(), x0: w.bbox.x0, y0: w.bbox.y0, x1: w.bbox.x1, y1: w.bbox.y1 })); },
+    async recognize(canvas, say, opts = {}) {
+      const png = await new Promise((r) => canvas.toBlob(r, 'image/png')).then((b) => b.arrayBuffer());
+      let { words } = await call({ type: 'recognize', png, psm: 3 }, [png]);
+      if (opts.thorough) { const png2 = await new Promise((r) => canvas.toBlob(r, 'image/png')).then((b) => b.arrayBuffer()); const more = (await call({ type: 'recognize', png: png2, psm: 11 }, [png2])).words; words = mergeWords(words, more); }
+      return words.filter((x) => x.conf > 35);
+    },
   };
 }
+// second-pass words that do not overlap the first pass
+function mergeWords(a, b) { const hit = (p, q) => Math.min(p.x1, q.x1) - Math.max(p.x0, q.x0) > 0 && Math.min(p.y1, q.y1) - Math.max(p.y0, q.y0) > 0; return [...a, ...b.filter((w) => !a.some((v) => hit(v, w)))]; }
 async function claudeEngine() {
   if (!(window.claude && window.claude.use)) return null; const sample = await window.claude.use('sample'); if (!sample) return null;
   try { const lim = sample.limits ? await sample.limits() : null; if (lim && !lim.images) return null; } catch { }
@@ -39,27 +50,26 @@ async function claudeEngine() {
 function withTimeout(p, ms, msg) { return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(msg)), ms))]); }
 async function getOcrEngine(progress) {
   if (_ocrEngine) return _ocrEngine;
-  const inViewer = !!(window.claude && typeof window.claude.use === 'function');
-  const tryTess = async () => { try { return await withTimeout(tesseractEngine(progress), 45000, 'Tesseract did not start'); } catch (e) { console.warn('Tesseract unavailable', e); return null; } };
+  const tryTess = async () => { try { return await withTimeout(tesseractEngine(progress), 60000, 'Tesseract did not start'); } catch (e) { console.warn('Tesseract unavailable', e); return null; } };
   const tryClaude = async () => { try { return await withTimeout(claudeEngine(), 12000, 'Claude OCR unavailable'); } catch (e) { console.warn(e); return null; } };
-  // the published page cannot download Tesseract's language data, so it asks Claude first
-  _ocrEngine = inViewer ? (await tryClaude()) || (await tryTess()) : (await tryTess()) || (await tryClaude());
+  // the built-in engine first (offline, nothing leaves the PC); Claude only where the built-in one cannot start
+  _ocrEngine = (await tryTess()) || (await tryClaude());
   if (_ocrEngine) return _ocrEngine;
-  throw new Error('No OCR engine could start here. Open the standalone copy of MeBulb in Chrome or Edge with an internet connection.');
+  throw new Error('The text recognition engine could not start here. Use the MeBulb desktop app.');
 }
 async function ocrDialog() {
   const doc = activeDoc(); if (!doc) return; const cur = currentPage() + 1;
-  const r = await openDialog({ title: 'Recognize text (OCR)', body: `<p class="muted">Finds text on scanned pages so you can search it, highlight it and edit it. Saved PDFs get an invisible text layer that other PDF apps can search too.</p>${field('Pages', `<input type="text" name="range" value="${cur}" placeholder="e.g. 1-3, 5 or all">`)}`, buttons: [{ label: 'Cancel', value: false }, { label: 'Recognize text', value: true, primary: true }] });
+  const r = await openDialog({ title: 'Recognize text (OCR)', body: `<p class="muted">Finds text on scanned pages so you can search it, highlight it and edit it. Saved PDFs get an invisible text layer that other PDF apps can search too.</p>${field('Pages', `<input type="text" name="range" value="${cur}" placeholder="e.g. 1-3, 5 or all">`)}<label class="check"><input type="checkbox" name="thorough"> Thorough (second pass for scattered labels; slower)</label><p class="muted sm">Runs on this computer. Nothing is uploaded.</p>`, buttons: [{ label: 'Cancel', value: false }, { label: 'Recognize text', value: true, primary: true }] });
   if (!r || !r.value) return; const idxs = /^\s*all\s*$/i.test(r.form.range) ? [...Array(doc.numPages).keys()] : parseRange(r.form.range, doc.numPages); if (!idxs.length) { toast('Enter page numbers like 1-3, 5 or all', 'error'); return; }
-  await runOcr(doc, idxs);
+  await runOcr(doc, idxs, { thorough: !!r.form.thorough });
 }
-async function runOcr(doc, idxs) {
+async function runOcr(doc, idxs, opts = {}) {
   const busy = $('#busy'); busy.hidden = false; const say = (t) => { busy.textContent = t; };
   try {
     say('Starting OCR…'); const engine = await getOcrEngine(say); let words = 0;
     for (const [k, i] of idxs.entries()) {
       say(`OCR page ${i + 1} (${k + 1} of ${idxs.length})…`); const pg = doc.pages[i]; const s = Math.min(300 / 72, Math.sqrt(15e6 / (pg.w * pg.h)), 4200 / Math.max(pg.w, pg.h));
-      const canvas = await renderToCanvas(doc, i, s); const found = await engine.recognize(canvas, say);
+      const canvas = await renderToCanvas(doc, i, s); const found = await engine.recognize(canvas, say, opts);
       doc.ocr[i] = found.map((w) => ({ str: w.str, x: w.x0 / s, y: w.y0 / s, w: Math.max(1, (w.x1 - w.x0) / s), h: Math.max(1, (w.y1 - w.y0) / s) })); words += found.length;
       doc.textCache[i] = null;
     }

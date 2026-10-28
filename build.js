@@ -26,6 +26,7 @@ setTimeout(function () { if (!window.__mebulbReady) { var e = document.getElemen
 import * as pdfjsLib from '${PDFJS}/pdf.min.mjs';
 pdfjsLib.GlobalWorkerOptions.workerSrc = '${PDFJS}/pdf.worker.min.mjs';
 const PDFJS_ASSETS = ${ASSETS};
+const OCR_BASE = '${process.env.OCR_BASE || 'ocr/'}';
 ${code}
 </script>
 `;
