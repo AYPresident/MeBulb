@@ -55,7 +55,7 @@ function revuCaption(text, s, align = 'center') {
   const rc = `<?xml version="1.0"?><body xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:APIVersion="BluebeamPDFRevu:2018" xfa:spec="2.2.0" style="${style}" xmlns="http://www.w3.org/1999/xhtml"><p>${esc(text || '')}</p></body>`;
   return { DS: pStr(style), RC: xmlAsciiHex(rc) };
 }
-function dashArr(s) { const w = s.width || 1; return s.dash === 'dashed' ? [w * 4 + 2, w * 3 + 1.5] : s.dash === 'dotted' ? [Math.max(w, 0.5), w * 2.2 + 1] : s.dash === 'dashdot' ? [w * 5 + 3, w * 2 + 1.5, Math.max(w, 0.5), w * 2 + 1.5] : null; }
+function dashArr(s) { return dashPattern(s.dash, s.dashPat); }
 
 // Revu's keys on top of the plain annotation dictionary
 function revuDecorate(A, m, doc, ctx, M, info) {
@@ -267,11 +267,11 @@ async function toMarkup(R, d, ref, i, T, layerByName, doc) {
   const tp = (x, y) => applyT(T, [x, y]); const nums = (k) => { const a = L(k); return a instanceof PDFArray ? a.asArray().map(nOf) : null; }; const pairs = (a) => { const o = []; for (let k = 0; k + 1 < (a || []).length; k += 2) o.push(tp(a[k], a[k + 1])); return o; };
   const rect = nums('Rect') || [0, 0, 0, 0]; const rd = nums('RD') || [0, 0, 0, 0]; const inner = [rect[0] + rd[0], rect[1] + rd[1], rect[2] - rd[2], rect[3] - rd[3]];
   const stroke = pdfRgbHex(L('C')) || '#d6331f'; const fillC = pdfRgbHex(L('IC')); const ca = L('CA') ? nOf(L('CA')) : 1; const bs = L('BS'); const w = bs instanceof PDFDict && bs.lookup(PDFName.of('W')) ? nOf(bs.lookup(PDFName.of('W'))) : 1;
-  const dashed = bs instanceof PDFDict && bs.lookup(PDFName.of('S')) && bs.lookup(PDFName.of('S')).asString() === '/D'; const be = L('BE'); const cloud = be instanceof PDFDict && be.lookup(PDFName.of('S')) && be.lookup(PDFName.of('S')).asString() === '/C';
+  const dashed = bs instanceof PDFDict && bs.lookup(PDFName.of('S')) && bs.lookup(PDFName.of('S')).asString() === '/D'; const dA = dashed && bs.lookup(PDFName.of('D')); const dPat = dA instanceof PDFArray ? dA.asArray().map(nOf) : dashed ? [3] : null; const dKey = dashed ? lineTypeOf(dPat.length === 1 ? [dPat[0], dPat[0]] : dPat) : 'solid'; const be = L('BE'); const cloud = be instanceof PDFDict && be.lookup(PDFName.of('S')) && be.lookup(PDFName.of('S')).asString() === '/C';
   const fo = L('FillOpacity') ? nOf(L('FillOpacity')) : fillC ? 1 : 0.25;
   const ocg = await R.resolve(g('OC')); let layer = null; if (ocg instanceof PDFDict) { const name = pdfText(ocg.lookup(PDFName.of('Name'))) || 'Layer'; layer = layerByName.get(name); if (!layer) { layer = { id: uid('L'), name, visible: true, locked: false }; layerByName.set(name, layer); doc.layers = doc.layers || []; doc.layers.push(layer); } }
   const bsi = L('BSIColumnData'); const ext = { nm: pdfText(g('NM')) || null, ref: refKey(ref), it, sub, bsi: bsi instanceof PDFArray ? bsi.asArray().map(pdfText) : null, nms: [], refs: [] };
-  const style = { stroke, width: w, opacity: ca, dash: dashed ? 'dashed' : 'solid', fill: ['Square', 'Circle', 'Polygon'].includes(sub) && fillC ? fillC : 'none', fillOpacity: fo, cloud: !!cloud, cloudArc: cloud ? 10 + 10 * (nOf(be.lookup(PDFName.of('I'))) || 1) : undefined };
+  const style = { stroke, width: w, opacity: ca, dash: dKey || 'custom', dashPat: dKey ? undefined : (dPat.length === 1 ? [dPat[0], dPat[0]] : dPat), fill: ['Square', 'Circle', 'Polygon'].includes(sub) && fillC ? fillC : 'none', fillOpacity: fo, cloud: !!cloud, cloudArc: cloud ? 10 + 10 * (nOf(be.lookup(PDFName.of('I'))) || 1) : undefined };
   const m = { id: uid(), page: i, type: null, pts: [], style, author: pdfText(g('T')), subject: pdfText(g('Subj')), created: pdfDateIso(pdfText(g('CreationDate')) || pdfText(g('M'))), modified: pdfDateIso(pdfText(g('M'))), layer: layer ? layer.id : '', ext, comment: '' };
   const contents = pdfText(g('Contents')); const label = pdfText(g('Label'));
   const le = L('LE'); const leNames = le instanceof PDFArray ? le.asArray().map((x) => x.asString().slice(1)) : le ? [le.asString().slice(1)] : [];
@@ -333,6 +333,7 @@ function freeTextStyle(d) {
   // text colour: DS, else DA; border: DA RG, else (when DS gives the text colour) DA rg
   const dsCol = css.color ? normColor(css.color) : null; style.fontColor = dsCol || daRg || style.fontColor; if (!border && dsCol && daRg) border = daRg;
   const size = style.fontSize || 12; const lh = parseFloat(css['line-height']); if (lh > 0) style.lineH = +(lh / size).toFixed(4);
+  const lsp = parseFloat(css['letter-spacing']); if (lsp) style.letterSp = +lsp.toFixed(3);
   const mg = parseFloat(css.margin); style._margin = isFinite(mg) ? mg : 0;
   return { style, border };
 }

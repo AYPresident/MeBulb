@@ -29,10 +29,20 @@ async function openPath(p, info) {
   else { const b = new Uint8Array(await H.read(f.fid, 0, f.size)); src = new MemSource(b); }
   const doc = await openSource(f.name, src, { path: f.path, fid: f.fid, stat: { size: f.size, mtimeMs: f.mtimeMs } });
   if (!doc) { H.close(f.fid); return null; }
-  doc.diskMatches = true; if (!big) { H.close(f.fid); doc.fid = null; }
+  doc.diskMatches = true; doc.openedAt = Date.now(); if (!big) { H.close(f.fid); doc.fid = null; }
+  // keep the file open while it is open here: the Egnyte Desktop App then locks it for everyone else,
+  // so a colleague opening it in Bluebeam or MeBulb is told it is in use and gets it read-only
+  if (H.hold) H.hold(f.path).catch(() => {});
+  if (f.readOnly) markReadOnly(doc, 'This PDF is read only on this PC. Someone else probably has it open (Egnyte locks it while they do), or the file is marked read-only.');
   try { state.recent = await H.addRecent(f.path); } catch { } renderRecent();
   return doc;
 }
+function markReadOnly(doc, why) {
+  doc.readOnly = true; doc.readOnlyWhy = why; renderTabs();
+  toast(`${doc.name} is read only: someone else may have it open. Markups you add can be saved as a copy${HOST() ? ', or join their live session if they use MeBulb' : ''}.`, 'error');
+}
+// the file became writable again (they closed it): say so once
+async function recheckReadOnly(doc) { const H = HOST(); if (!H || !H.isReadOnly || !doc.readOnly || !doc.path) return; if (!(await H.isReadOnly(doc.path))) { doc.readOnly = false; doc.readOnlyWhy = ''; renderTabs(); toast(`${doc.name} is no longer in use elsewhere: you can save it again`); } }
 function recentList() { return (state.recent || []).map((p) => (typeof p === 'string' ? { path: p, name: p.split(/[\\/]/).pop(), dir: p.replace(/[\\/][^\\/]*$/, '') } : p)); }
 function renderRecent() {
   const el = $('#recent-files'); if (!el) return; const r = HOST() ? recentList().slice(0, 8) : [];

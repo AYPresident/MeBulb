@@ -87,8 +87,29 @@ async function sessPull(doc, listed) {
     if (ops.length) sessApply(doc, ops);
   } finally { S.pulling = false; }
 }
+// ----- who writes the PDF ----------------------------------------------------------------------------
+// Egnyte locks the PDF for everyone but the person who opened it first, so in a live session that
+// person (the "holder") writes it. Anyone else's Save asks the holder's MeBulb to save; their changes
+// are already in the holder's copy through the session.
+function sessMembers(doc) { const S = doc.sess; if (!S) return []; return [{ uid: S.uid, name: state.author, since: doc.openedAt || S.started, ro: !!doc.readOnly, me: true }, ...[...S.peers.values()].map((p) => ({ uid: p.uid, name: p.name, since: p.since || p.t || 0, ro: !!p.ro }))]; }
+function sessHolderOf(doc) { const c = sessMembers(doc).filter((m) => !m.ro); if (!c.length) return null; c.sort((a, b) => a.since - b.since || (a.uid < b.uid ? -1 : 1)); return c[0]; }
+function sessHolder(doc) { const S = doc.sess; if (!S) return true; const h = sessHolderOf(doc); return h ? h.uid === S.uid : !doc.readOnly; }
+async function sessRequestSave(doc) {
+  const S = doc.sess; const h = sessHolderOf(doc); sessTick(doc, true);
+  S.queue.push({ k: 'save', t: Date.now() }); await sessFlush(doc).catch(sessErr(doc)); S.askedSave = Date.now();
+  toast(`${h ? h.name : 'The person holding the file'} has the PDF open, so their MeBulb saves it: asked them to save your markups. They are already in their copy.`);
+  setTimeout(() => { if (doc.sess && S.askedSave && Date.now() - S.askedSave >= 24000) toast(`${h ? h.name : 'They'} ha${h ? 's' : 've'} not saved yet. Your markups are safe in the live session and will go into the PDF when they save.`, 'error'); }, 25000);
+}
+async function sessHolderSave(doc, who) {
+  const S = doc.sess; if (!S || S.saving || !sessHolder(doc)) return; const was = state.activeId;
+  try { await saveDoc('save', { doc, quiet: true }); if (doc.sess && !doc.dirty) setStatus(`Saved the PDF for ${who || 'the session'}`); } catch (e) { console.warn('save for peer', e); }
+  if (state.activeId !== was) await switchDoc(was);
+}
 function sessApply(doc, ops) {
   const S = doc.sess; const pages = new Set(); let meta = false; let n = 0; const who = new Set();
+  // save requests from people who cannot write the file
+  const asks = ops.filter((o) => o.k === 'save' && o.by !== S.uid && o.t > Math.max(S.started - 2000, S.saveReqT || 0, Date.parse(doc.savedAt || 0) || 0));
+  if (asks.length) { const last = asks[asks.length - 1]; S.saveReqT = last.t; if (sessHolder(doc)) setTimeout(() => sessHolderSave(doc, last.name), 300); }
   const wins = (t, by, cur, curBy) => t > cur || (t === cur && String(by) > String(curBy || ''));
   for (const op of ops) {
     if (op.k === 'm') {
@@ -122,7 +143,7 @@ function sessKeepRemote(doc, snapRc, restored) {
 // ----- presence: who is here, which page, what they have selected ----------------------------------------
 async function sessPresence(doc) {
   const S = doc.sess; if (!S) return;
-  await S.T.presence({ uid: S.uid, name: state.author, color: S.color, t: Date.now(), page: doc === activeDoc() ? currentPage() : null, sel: doc === activeDoc() ? [...state.sel].slice(0, 50) : [], saving: !!S.saving, app: 'MeBulb' });
+  await S.T.presence({ uid: S.uid, name: state.author, color: S.color, t: Date.now(), since: doc.openedAt || S.started, ro: !!doc.readOnly, page: doc === activeDoc() ? currentPage() : null, sel: doc === activeDoc() ? [...state.sel].slice(0, 50) : [], saving: !!S.saving, app: 'MeBulb' });
   const now = Date.now(); const before = new Set(S.peers.keys()); S.peers.clear();
   for (const p of await S.T.peers()) { if (!p || p.uid === S.uid || p.left || now - (p.t || 0) > 180000) continue; S.peers.set(p.uid, p); }
   const joined = [...S.peers.keys()].filter((k) => !before.has(k)); if (joined.length && before.size + joined.length > 0 && now - S.started > 3000) setStatus(`${joined.map((k) => S.peers.get(k).name).join(', ')} joined the live session`);
@@ -151,7 +172,7 @@ async function sessRebase(doc) {
     // markups missing from their file that we have not touched since their save were deleted by them
     sessApply(doc, ops);
     const theirs = sessHash(data.markups || []); if (theirs === sessHash(doc.markups)) { doc.dirty = false; renderTabs(); }
-    if (data.savedBy && data.savedById !== S.uid) toast(`${data.savedBy} saved the PDF`);
+    if (data.savedBy && data.savedById !== S.uid) { toast(`${data.savedBy} saved the PDF`); S.askedSave = null; }
     sessGc(doc).catch(() => {});
   }
 }
@@ -179,7 +200,7 @@ async function sessionOpened(doc) {
     }
   } catch (e) { console.warn(e); }
 }
-function sessionClosed(doc) { if (doc.sess) sessionStop(doc, true); (doc.extraFids || []).forEach((f) => HOST() && HOST().close(f)); recoveryClear(doc, true); }
+function sessionClosed(doc) { if (doc.sess) sessionStop(doc, true); (doc.extraFids || []).forEach((f) => HOST() && HOST().close(f)); if (HOST() && HOST().release && doc.path) HOST().release(doc.path).catch(() => {}); recoveryClear(doc, true); }
 async function sessionShutdown() { for (const d of state.docs) if (d.sess) await sessionStop(d, true); }
 
 // ----- crash recovery: unsaved markups copied to AppData every few minutes ------------------------------

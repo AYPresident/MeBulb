@@ -37,12 +37,12 @@ function rtStrip(m, key) { if (!m.runs) return; setRuns(m, m.runs.map((r) => { c
 // ----- layout -----------------------------------------------------------------------
 // Returns lines of positioned pieces; widths use the PDF font metrics.
 function layoutRich(runs, s, maxW) {
-  const D = rtDefaults(s); const chars = runsToChars(runs); const paras = [[]];
+  const D = rtDefaults(s); const chars = runsToChars(runs); const paras = [[]]; const ls = +s.letterSp || 0; // character spacing (pt) after every character
   let lastA = {};
   chars.forEach((c) => { if (c.ch === '\n') { paras.push([]); lastA = c.a; } else if (c.ch !== ZW) paras[paras.length - 1].push(c); });
   const lines = [];
   for (const p of paras) {
-    const cs = p.map((c) => { const e = rtEff(c.a, D); return { ch: c.ch, e, w: (charWidth(c.ch.charCodeAt(0), e.f, e.b, e.i) * rtSize(e)) / 1000 }; });
+    const cs = p.map((c) => { const e = rtEff(c.a, D); return { ch: c.ch, e, w: (charWidth(c.ch.charCodeAt(0), e.f, e.b, e.i) * rtSize(e)) / 1000 + ls }; });
     if (!cs.length) { lines.push({ cs: [], z: rtEff(lastA, D).z }); continue; }
     let start = 0;
     while (start < cs.length) {
@@ -74,7 +74,7 @@ function richPrims(L, s, out) {
     const yb = L.y + L.pad + vo + ln.base;
     ln.pieces.forEach((pc) => {
       const e = pc.e; const sz = rtSize(e); const y = yb + (e.sup ? -e.z * 0.36 : e.sub ? e.z * 0.16 : 0); const x = x0 + pc.x;
-      if (pc.str.trim()) out.push({ k: 'text', x, y, size: sz, str: pc.str, color: e.c, bold: e.b, italic: e.i, font: e.f, anchor: 'start', opacity: s.opacity });
+      if (pc.str.trim()) out.push({ k: 'text', x, y, size: sz, str: pc.str, color: e.c, bold: e.b, italic: e.i, font: e.f, anchor: 'start', opacity: s.opacity, ls: +s.letterSp || 0 });
       const th = Math.max(0.35, sz * 0.065); const len = pc.wt;
       if (len > 0 && e.u) out.push({ k: 'path', d: P.poly([[x, y + sz * 0.15], [x + len, y + sz * 0.15]]), stroke: e.c, width: th, opacity: s.opacity, fill: 'none', cap: 'butt' });
       if (len > 0 && e.s) out.push({ k: 'path', d: P.poly([[x, y - sz * 0.27], [x + len, y - sz * 0.27]]), stroke: e.c, width: th, opacity: s.opacity, fill: 'none', cap: 'butt' });
@@ -89,7 +89,7 @@ function rtXhtml(m) {
   const spanStyle = (e) => [`font-family:${pdfFam[e.f]}`, `font-size:${num(rtSize(e), 2)}pt`, `color:${cssColor(e.c)}`, `font-weight:${e.b ? 'bold' : 'normal'}`, `font-style:${e.i ? 'italic' : 'normal'}`, (e.u || e.s) ? `text-decoration:${[e.u ? 'underline' : '', e.s ? 'line-through' : ''].filter(Boolean).join(' ')}` : '', e.sup ? 'vertical-align:super' : e.sub ? 'vertical-align:sub' : ''].filter(Boolean).join(';');
   const paras = [[]]; runsToChars(runs).forEach((c) => { if (c.ch === '\n') paras.push([]); else if (c.ch !== ZW) paras[paras.length - 1].push(c); });
   const body = paras.map((p) => { const rs = charsToRuns(p, {}); return `<p dir="ltr">${rs.map((r) => `<span style="${spanStyle(rtEff(r, D))}">${esc(r.t)}</span>`).join('')}</p>`; }).join('');
-  return `<?xml version="1.0"?><body xmlns="http://www.w3.org/1999/xhtml" xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:APIVersion="Acrobat:11.0.0" xfa:spec="2.0.2" style="font-size:${num(D.z, 2)}pt;text-align:${m.style.align || 'left'};color:${cssColor(D.c)};font-family:${pdfFam[D.f]};line-height:${num(D.z * (m.style.lineH || 1.2), 3)}pt">${body}</body>`;
+  return `<?xml version="1.0"?><body xmlns="http://www.w3.org/1999/xhtml" xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:APIVersion="Acrobat:11.0.0" xfa:spec="2.0.2" style="font-size:${num(D.z, 2)}pt;text-align:${m.style.align || 'left'};color:${cssColor(D.c)};font-family:${pdfFam[D.f]};line-height:${num(D.z * (m.style.lineH || 1.2), 3)}pt${m.style.letterSp ? `;letter-spacing:${num(m.style.letterSp, 3)}pt` : ''}">${body}</body>`;
 }
 
 // ----- editor -------------------------------------------------------------------------
@@ -104,7 +104,7 @@ function rtCss(e, zoom, root) {
 }
 function rtRenderEditor(el, m) {
   const z = viewerZoom(); const D = rtDefaults(m.style); el.dataset.z = z;
-  Object.assign(el.style, { fontFamily: FONT_FAMILIES[D.f].css, fontWeight: D.b ? '700' : '400', fontStyle: D.i ? 'italic' : 'normal', color: D.c, fontSize: D.z * z + 'px', lineHeight: '1.2' });
+  Object.assign(el.style, { fontFamily: FONT_FAMILIES[D.f].css, fontWeight: D.b ? '700' : '400', fontStyle: D.i ? 'italic' : 'normal', color: D.c, fontSize: D.z * z + 'px', lineHeight: String(m.style.lineH || 1.2), letterSpacing: (+m.style.letterSp || 0) * z + 'px' });
   const paras = [[]]; runsToChars(runsOf(m)).forEach((c) => { if (c.ch === '\n') paras.push([]); else paras[paras.length - 1].push(c); });
   el.innerHTML = paras.map((p) => { const rs = charsToRuns(p, {}); const inner = rs.map((r) => `<span style="${esc(rtCss(rtEff(r, D), z))}">${esc(r.t)}</span>`).join(''); return `<div>${inner || '<br>'}</div>`; }).join('');
 }

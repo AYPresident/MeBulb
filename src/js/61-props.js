@@ -35,6 +35,10 @@ function renderProps() {
   if (T.kind === 'tool' && T.tool === 'cutout') { html += '<p class="muted pad">Click the corners of the opening, then double-click or press Enter. Its area is subtracted from the measurement.</p>'; el.innerHTML = html; return; }
   if (one && one.type === 'sketch') html += sketchPropsHtml(doc, one);
   if (one && one.type === 'equip') html += equipPropsHtml(doc, one);
+  if (one && one.type === 'duct') html += ductPropsHtml(doc, one);
+  if (one && one.type === 'grille') html += grillePropsHtml(doc, one);
+  if (one && one.type === 'section') html += sectionPropsHtml(doc, one);
+  if (T.kind === 'tool' && (T.tool === 'duct' || T.tool === 'grille')) html += `<section class="psec"><h3>${T.tool === 'duct' ? 'New ducts' : 'New grilles'}</h3>${T.tool === 'duct' ? ductFields(ductDefaults(), 'dd') : grilleFields(grilleDefaults(), 'gd')}<p class="muted sm">${T.tool === 'duct' ? 'Click the corners of the run and double-click to finish. Starting or ending inside a riser connects to it.' : 'Click on a duct to put the grille on it.'}</p></section>`;
   if (T.kind === 'tool' && T.tool === 'equip') html += `<section class="psec"><h3>Equipment</h3>${state.placeEquip ? `<div class="eq-propv">${eqPreviewSvg(state.placeEquip, 90)}<div><b>${esc(state.placeEquip.name)}</b><br><span class="muted">${Math.round(state.placeEquip.w)} × ${Math.round(state.placeEquip.d)} mm · turned ${state.placeRot || 0}°</span></div></div><p class="muted sm">Click to place. R turns it 90° (Shift+R back). Esc when done.</p>` : '<p class="muted sm">Pick a unit in the Equipment panel.</p>'}<div class="btn-row"><button type="button" class="btn sm" data-act="equip-panel">${icon('equip')} Equipment panel</button></div></section>`;
   if (T.kind === 'tool' && TOOLS[T.tool].mode === 'sketch') html += sketchToolHtml(doc, T.tool);
   if (one && one.type === 'textedit') html += `<section class="psec"><h3>Text edit</h3>${field('Original text', `<div class="note-box">${esc(one.orig || '')}</div>`)}${field('Replacement', `<input type="text" data-k="text" value="${esc(one.text)}">`)}${field('Background', swatchRow('style.cover', one.style.cover, false))}<p class="muted sm">${one.applied ? 'The original text was removed when this file was saved.' : 'The original glyphs are removed from the page content when you save.'}</p></section>`;
@@ -48,7 +52,7 @@ function renderProps() {
   }
   if (!has('note', 'texthl', 'textedit')) html += field('Line width', `<div class="range"><input type="range" min="0" max="${has('highlight') ? 40 : 12}" step="0.25" data-k="style.width" value="${s.width}"><input type="number" class="num" min="0" step="0.25" data-k="style.width" value="${s.width}" aria-label="Line width in points"></div>`);
   if (has('strikeout')) html += field('Mark', `<select data-k="style.variant"><option value="strike"${s.variant !== 'under' ? ' selected' : ''}>Strikethrough</option><option value="under"${s.variant === 'under' ? ' selected' : ''}>Underline</option></select>`);
-  if (!has('pen', 'highlight', 'note', 'stamp', 'image', 'texthl', 'strikeout', 'textedit')) html += field('Line style', `<select data-k="style.dash">${['solid', 'dashed', 'dotted', 'dashdot'].map((d) => `<option value="${d}"${s.dash === d ? ' selected' : ''}>${d === 'dashdot' ? 'Dash-dot' : d[0].toUpperCase() + d.slice(1)}</option>`).join('')}</select>`);
+  if (!has('pen', 'highlight', 'note', 'stamp', 'image', 'texthl', 'strikeout', 'textedit')) html += field('Line style', `<div class="lt-field">${lineTypeButton(s)}<span class="muted sm">${esc(lineTypeName(s))}</span></div>`);
   html += field('Opacity', `<div class="range"><input type="range" min="0.05" max="1" step="0.05" data-k="style.opacity" value="${s.opacity}"><output>${Math.round(s.opacity * 100)}%</output></div>`);
   if (has('rect', 'polygon', 'cloud', 'area', 'perimeter', 'volume')) html += field('Border', `<label class="check"><input type="checkbox" data-k="style.cloud"${s.cloud ? ' checked' : ''}> Cloud border</label>${s.cloud ? `<div class="range"><input type="range" min="5" max="40" step="1" data-k="style.cloudArc" value="${s.cloudArc || 14}"><output>${s.cloudArc || 14} pt arcs</output></div>` : ''}`);
   if (has('line', 'arrow', 'polyline', 'callout', 'length', 'polylength') && !has('rect', 'ellipse', 'text', 'area', 'count')) {
@@ -65,6 +69,12 @@ function renderProps() {
     const F = fmtFlags(T); const rich = [...types].every((t) => TEXT_TYPES.has(t));
     html += field('Font', `<select data-k="style.font">${fontOptions(F.f)}</select>`);
     html += `<div class="field two"><div><label>Font size</label><input type="number" class="num" min="3" max="144" step="0.5" data-k="style.fontSize" value="${num(s.fontSize || 12, 2)}"></div>${has('text', 'callout') ? `<div><label>Align</label><select data-k="style.align">${['left', 'center', 'right'].map((a) => `<option${s.align === a ? ' selected' : ''}>${a}</option>`).join('')}</select></div>` : `<div><label>Label box</label><label class="check"><input type="checkbox" data-k="style.labelBg"${s.labelBg !== false ? ' checked' : ''}> Show</label></div>`}</div>`;
+    { // spacing: padding round the text, line spacing, character spacing (all in points except line spacing)
+      const boxy = [...types].every((t) => TEXT_TYPES.has(t)); const z0 = s.fontSize || (boxy ? 12 : 10); const autoPad = boxy ? Math.max(3, z0 * 0.4) : z0 * 0.3; const lh = s.lineH;
+      const lhs = [1, 1.15, 1.5, 2, 2.5, 3]; const lhOpt = (v, l) => `<option value="${v}"${(lh || '') === v ? ' selected' : ''}>${l}</option>`;
+      html += `<div class="field two"><div><label>Padding (pt)</label><input type="number" class="num" min="0" max="72" step="0.5" data-k="style.pad" value="${s.pad != null ? num(s.pad, 2) : ''}" placeholder="${num(autoPad, 1)} (auto)"></div><div><label>Character spacing</label><input type="number" class="num" min="-3" max="30" step="0.1" data-k="style.letterSp" value="${num(+s.letterSp || 0, 2)}" title="Extra space after each character, in points"></div></div>`;
+      html += field('Line spacing', `<select data-k="style.lineH">${lhOpt('', `Single (auto, ${boxy ? '1.2' : '1.18'})`)}${lhs.map((v) => lhOpt(v, v === 1 ? '1.0 (tight)' : String(v))).join('')}${lh && !lhs.includes(+lh) ? lhOpt(lh, num(+lh, 2)) : ''}</select>`);
+    }
     html += field('Text colour', swatchRow('style.fontColor', s.fontColor || s.stroke));
     html += `<div class="field"><label>Style</label><div class="fmt-row">${fmtButtons(F, rich)}</div>${rich ? '<p class="muted sm">These apply to the whole markup. To format part of the text, double-click it and select the words first.</p>' : ''}</div>`;
     html += '</section>';
@@ -130,10 +140,12 @@ let _propUndo = false;
 function setField(m, k, v) {
   if (k.startsWith('style.')) {
     const sk = k.slice(6); m.style = { ...m.style, [sk]: v }; if (/^show(Name|Size|Area)$/.test(sk) && v) m.style.showLabel = true;
-    if (TEXT_TYPES.has(m.type)) { const rk = Object.keys(RT_STYLE).find((x) => RT_STYLE[x] === sk); if (rk) rtStrip(m, rk); if (rk || sk === 'align') fitTextBox(m); }
+    if (v == null) delete m.style[sk]; // back to automatic
+    if (TEXT_TYPES.has(m.type)) { const rk = Object.keys(RT_STYLE).find((x) => RT_STYLE[x] === sk); if (rk) rtStrip(m, rk); if (rk || ['align', 'pad', 'lineH', 'letterSp'].includes(sk)) fitTextBox(m); }
     return;
   }
   if (k === 'depth') { m.depth = v; return; }
+  if (/^(duct|gr|sec)\./.test(k) && setDuctField(m, k, v)) return;
   if (k.startsWith('show.')) { m.show = { ...(m.show || {}), [k.slice(5)]: v }; return; }
   if (k === 'rot') { m.rot = (((+v || 0) % 360) + 360) % 360; return; }
   if (k === 'eqpick') { const u = eqLib().find((x) => x.id === v); if (u) { m.eq = deep(u); m.text = u.name; m.subject = u.category || 'Equipment'; } return; }
@@ -141,12 +153,15 @@ function setField(m, k, v) {
 }
 function coerce(k, el) {
   if (el.type === 'checkbox') return el.checked;
+  if (k === 'style.pad' && String(el.value).trim() === '') return null; // back to automatic padding
+  if (k === 'style.lineH') { const n = parseFloat(el.value); return n > 0 ? n : null; }
   if (el.type === 'range' || el.type === 'number') { const n = parseFloat(el.value); return isNaN(n) ? 0 : n; }
   return el.value;
 }
 function applyProp(k, v, live) {
   const doc = activeDoc(); const T = propTarget();
   if (applySketchProp(doc, T, k, v, live)) return;
+  if (/^(dd|gd)\./.test(k)) { if (!live) { applyDuctDefault(k, v); renderDuctPanelSoon(); } return; }
   if (k === 'author') { state.author = v.trim() || 'Reviewer'; store.set('author', state.author); return; }
   if (k === 'toollock') { state.toolLocked = v; $$('.tool-btn').forEach((b) => b.classList.toggle('locked', b.dataset.tool === state.tool && v)); return; }
   if (k === 'toolsubject') { state.toolSubjects[state.tool] = v; return; }
@@ -181,13 +196,14 @@ function bindProps() {
   el.addEventListener('change', (e) => {
     const t = e.target; const k = t.dataset.k; if (!k) return;
     applyProp(k, coerce(k, t), false); _propUndo = false;
-    const structural = t.tagName === 'SELECT' || t.type === 'checkbox' || t.type === 'color' || k === 'depth' || /^(sz|tsz|rot|link|sk\.|sketchNext|show\.|tag)/.test(k);
+    const structural = t.tagName === 'SELECT' || t.type === 'checkbox' || t.type === 'color' || k === 'depth' || /^(sz|tsz|rot|link|sk\.|sketchNext|show\.|tag|duct\.|gr\.|sec\.|dd\.|gd\.|letter)/.test(k);
     if (/^(show\.|rot|tag|eqpick|flip)/.test(k)) { renderAllMarks(activeDoc()); renderEquipPanelSoon(); }
     if (structural) renderProps();
     renderList(); if (k === 'layer') renderLayers();
   });
   el.addEventListener('click', (e) => {
     const fb = e.target.closest('[data-fmt]'); if (fb) { doFmt(fb.dataset.fmt); return; }
+    const lt = e.target.closest('[data-ltpop]'); if (lt) { showLinePop(lt); return; }
     const sw = e.target.closest('.sw[data-v]');
     if (sw) { applyProp(sw.dataset.k, sw.dataset.v, false); _propUndo = false; renderProps(); renderList(); return; }
     const a = e.target.closest('[data-act]'); if (!a) return;
@@ -199,6 +215,11 @@ function bindProps() {
     else if (act === 'equip-rot-r') rotateEquip(ms.filter((m) => m.type === 'equip'), 90);
     else if (act === 'equip-edit' && ms[0] && ms[0].type === 'equip') { (async () => { const v = await editEquipDialog(ms[0].eq); if (v) { pushUndo(activeDoc()); ms[0].eq = v; touch(ms[0]); renderAllMarks(activeDoc()); renderProps(); renderEquipPanelSoon(); } })(); }
     else if (act === 'stamp-fields' && ms[0]) editStampFields(ms[0]);
+    else if (act === 'duct-route' && ms[0]) rerouteDuct(ms[0], 'best');
+    else if (act === 'duct-flip' && ms[0]) applyToSelection((x) => { if (x.type === 'duct') x.duct = { ...ductD(x), rev: !(x.duct && x.duct.rev) }; });
+    else if (act === 'duct-section' && ms[0]) startSectionPlace(ms[0]);
+    else if (act === 'grille-detach' && ms[0]) applyToSelection((x) => { delete x.on; delete x.t; });
+    else if (act === 'duct-grilles' && ms[0]) addGrillesDialog(ms[0]);
     else if (act === 'zoom-sel' && ms[0]) zoomToBox(ms[0].page, markupBBox(ms[0], activeDoc()));
     else if (act === 'toolset-sel') addSelectionToToolset();
     else if (act === 'toolset-tool') addToolToToolset();
@@ -223,7 +244,7 @@ function sketchSymbolFields(s, sc, m) {
   const on = s.showLabel !== false; const shown = on && (s.showName !== false || s.showSize !== false || s.showArea); const au = sc && !isMetric(sc) ? 'sf' : 'm²';
   return `${field('Symbol', `<select data-k="style.symbol"><option value="x"${s.symbol === 'x' ? ' selected' : ''}>X (duct or shaft)</option><option value="diag"${s.symbol === 'diag' ? ' selected' : ''}>Single diagonal</option><option value="none"${!s.symbol || s.symbol === 'none' ? ' selected' : ''}>None</option></select>`)}
     <div class="field"><label>Label shows</label><div class="chk-row"><label class="check"><input type="checkbox" data-k="style.showName"${on && s.showName !== false ? ' checked' : ''}> Name</label><label class="check"><input type="checkbox" data-k="style.showSize"${on && s.showSize !== false ? ' checked' : ''}> Size</label><label class="check"><input type="checkbox" data-k="style.showArea"${on && s.showArea ? ' checked' : ''}> Area (${au})</label></div></div>
-    ${shown ? field('Label position', `<select data-k="style.labelPos">${[['above', 'Above'], ['below', 'Below'], ['right', 'Right'], ['left', 'Left'], ['center', 'Middle of the shape']].map(([v, l]) => `<option value="${v}"${(s.labelPos || 'above') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>`) + `<p class="muted sm">Or drag the label anywhere: select the riser, then drag its label. An arrow points back to the riser.</p>${m && m.labelOff ? '<div class="btn-row"><button type="button" class="btn sm" data-act="sk-resetlabel">Reset label position</button></div>' : ''}` : ''}<label class="check"><input type="checkbox" data-k="style.showDims"${s.showDims ? ' checked' : ''}> Show dimension lines</label>`;
+    ${shown ? field('Label position', `<select data-k="style.labelPos">${[['above', 'Above'], ['below', 'Below'], ['right', 'Right'], ['left', 'Left'], ['center', 'Middle of the shape']].map(([v, l]) => `<option value="${v}"${(s.labelPos || 'above') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>`) + `<p class="muted sm">Or drag the label anywhere: select the riser, then drag its label. An arrow points back to the riser when the label is outside it.</p><label class="check"><input type="checkbox" data-k="style.labelArrow"${s.labelArrow !== false ? ' checked' : ''}> Arrow from a moved label</label>${m && m.labelOff ? '<div class="btn-row"><button type="button" class="btn sm" data-act="sk-resetlabel">Reset label position</button></div>' : ''}` : ''}<label class="check"><input type="checkbox" data-k="style.showDims"${s.showDims ? ' checked' : ''}> Show dimension lines</label>`;
 }
 const NAME_HINTS = ['M1', 'E1', 'H1', 'F1', 'SA-01', 'RA-01', 'EA-01', 'R1'];
 function nameField(key, val, label, ph) { return field(label, `<input type="text" data-k="${key}" value="${esc(val || '')}" maxlength="40" list="sk-names" placeholder="${ph || 'e.g. M1, E1, SA-01'}" autocomplete="off"><datalist id="sk-names">${NAME_HINTS.map((n) => `<option value="${n}">`).join('')}</datalist>`); }
@@ -242,7 +263,7 @@ function sketchPropsHtml(doc, m) {
     const sibs = linkSiblings(doc, m).sort((a, b) => a.page - b.page);
     h += `<section class="psec"><h3>Linked set</h3><label class="check"><input type="checkbox" data-k="link.sync"${L.sync ? ' checked' : ''}> Move together on every page</label>
       <div class="link-pages">${sibs.map((x) => { const lab = doc.pages[x.page] && doc.pages[x.page].label; return `<button type="button" class="lp-chip${x.id === m.id ? ' cur' : ''}" data-act="goto-${x.id}" title="Go to page ${x.page + 1}">p.${x.page + 1}${lab && lab !== String(x.page + 1) ? ' ' + esc(lab) : ''} <span>${esc(sizeText(sketchSize(doc, x), scaleForMarkup(doc, x)))}</span>${sketchTrans(doc, x) ? '<span class="t">→</span>' : ''}</button>`; }).join('')}</div>
-      <div class="btn-row"><button type="button" class="btn sm" data-act="sk-place">Place on more pages</button><button type="button" class="btn sm" data-act="sk-view">Show on all pages</button></div><div class="btn-row"><button type="button" class="btn sm" data-act="sk-unlink">Unlink this page</button><button type="button" class="btn sm danger" data-act="sk-delall">Delete on all pages</button></div></section>`;
+      <div class="btn-row"><button type="button" class="btn sm" data-act="sk-place">Place on more pages</button><button type="button" class="btn sm" data-act="sk-choose">Choose pages…</button><button type="button" class="btn sm" data-act="sk-view">Show on all pages</button></div><div class="btn-row"><button type="button" class="btn sm" data-act="sk-unlink">Unlink this page</button><button type="button" class="btn sm danger" data-act="sk-delall">Delete on all pages</button></div></section>`;
   } else h += `<section class="psec"><h3>Linked set</h3><p class="muted sm">Place this sketch on other pages, for example every floor a riser passes through. The copies stay linked: resize one and they all change.</p><div class="btn-row"><button type="button" class="btn sm primary" data-act="sk-place">Place on pages</button></div></section>`;
   h += `<section class="psec"><h3>Display</h3>${sketchSymbolFields(m.style, sc, m)}</section>`;
   return h;
@@ -277,6 +298,7 @@ function startCutout(m) { if (!m) return; state.cutoutFor = m.id; setTool('cutou
 async function sketchAction(kind, m) {
   const doc = activeDoc(); if (!doc || !m) return;
   if (kind === 'place') return placeOnPagesDialog(m);
+  if (kind === 'choose') return chooseLinkedPagesDialog(m);
   if (kind === 'view') { state.linkOpen = m.link; openRight('linked'); return; }
   if (kind === 'resetlabel') { resetLabel(m); return; }
   if (kind === 'rmtrans') { pushUndo(doc); removeTransition(doc, m); renderAllMarks(doc); refreshPanels(); renderLinkedPanelSoon(); return; }

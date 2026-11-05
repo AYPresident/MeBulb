@@ -23,7 +23,7 @@ there open here.
 
 - `00-core` utilities, geometry, font metrics · `10-units` units and scales
 - `20-markup` markup types and drawing (screen SVG and PDF use the same primitives)
-- `22-richtext` rich text runs and editor · `25-sketch` sketch-to-scale risers · `26-equip` equipment top views to scale with clearances and clash checks · `27-align` page alignment by grid bubbles or hand-placed reference points and grid lines
+- `22-richtext` rich text runs and editor · `25-sketch` sketch-to-scale risers · `26-equip` equipment top views to scale with clearances and clash checks · `27-align` page alignment by grid bubbles or hand-placed reference points and grid lines · `28-duct` ductwork: sized ducts with insulation and end caps, routing between risers, grilles with free area, section views
 - `30-state` application state, undo · `40-viewer` page rendering · `45-content` PDF content parsing (snapping, text)
 - `46-forms` form fields · `47-textedit` PDF text editing · `48-ocr` text recognition · `49-fonts` installed fonts and embedding
 - `50-tools`, `51-editops` drawing tools and editing commands
@@ -59,7 +59,8 @@ official Electron GitHub release).
 `flow`, `flow2`, `flow3`, `r4`, `r5`, `label`, `incr`, `textmark`, `revu` (Bluebeam measurements,
 counts and Revu-flattened markups, using sample files in `test/fixtures`), `stamps`, `btx` (tool sets),
 `equip` (equipment and clearances), `r7` (curves and nodes, area rectangles, linked sketches and their
-Revu output, callout knees and leaders, reference-mark alignment, same-spot page flipping), `ocr`, and `igs` (client drawings, skipped unless `IGS_DIR` has them). The tests need
+Revu output, callout knees and leaders, reference-mark alignment, same-spot page flipping), `r8` (linked-page picking, text spacing, line types, resizing,
+ductwork: routing, insulation, caps, grilles, section views, PDF parts), `ocr`, and `igs` (client drawings, skipped unless `IGS_DIR` has them). The tests need
 `qpdf` and `pdftotext`/`pdftoppm` (poppler-utils). `test/desktop.js` runs the Linux Electron build under
 `xvfb-run`, including a two-person live session.
 
@@ -79,6 +80,10 @@ pull request, and keeps the web build and the test screenshots.
   grouped; a callout's extra leaders are grouped polylines. MeBulb reads them back as the one markup.
 - **Curves** in polylines and polygons are stored as the point each bent side passes through halfway,
   relative to the side, and go out to other apps as short straight pieces.
+- **Line types** are fixed dash lengths in points with square ends, the way Revu draws them, so they look the same at any width.
+- **File locking**: the desktop app keeps each open PDF's file handle open; the Egnyte Desktop App locks a file in the cloud while
+  an application holds it open, so colleagues get it read-only. In a live session only the person holding the file writes it;
+  anyone else's Save asks the holder's MeBulb to save.
 - **Flatten / unflatten** keeps the markups as JSON inside the flattened drawing, so unflatten brings
   back real, editable annotations (text boxes stay text boxes).
 - **Live sessions** write small change files into a hidden `.mebulb` folder beside the PDF; Egnyte

@@ -26,8 +26,28 @@ const files = new Map(); let nextFid = 1;
 async function openFid(p) {
   const fh = await fsp.open(p, 'r'); const st = await fh.stat(); const fid = nextFid++;
   files.set(fid, { fh, path: p });
-  return { fid, path: p, name: path.basename(p), size: st.size, mtimeMs: st.mtimeMs };
+  return { fid, path: p, name: path.basename(p), size: st.size, mtimeMs: st.mtimeMs, readOnly: await readOnly(p) };
 }
+// can we write the file? Egnyte makes a file locked by someone else read-only on this PC
+async function readOnly(p) { try { const st = await fsp.stat(p); if (!(st.mode & 0o222)) return true; await fsp.access(p, fs.constants.W_OK); return false; } catch { return true; } } // no write bits: the Windows read-only attribute
+
+// ----- holding a PDF open while it is open in MeBulb ------------------------------------------------------
+// The Egnyte Desktop App locks a file in the cloud while an application keeps it open (a few seconds
+// after the handle is opened), so colleagues opening it in Bluebeam or MeBulb are told it is locked
+// and get it read-only. Small PDFs are read into memory, so without this nothing would be holding them.
+const holds = new Map(); // resolved path -> { fh, n }
+const holdKey = (p) => (isWin ? path.resolve(p).toLowerCase() : path.resolve(p));
+async function hold(p) {
+  const k = holdKey(p); const h = holds.get(k); if (h) { h.n++; return true; }
+  try { const fh = await fsp.open(p, 'r'); holds.set(k, { fh, n: 1, path: p }); return true; } catch { return false; }
+}
+async function release(p) { const k = holdKey(p); const h = holds.get(k); if (!h) return; if (--h.n > 0) return; holds.delete(k); await h.fh.close().catch(() => {}); }
+// a whole-file rewrite swaps in a new file: hold the new one
+async function rehold(p) { const k = holdKey(p); const h = holds.get(k); if (!h) return; const old = h.fh; try { h.fh = await fsp.open(p, 'r'); } catch { } await old.close().catch(() => {}); }
+ipcMain.handle('file:hold', (_e, p) => hold(p));
+ipcMain.handle('file:release', (_e, p) => release(p));
+ipcMain.handle('file:readOnly', (_e, p) => readOnly(p));
+ipcMain.handle('file:holding', () => [...holds.values()].map((h) => h.path));
 ipcMain.handle('file:openDialog', async () => {
   const r = await dialog.showOpenDialog(win, { title: 'Open PDF', properties: ['openFile', 'multiSelections'], filters: [{ name: 'PDF', extensions: ['pdf'] }] });
   if (r.canceled) return []; const out = []; for (const p of r.filePaths) out.push(await openFid(p)); return out;
@@ -67,7 +87,7 @@ ipcMain.handle('file:write', async (_e, p, parts) => {
   catch (e) { // another program has the PDF open without sharing (Acrobat/Revu): write in place instead
     try { await fsp.copyFile(tmp, p); await fsp.unlink(tmp); } catch (e2) { await fsp.unlink(tmp).catch(() => {}); throw new Error(`Could not write ${path.basename(p)}. Is it open in another program? (${e2.code || e2.message})`); }
   }
-  const st = await fsp.stat(p); return { size: st.size, mtimeMs: st.mtimeMs };
+  await rehold(p); const st = await fsp.stat(p); return { size: st.size, mtimeMs: st.mtimeMs };
 });
 ipcMain.handle('file:saveDialog', async (_e, opts = {}) => {
   const r = await dialog.showSaveDialog(win, { title: opts.title || 'Save PDF', defaultPath: opts.defaultPath, filters: opts.filters || [{ name: 'PDF', extensions: ['pdf'] }] });
@@ -219,4 +239,4 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionCheckHandler((_wc, perm) => ['local-fonts', 'clipboard-sanitized-write', 'fullscreen'].includes(perm));
   createWindow();
 });
-app.on('window-all-closed', () => { for (const f of files.values()) f.fh.close().catch(() => {}); for (const w of watchers.values()) w.close(); app.quit(); });
+app.on('window-all-closed', () => { for (const f of files.values()) f.fh.close().catch(() => {}); for (const h of holds.values()) h.fh.close().catch(() => {}); for (const w of watchers.values()) w.close(); app.quit(); });

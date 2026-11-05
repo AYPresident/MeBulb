@@ -5,6 +5,7 @@ const PANELS = {
   layers: { title: 'Layers', icon: 'layers', render: () => renderLayers() },
   toolsets: { title: 'Tool sets', icon: 'toolset', render: () => renderToolsets() },
   equipment: { title: 'Equipment', icon: 'equip', render: () => renderEquipPanel() },
+  ductwork: { title: 'Ductwork', icon: 'duct', render: () => renderDuctPanel() },
   props: { title: 'Properties', icon: 'props', render: () => renderProps() },
   measure: { title: 'Measurements', icon: 'scale', render: () => renderMeasurePanel() },
   linked: { title: 'Linked sketches', icon: 'link', render: () => renderLinkedPanel() },
@@ -18,6 +19,7 @@ const TOOLBAR_DEFS = [
   { id: 'shapes', name: 'Shapes', items: ['tool:line', 'tool:arrow', 'tool:rect', 'tool:ellipse', 'tool:polygon', 'tool:polyline', 'tool:cloud'] },
   { id: 'measure', name: 'Measure', items: ['tool:calibrate', 'tool:viewport', 'sep', 'tool:length', 'tool:polylength', 'tool:area', 'tool:perimeter', 'tool:volume', 'tool:count', 'tool:angle', 'tool:radius'] },
   { id: 'sketch', name: 'Sketch to scale', items: ['tool:sketchrect', 'tool:sketchcircle', 'cmd:sketch.place', 'cmd:sketch.transition', 'tool:equip'] },
+  { id: 'ductwork', name: 'Ductwork', items: ['tool:duct', 'tool:grille', 'cmd:duct.connectSame', 'cmd:duct.section'] },
   { id: 'edit', name: 'Edit', items: ['tool:edittext', 'cmd:doc.ocr'] },
   { id: 'arrange', name: 'Arrange', row: 1, items: ['cmd:arr.alignLeft', 'cmd:arr.alignCenter', 'cmd:arr.alignRight', 'cmd:arr.alignTop', 'cmd:arr.alignMiddle', 'cmd:arr.alignBottom', 'sep', 'cmd:arr.distH', 'cmd:arr.distV', 'sep', 'cmd:edit.front', 'cmd:edit.back'] },
   { id: 'properties', name: 'Properties', row: 1, items: ['cmd:edit.copyProps', 'cmd:edit.pasteProps', 'cmd:edit.fitText', 'cmd:edit.lock'] },
@@ -28,7 +30,7 @@ const TOOLBAR_DEFS = [
 function defaultLayout() {
   return {
     v: 1, toolbars: TOOLBAR_DEFS.map((t) => ({ id: t.id, name: t.name, items: t.items.slice(), row: t.row || 0, hidden: !!t.hidden })),
-    panels: { left: ['pages', 'bookmarks', 'layers', 'toolsets', 'equipment'], right: ['props', 'measure', 'linked', 'search', 'session'] },
+    panels: { left: ['pages', 'bookmarks', 'layers', 'toolsets', 'equipment', 'ductwork'], right: ['props', 'measure', 'linked', 'search', 'session'] },
     leftOpen: false, rightOpen: true, leftTab: 'pages', rightTab: 'props', listOpen: false, leftW: 250, rightW: 300, propbar: true, navbar: true,
   };
 }
@@ -37,6 +39,8 @@ function loadLayout() {
   // panels that were added after the layout was saved go to their default side
   const all = new Set([...L.panels.left, ...L.panels.right]); Object.keys(PANELS).forEach((p) => { if (!all.has(p)) (D.panels.left.includes(p) ? L.panels.left : L.panels.right).push(p); });
   L.panels.left = L.panels.left.filter((p) => PANELS[p]); L.panels.right = L.panels.right.filter((p) => PANELS[p]);
+  // toolbars added since the layout was saved
+  if (Array.isArray(L.toolbars)) { const have = new Set(L.toolbars.map((t) => t.id)); D.toolbars.forEach((t, k) => { if (!have.has(t.id)) L.toolbars.splice(Math.min(k, L.toolbars.length), 0, t); }); }
   return { ...D, ...L };
 }
 function saveLayoutNow() { store.set('layout', state.layout); }

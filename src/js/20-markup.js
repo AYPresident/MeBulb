@@ -45,7 +45,12 @@ const TOOLS = {
   refpt: { label: 'Reference point (for lining pages up)', short: 'Ref point', icon: 'refpt', mode: 'point', subject: 'Reference point', style: { stroke: '#c2255c', width: 1, fontSize: 10, fontColor: '#c2255c', fill: 'none' } },
   gridline: { label: 'Grid line (for lining pages up)', short: 'Grid line', icon: 'gridline', mode: 'line', subject: 'Grid line', style: { stroke: '#c2255c', width: 0.75, dash: 'dashdot', fontSize: 10, fontColor: '#c2255c', fill: 'none' } },
 };
+  // ductwork (28-duct.js)
+TOOLS.duct = { label: 'Duct (sized, to scale): click the corners, double-click to finish', short: 'Duct', icon: 'duct', mode: 'multi', subject: 'Duct', style: { stroke: '#1c7ed6', width: 0.8, fill: '#1c7ed6', fillOpacity: 0.12, fontSize: 8, fontColor: '#1864ab' } };
+TOOLS.grille = { label: 'Grille or diffuser (click on a duct to put it on it)', short: 'Grille', icon: 'grille', mode: 'point', subject: 'Grille', style: { stroke: '#1c7ed6', width: 0.8, fill: '#ffffff', fillOpacity: 0.9, fontSize: 7, fontColor: '#1864ab' } };
+TOOLS.section = { label: 'Section view', icon: 'section', subject: 'Section view', style: { stroke: '#343a40', width: 1, fontSize: 8, fontColor: '#343a40', fill: '#ffffff', fillOpacity: 0.92 } };
 const REF_TYPES = new Set(['refpt', 'gridline']);
+const DUCT_TYPES = new Set(['duct', 'grille', 'section']);
 const MEASURE_TYPES = new Set(['length', 'polylength', 'area', 'perimeter', 'volume', 'count', 'angle', 'radius']);
 const BOX_TYPES = new Set(['rect', 'ellipse', 'text', 'stamp', 'image']);
 const CUTOUT_TYPES = new Set(['area', 'volume']);
@@ -228,19 +233,27 @@ function countSymbol(p, r, sym, s, fill) {
 }
 
 // ----- labels ----------------------------------------------------------------
+// width of a text primitive, with its character spacing (PDF Tc and SVG letter-spacing add it after every character)
+function textW(p) { return textWidth(p.str, p.size, p.bold, p.font, p.italic) + (p.ls || 0) * [...p.str].length; }
+// how a markup label is set: line height, character spacing and padding come from the style (Text section)
+function labelMetrics(lines, s) {
+  const size = s.fontSize || 10; const lh = size * (s.lineH || 1.18); const ls = +s.letterSp || 0; const fam = famOf(s.font), b = !!s.bold, it = !!s.italic;
+  const w = lines.length ? Math.max(...lines.map((l) => textWidth(l, size, b, fam, it) + ls * [...l].length)) : 0;
+  return { size, lh, ls, fam, b, it, w, h: lines.length * lh, padX: s.pad != null ? +s.pad : size * 0.3, padY: s.pad != null ? +s.pad : size * 0.12 };
+}
 function labelPrims(lines, cx, cy, angle, s, opts = {}) {
-  const size = s.fontSize || 10; const lh = size * 1.18; const col = s.fontColor || s.stroke; const fam = famOf(s.font), b = !!s.bold, it = !!s.italic;
+  const col = s.fontColor || s.stroke;
   lines = lines.filter((l) => l != null && l !== '');
   if (!lines.length) return [];
-  const w = Math.max(...lines.map((l) => textWidth(l, size, b, fam, it))); const totalH = lines.length * lh;
+  const M = labelMetrics(lines, s); const { size, lh, w } = M; const totalH = M.h;
   const cos = Math.cos(angle), sin = Math.sin(angle);
   const tr = (lx, ly) => [cx + lx * cos - ly * sin, cy + lx * sin + ly * cos];
   const out = [];
   if (s.labelBg !== false && !opts.noBg) {
-    const x1 = -w / 2 - size * 0.3, x2 = w / 2 + size * 0.3, y1 = -totalH / 2 - size * 0.12, y2 = totalH / 2 + size * 0.12;
+    const x1 = -w / 2 - M.padX, x2 = w / 2 + M.padX, y1 = -totalH / 2 - M.padY, y2 = totalH / 2 + M.padY;
     out.push({ k: 'path', d: P.poly([tr(x1, y1), tr(x2, y1), tr(x2, y2), tr(x1, y2)], true), fill: '#ffffff', fillOpacity: 0.86, stroke: 'none', opacity: s.opacity });
   }
-  lines.forEach((l, i) => { const ly = -totalH / 2 + i * lh + size * 0.84; const [x, y] = tr(0, ly); out.push({ k: 'text', x, y, size, str: l, color: col, anchor: 'middle', rot: angle, opacity: s.opacity, font: fam, bold: b, italic: it }); });
+  lines.forEach((l, i) => { const ly = -totalH / 2 + i * lh + (lh - size * 1.18) / 2 + size * 0.84; const [x, y] = tr(0, ly); out.push({ k: 'text', x, y, size, str: l, color: col, anchor: 'middle', rot: angle, opacity: s.opacity, font: M.fam, bold: M.b, italic: M.it, ls: M.ls }); });
   return out;
 }
 function uprightAngle(a) { if (a > Math.PI / 2 - 1e-6) a -= Math.PI; if (a < -Math.PI / 2 - 1e-6) a += Math.PI; return a; } // vertical text reads bottom-to-top
@@ -300,8 +313,8 @@ function measureInfo(m, doc) {
 // ----- display list -------------------------------------------------------------
 function dl(m, doc, opts = {}) {
   const s = m.style; const pts = m.pts; const out = [];
-  const stroke = (d, extra = {}) => ({ k: 'path', d, stroke: s.stroke, width: s.width, dash: s.dash, opacity: s.opacity, fill: 'none', blend: s.blend, ...extra });
-  const shape = (d, extra = {}) => ({ k: 'path', d, stroke: s.width > 0 ? s.stroke : 'none', width: s.width, dash: s.dash, opacity: s.opacity, fill: s.fill, fillOpacity: s.fillOpacity, blend: s.blend, ...extra });
+  const stroke = (d, extra = {}) => ({ k: 'path', d, stroke: s.stroke, width: s.width, dash: s.dash, dashPat: s.dashPat, opacity: s.opacity, fill: 'none', blend: s.blend, ...extra });
+  const shape = (d, extra = {}) => ({ k: 'path', d, stroke: s.width > 0 ? s.stroke : 'none', width: s.width, dash: s.dash, dashPat: s.dashPat, opacity: s.opacity, fill: s.fill, fillOpacity: s.fillOpacity, blend: s.blend, ...extra });
   const outline = (p, closed) => (s.cloud && closed && p.length > 2 ? P.cloud(p, s.cloudArc || 14) : P.poly(p, closed));
   const curved = CV.has(m); const fp = curved ? CV.flat(pts, m.curves, CV.closed(m) && !opts.open) : pts; // fp: the drawn shape as points
   const outlineC = (p, closed) => (!curved ? outline(p, closed) : (s.cloud || m.type === 'cloud') && closed && p.length > 2 ? P.cloud(CV.flat(p, m.curves, true, s.cloudArc || 14), s.cloudArc || 14) : CV.path(p, CV.ctls(p, m.curves, closed), closed));
@@ -342,6 +355,9 @@ function dl(m, doc, opts = {}) {
       out.push(...textPrims(L, s, opts.hideText));
       break;
     }
+    case 'duct': out.push(...ductPrims(m, doc, opts)); break;
+    case 'grille': out.push(...grillePrims(m, doc, opts)); break;
+    case 'section': out.push(...sectionPrims(m, doc, opts)); break;
     case 'refpt': {
       const [x, y] = pts[0]; const r = Math.max(4, (s.fontSize || 10) * 0.55); const col = s.fontColor || s.stroke;
       out.push({ k: 'path', d: P.ellipse(x, y, r, r), stroke: s.stroke, width: s.width, fill: '#ffffff', fillOpacity: 0.5, opacity: s.opacity, hit: 'box' }, stroke(P.poly([[x - r * 1.9, y], [x + r * 1.9, y]]), { dash: 'solid' }), stroke(P.poly([[x, y - r * 1.9], [x, y + r * 1.9]]), { dash: 'solid' }));
@@ -437,7 +453,7 @@ function dl(m, doc, opts = {}) {
 function markupBBox(m, doc) {
   if (m.type === 'text' || m.type === 'callout') { const L = textLayout(m); const pts = [[L.x, L.y], [L.x + L.w, L.y + L.h]]; if (m.type === 'callout') calloutLeaders(m, L).forEach((ld) => pts.push(ld.tip, ld.knee)); return G.bbox(pts); }
   if (m.type === 'note') return { x: m.pts[0][0], y: m.pts[0][1], w: 18, h: 18, x2: m.pts[0][0] + 18, y2: m.pts[0][1] + 18 };
-  if (REF_TYPES.has(m.type)) { const b = primsBBox(dl(m, doc)); return b ? { ...b, w: b.x2 - b.x, h: b.y2 - b.y } : G.bbox(m.pts); }
+  if (REF_TYPES.has(m.type) || DUCT_TYPES.has(m.type)) { const b = primsBBox(dl(m, doc, { noCuts: true })); return b ? { ...b, w: b.x2 - b.x, h: b.y2 - b.y } : G.bbox(m.pts); }
   if (m.type === 'sketch') return sketchBBox(m, doc);
   if (m.type === 'equip') return equipBBox(m, doc);
   if (m.type === 'textedit') { const b = G.bbox(m.pts); if (m.text) { const w = textWidth(m.text, m.style.fontSize, m.style.bold, m.style.font, m.style.italic); const e = [m.base[0] + Math.cos(m.ang || 0) * w, m.base[1] + Math.sin(m.ang || 0) * w]; return G.bbox([...m.pts, e]); } return b; }
@@ -456,7 +472,7 @@ function segHitsRect(a, b, r) {
 }
 function markupTouchesRect(m, doc, r, mb) {
   mb = mb || markupBBox(m, doc); if (mb.x2 < r.x || mb.x > r.x + r.w || mb.y2 < r.y || mb.y > r.y + r.h) return false;
-  if (['text', 'callout', 'note', 'stamp', 'image', 'count', 'textedit', 'sketch'].includes(m.type)) {
+  if (['text', 'callout', 'note', 'stamp', 'image', 'count', 'textedit', 'sketch', 'grille', 'section'].includes(m.type)) {
     if (m.type !== 'callout') return true; // box-like: the bounding box is the markup
   }
   for (const p of dl(m, doc)) {
@@ -476,8 +492,21 @@ function markupTouchesRect(m, doc, r, mb) {
 }
 
 // ----- SVG output --------------------------------------------------------------
-const DASH = { dashed: (w) => `${num(w * 4 + 2, 2)} ${num(w * 3 + 1.5, 2)}`, dotted: (w) => `${num(Math.max(w, 0.5) * 0.01, 2)} ${num(w * 2.2 + 1, 2)}`, dashdot: (w) => `${num(w * 5 + 3, 2)} ${num(w * 2 + 1.5, 2)} ${num(w * 0.01, 2)} ${num(w * 2 + 1.5, 2)}` };
-function dashArray(dash, w) { return dash && DASH[dash] ? DASH[dash](w) : null; }
+// Line types the way Revu draws them: dash and gap lengths fixed in points with square-cut ends, so they
+// look the same at any line width (a 30 pt dashed line still shows its dashes). [key, name, pattern]
+const LINE_TYPES = [
+  ['solid', 'Solid', []], ['dashed', 'Dashed', [3, 3]], ['dashshort', 'Short dash', [1.5, 1.5]], ['dashlong', 'Long dash', [9, 4]],
+  ['dotted', 'Dotted', [1, 2]], ['dotwide', 'Dotted, spaced', [1, 4]], ['dashdot', 'Dash dot', [8, 2.5, 1.5, 2.5]], ['dashdotdot', 'Dash dot dot', [8, 2.5, 1.5, 2.5, 1.5, 2.5]],
+  ['center', 'Centre line', [16, 3, 4, 3]], ['phantom', 'Phantom', [16, 3, 4, 3, 4, 3]], ['hidden', 'Hidden', [4, 2]],
+];
+const LT_PAT = Object.fromEntries(LINE_TYPES.map(([k, , p]) => [k, p]));
+// the pattern for a style: a named type, or the markup's own (dash 'custom' + dashPat)
+function dashPattern(dash, pat) { if (dash === 'custom') return Array.isArray(pat) && pat.length && pat.some((v) => v > 0) ? pat : null; const p = LT_PAT[dash]; return p && p.length ? p : null; }
+function dashArray(dash, w, pat) { const a = dashPattern(dash, pat); return a ? a.map((v) => num(Math.max(0.01, v), 2)).join(' ') : null; }
+// the nearest named type for a pattern read from a PDF, or null
+function lineTypeOf(pat) { if (!pat || !pat.length) return 'solid'; const hit = LINE_TYPES.find(([, , p]) => p.length === pat.length && p.every((v, i) => Math.abs(v - pat[i]) <= Math.max(0.15, v * 0.06))); return hit ? hit[0] : null; }
+function lineTypeName(s) { if (s.dash === 'custom') return 'Custom ' + (s.dashPat || []).map((v) => num(v, 2)).join(' '); const t = LINE_TYPES.find(([k]) => k === (s.dash || 'solid')); return t ? t[1] : 'Solid'; }
+function lineTypeSvg(dash, pat, w = 110, sw = 2) { const da = dashArray(dash, 1, pat); return `<svg class="lt-svg" viewBox="0 0 ${w} 10" width="${w}" height="10" aria-hidden="true"><line x1="1" y1="5" x2="${w - 1}" y2="5" stroke="currentColor" stroke-width="${sw}"${da ? ` stroke-dasharray="${da.split(' ').map((v) => num(v * 1.6, 2)).join(' ')}"` : ''}/></svg>`; }
 const SVG_FONT = FONT_FAMILIES.helv.css;
 function primSvg(p) {
   if (p.k === 'path') {
@@ -486,8 +515,8 @@ function primSvg(p) {
     if (p.fill && p.fill !== 'none' && p.fill !== 'transparent' && p.fillOpacity != null && p.fillOpacity < 1) a.push(`fill-opacity="${p.fillOpacity}"`);
     if (p.stroke && p.stroke !== 'none' && p.width > 0) {
       a.push(`stroke="${p.stroke}" stroke-width="${num(p.width, 3)}"`);
-      const da = dashArray(p.dash, p.width); if (da) a.push(`stroke-dasharray="${da}"`);
-      a.push(`stroke-linecap="${p.cap || (p.dash === 'dotted' ? 'round' : 'butt')}" stroke-linejoin="${p.join || 'round'}"`);
+      const da = dashArray(p.dash, p.width, p.dashPat); if (da) a.push(`stroke-dasharray="${da}"`);
+      a.push(`stroke-linecap="${p.cap || 'butt'}" stroke-linejoin="${p.join || 'round'}"`);
     }
     if (p.opacity != null && p.opacity < 1) a.push(`opacity="${p.opacity}"`);
     if (p.blend) a.push(`style="mix-blend-mode:${p.blend}"`);
@@ -496,7 +525,7 @@ function primSvg(p) {
   }
   if (p.k === 'text') {
     const rot = p.rot ? ` transform="rotate(${num((p.rot * 180) / Math.PI, 3)} ${num(p.x, 2)} ${num(p.y, 2)})"` : '';
-    return `<text x="${num(p.x, 2)}" y="${num(p.y, 2)}" font-size="${num(p.size, 2)}" font-family="${FONT_FAMILIES[famOf(p.font)].css}"${p.bold ? ' font-weight="700"' : ''}${p.italic ? ' font-style="italic"' : ''} fill="${p.color}" text-anchor="${p.anchor || 'start'}"${p.opacity != null && p.opacity < 1 ? ` opacity="${p.opacity}"` : ''}${rot} xml:space="preserve">${esc(p.str)}</text>`;
+    return `<text x="${num(p.x, 2)}" y="${num(p.y, 2)}" font-size="${num(p.size, 2)}" font-family="${FONT_FAMILIES[famOf(p.font)].css}"${p.ls ? ` letter-spacing="${num(p.ls, 3)}"` : ''}${p.bold ? ' font-weight="700"' : ''}${p.italic ? ' font-style="italic"' : ''} fill="${p.color}" text-anchor="${p.anchor || 'start'}"${p.opacity != null && p.opacity < 1 ? ` opacity="${p.opacity}"` : ''}${rot} xml:space="preserve">${esc(p.str)}</text>`;
   }
   if (p.k === 'asset') return p.src ? `<image href="${p.src}" x="${num(p.x, 2)}" y="${num(p.y, 2)}" width="${num(p.w, 2)}" height="${num(p.h, 2)}" preserveAspectRatio="none"${p.opacity != null && p.opacity < 1 ? ` opacity="${p.opacity}"` : ''}/>` : `<rect x="${num(p.x, 2)}" y="${num(p.y, 2)}" width="${num(p.w, 2)}" height="${num(p.h, 2)}" fill="none" stroke="#999" stroke-dasharray="3 2"/>`;
   if (p.k === 'image') return p.src ? `<image href="${p.src}" x="${num(p.x, 2)}" y="${num(p.y, 2)}" width="${num(p.w, 2)}" height="${num(p.h, 2)}" preserveAspectRatio="none"${p.opacity < 1 ? ` opacity="${p.opacity}"` : ''}/>` : '';
@@ -512,7 +541,7 @@ function markupSvg(m, doc, opts = {}) {
       if (p.hit === 'box' || p.hitOnly || (p.fill && p.fill !== 'none')) hits += `<path d="${P.toD(p.d)}" fill="transparent"${p.evenodd ? ' fill-rule="evenodd"' : ''} stroke="transparent" stroke-width="${num(p.part ? 1 : hitW, 2)}" class="hit"${p.part ? ` data-part="${p.part}"` : ''}/>`;
       else hits += `<path d="${P.toD(p.d)}" fill="none" stroke="transparent" stroke-width="${num(Math.max(hitW, p.width || 0), 2)}" class="hit hit-s"/>`;
     } else if (p.k === 'text' && !TEXT_TYPES.has(m.type) && m.type !== 'stamp' && m.type !== 'textedit') {
-      const w = textWidth(p.str, p.size, p.bold, p.font, p.italic); const x = p.anchor === 'middle' ? -w / 2 : p.anchor === 'end' ? -w : 0;
+      const w = textW(p); const x = p.anchor === 'middle' ? -w / 2 : p.anchor === 'end' ? -w : 0;
       hits += `<rect x="${num(p.x + x, 2)}" y="${num(p.y - p.size * 0.85, 2)}" width="${num(w, 2)}" height="${num(p.size * 1.1, 2)}" fill="transparent" class="hit"${p.part ? ` data-part="${p.part}"` : ''}${p.rot ? ` transform="rotate(${num((p.rot * 180) / Math.PI, 2)} ${num(p.x, 2)} ${num(p.y, 2)})"` : ''}/>`;
     }
   }

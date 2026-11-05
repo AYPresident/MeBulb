@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('mebulbHost', {
   info: call('app:info'),
   // files
   openDialog: call('file:openDialog'), openPath: call('file:openPath'), read: call('file:read'), close: call('file:close'), stat: call('file:stat'),
+  hold: call('file:hold'), release: call('file:release'), isReadOnly: call('file:readOnly'), holding: call('file:holding'),
   append: call('file:append'), writeFile: call('file:write'), saveDialog: call('file:saveDialog'), saveOther: call('file:saveOther'), reveal: call('file:reveal'),
   pathForFile: (f) => { try { return webUtils.getPathForFile(f) || ''; } catch { return ''; } },
   getRecent: call('recent:get'), addRecent: call('recent:add'), removeRecent: call('recent:remove'),

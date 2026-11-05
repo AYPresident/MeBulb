@@ -119,7 +119,7 @@ function sketchParts(m, doc) {
   const L = sketchLabelBox(m, doc);
   if (L && L.leader) { const lw = Math.max(0.4, (s.width || 1) * 0.55); out.push({ ...base, id: m.id + '#a', type: 'arrow', pts: [L.leader.from, L.leader.tip], style: { stroke: s.fontColor || s.stroke, width: lw, opacity: s.opacity, arrowStart: 'none', arrowEnd: 'arrow' }, ext: {} }); }
   if (L) { const fs = s.fontSize || 9; const b = L.box;
-    out.push({ ...base, id: m.id + '#l', type: 'text', pts: [[b.x - 1, b.y], [b.x + b.w + 1, b.y + b.h]], text: L.lines.join('\n'), fixedH: true, style: { font: s.font, fontSize: fs, bold: s.bold, italic: s.italic, fontColor: s.fontColor || s.stroke, stroke: 'none', width: 0, fill: s.labelBg === false ? 'none' : '#ffffff', fillOpacity: 0.86, align: 'center', valign: 'middle', pad: fs * 0.15, lineH: 1.18, opacity: s.opacity }, ext: {} }); }
+    out.push({ ...base, id: m.id + '#l', type: 'text', pts: [[b.x - 1, b.y], [b.x + b.w + 1, b.y + b.h]], text: L.lines.join('\n'), fixedH: true, style: { font: s.font, fontSize: fs, bold: s.bold, italic: s.italic, fontColor: s.fontColor || s.stroke, stroke: 'none', width: 0, fill: s.labelBg === false ? 'none' : '#ffffff', fillOpacity: 0.86, align: 'center', valign: 'middle', pad: s.pad != null ? +s.pad : fs * 0.15, lineH: s.lineH || 1.18, letterSp: s.letterSp || 0, opacity: s.opacity }, ext: {} }); }
   return out;
 }
 // where the label goes: preset position, the centre, or wherever it was dragged (m.labelOff)
@@ -129,20 +129,21 @@ function sketchLabelBox(m, doc, g) {
   if (!lines.length) return null;
   if (!g) { const sc = scaleForMarkup(doc, m); const c = m.pts[0]; const rot = sketchRot(doc, m); const A = sketchSize(doc, m), B = sketchTrans(doc, m); g = { ga: sizeGeom(A, sc, c, rot), gb: B ? sizeGeom(B, sc, c, rot) : null, sc, c, rot }; }
   const { ga, gb, c } = g; const ex = gb ? Math.max(ga.ext[0], gb.ext[0]) : ga.ext[0], ey = gb ? Math.max(ga.ext[1], gb.ext[1]) : ga.ext[1]; const fs = s.fontSize || 9;
-  const lw = Math.max(...lines.map((l) => textWidth(l, fs, s.bold, s.font, s.italic))); const lh = lines.length * fs * 1.18; const half = lh / 2; const dimPad = s.showDims ? fs * 2.2 : 0;
+  const M = labelMetrics(lines, s); const lw = M.w; const lh = M.h; const half = lh / 2; const dimPad = s.showDims ? fs * 2.2 : 0;
   let at;
   if (m.labelOff) at = [c[0] + m.labelOff[0], c[1] + m.labelOff[1]];
   else at = { above: [c[0], c[1] - ey - fs * 0.5 - half], below: [c[0], c[1] + ey + fs * 0.5 + half + dimPad], right: [c[0] + ex + fs * 0.6 + lw / 2 + dimPad, c[1]], left: [c[0] - ex - fs * 0.6 - lw / 2, c[1]], center: [c[0], c[1]] }[s.labelPos || 'above'];
-  const box = { x: at[0] - lw / 2 - fs * 0.3, y: at[1] - half - fs * 0.12, w: lw + fs * 0.6, h: lh + fs * 0.24 };
+  const box = { x: at[0] - lw / 2 - M.padX, y: at[1] - half - M.padY, w: lw + 2 * M.padX, h: lh + 2 * M.padY };
   let leader = null;
-  if (m.labelOff) {
-    // aim at the nearest point of the outer outline; skip when the label sits on or next to the riser
+  if (m.labelOff && s.labelArrow !== false) {
+    // aim at the nearest point of the outer outline; none when the label sits inside the shape, on it or next to it
     const outer = gb && (gb.ext[0] * gb.ext[1] > ga.ext[0] * ga.ext[1]) ? gb : ga; const tip = nearestOnOutline(outer, at);
-    const from = rayBoxExit(at, tip, box);
-    if (from && G.dist(from, tip) > fs * 0.9 && !(tip[0] >= box.x && tip[0] <= box.x + box.w && tip[1] >= box.y && tip[1] <= box.y + box.h)) leader = { from, tip };
+    const from = rayBoxExit(at, tip, box); const inside = insideOutline(outer, at);
+    if (!inside && from && G.dist(from, tip) > fs * 0.9 && !(tip[0] >= box.x && tip[0] <= box.x + box.w && tip[1] >= box.y && tip[1] <= box.y + box.h)) leader = { from, tip };
   }
   return { lines, x: at[0], y: at[1], box, leader };
 }
+function insideOutline(g, p) { if (g.r != null && g.hw == null) { const c = [(g.quad[0][0] + g.quad[2][0]) / 2, (g.quad[0][1] + g.quad[2][1]) / 2]; return G.dist(c, p) < g.r; } return G.pointInPoly(p, g.corners); }
 function nearestOnOutline(g, p) {
   if (g.r != null && g.hw == null) { const c = [(g.quad[0][0] + g.quad[2][0]) / 2, (g.quad[0][1] + g.quad[2][1]) / 2]; const d = G.dist(c, p) || 1; return [c[0] + ((p[0] - c[0]) / d) * g.r, c[1] + ((p[1] - c[1]) / d) * g.r]; }
   let best = null, bd = Infinity; for (let i = 0; i < 4; i++) { const a = g.corners[i], b = g.corners[(i + 1) % 4]; const dx = b[0] - a[0], dy = b[1] - a[1]; const l2 = dx * dx + dy * dy || 1; const t = clamp(((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2, 0, 1); const q = [a[0] + t * dx, a[1] + t * dy]; const d = G.dist(p, q); if (d < bd) { bd = d; best = q; } }
@@ -175,7 +176,8 @@ function sketchBBox(m, doc) {
 }
 function sketchHandles(m, doc) {
   const sc = scaleForMarkup(doc, m); const c = m.pts[0]; const rot = sketchRot(doc, m); const g = sizeGeom(sketchSize(doc, m), sc, c, rot);
-  const H = (sketchSize(doc, m).shape === 'circle' ? g.quad : g.corners).map((p, k) => ({ h: 'k' + k, p }));
+  const circ = sketchSize(doc, m).shape === 'circle'; const H = (circ ? g.quad : g.corners).map((p, k) => ({ h: 'k' + k, p }));
+  if (!circ) g.quad.forEach((p, k) => H.push({ h: 'j' + k, p, kind: 'side' })); // one side at a time
   const top = g.tr(0, -(g.hh != null ? g.hh : g.r) - 14 / viewerZoom()); H.push({ h: 'rot', p: top, kind: 'rot' });
   return H;
 }
@@ -190,13 +192,33 @@ function setSketchSize(doc, m, size, which = 'size') {
   else if (which === 'trans') m.tsz = size; else m.sz = size;
 }
 function setSketchRot(doc, m, deg) { const L = linkOf(doc, m); if (L) deg += (alignAngle(doc, m.page) * 180) / Math.PI; deg = ((deg % 360) + 360) % 360; deg = Math.round(deg * 1000) / 1000; if (L) L.rot = deg; else m.rot = deg; }
-function applySketchHandle(m, h, p, shift) {
-  const doc = activeDoc(); const sc = scaleForMarkup(doc, m); const c = m.pts[0]; const rot = sketchRot(doc, m);
-  if (h === 'rot') { let a = (Math.atan2(p[1] - c[1], p[0] - c[0]) * 180) / Math.PI + 90; a = shift ? Math.round(a / 15) * 15 : Math.round(a); setSketchRot(doc, m, a); return; }
-  const dx = p[0] - c[0], dy = p[1] - c[1]; const lx = dx * Math.cos(-rot) - dy * Math.sin(-rot), ly = dx * Math.sin(-rot) + dy * Math.cos(-rot);
-  const A = sketchSize(doc, m);
-  if (A.shape === 'circle') setSketchSize(doc, m, { shape: 'circle', d: roundInch(2 * Math.hypot(lx, ly) * sc.inPerPt, sc) });
-  else { let w = roundInch(2 * Math.abs(lx) * sc.inPerPt, sc), hh = roundInch(2 * Math.abs(ly) * sc.inPerPt, sc); if (shift) w = hh = Math.max(w, hh); setSketchSize(doc, m, { shape: 'rect', w, h: hh }); }
+// Resizing: the opposite corner or side stays where it is, as in Revu; hold Alt to size about the centre
+// (both sides move). Shift keeps a rectangle square. start = { c, size } when the drag began.
+function applySketchHandle(m, h, p, shift, alt, start) {
+  const doc = activeDoc(); const sc = scaleForMarkup(doc, m); const rot = sketchRot(doc, m); const c0 = start ? start.c : m.pts[0];
+  if (h === 'rot') { const c = m.pts[0]; let a = (Math.atan2(p[1] - c[1], p[0] - c[0]) * 180) / Math.PI + 90; a = shift ? Math.round(a / 15) * 15 : Math.round(a); setSketchRot(doc, m, a); return; }
+  const cos = Math.cos(rot), sin = Math.sin(rot); const K = 1 / sc.inPerPt; const ipp = sc.inPerPt;
+  const dx = p[0] - c0[0], dy = p[1] - c0[1]; const L = [dx * cos + dy * sin, -dx * sin + dy * cos]; // pointer in the shape's own axes
+  const toPage = (l) => [c0[0] + l[0] * cos - l[1] * sin, c0[1] + l[0] * sin + l[1] * cos];
+  const A0 = start ? start.size : sketchSize(doc, m); const k = +h.slice(1);
+  if (A0.shape === 'circle') {
+    const u = [[0, -1], [1, 0], [0, 1], [-1, 0]][k] || [1, 0]; const r0 = (A0.d * K) / 2;
+    if (alt) { setSketchSize(doc, m, { shape: 'circle', d: roundInch(2 * Math.hypot(L[0], L[1]) * ipp, sc) }); m.pts = [c0.slice()]; return; }
+    const opp = [-u[0] * r0, -u[1] * r0]; const along = Math.max(0.5, (L[0] - opp[0]) * u[0] + (L[1] - opp[1]) * u[1]); const d = roundInch(along * ipp, sc);
+    setSketchSize(doc, m, { shape: 'circle', d }); m.pts = [toPage([opp[0] + (u[0] * d * K) / 2, opp[1] + (u[1] * d * K) / 2])]; return;
+  }
+  const hw0 = (A0.w * K) / 2, hh0 = (A0.h * K) / 2; let w, hh, cl;
+  if (h[0] === 'j') { // one side: 0 top, 1 right, 2 bottom, 3 left
+    const vert = k === 0 || k === 2; const sgn = k === 0 || k === 3 ? -1 : 1;
+    if (vert) { const fixed = -sgn * hh0; hh = roundInch((alt ? 2 * Math.abs(L[1]) : Math.abs(L[1] - fixed)) * ipp, sc); w = A0.w; const dir = Math.sign(L[1] - fixed) || sgn; cl = alt ? [0, 0] : [0, fixed + (dir * hh * K) / 2]; }
+    else { const fixed = -sgn * hw0; w = roundInch((alt ? 2 * Math.abs(L[0]) : Math.abs(L[0] - fixed)) * ipp, sc); hh = A0.h; const dir = Math.sign(L[0] - fixed) || sgn; cl = alt ? [0, 0] : [fixed + (dir * w * K) / 2, 0]; }
+  } else { // a corner: 0 top-left, 1 top-right, 2 bottom-right, 3 bottom-left
+    const sx = [-1, 1, 1, -1][k], sy = [-1, -1, 1, 1][k]; const F = [-sx * hw0, -sy * hh0];
+    w = roundInch((alt ? 2 * Math.abs(L[0]) : Math.abs(L[0] - F[0])) * ipp, sc); hh = roundInch((alt ? 2 * Math.abs(L[1]) : Math.abs(L[1] - F[1])) * ipp, sc);
+    if (shift) w = hh = Math.max(w, hh);
+    const dxs = Math.sign(L[0] - F[0]) || sx, dys = Math.sign(L[1] - F[1]) || sy; cl = alt ? [0, 0] : [F[0] + (dxs * w * K) / 2, F[1] + (dys * hh * K) / 2];
+  }
+  setSketchSize(doc, m, { shape: 'rect', w, h: hh }); m.pts = [toPage(cl)];
 }
 
 // ----- link management ------------------------------------------------------------

@@ -74,13 +74,18 @@ async function start(user) {
   ok(peers.length === 1, 'Alice sees Bob in the session: ' + peers.join(', '));
   await A.ev(() => { const b = document.querySelector('#session-badge'); b && b.click(); });
   await sleep(400); await A.win.screenshot({ path: OUT + '/desk-live-alice.png' });
-  // Bob saves; Alice notices, rebases on Bob's file, and is clean if nothing else changed
+  // the file is held open by both copies (Egnyte locks it for whoever did not open it first)
+  const holding = await A.ev(async () => (await window.mebulbHost.holding()).length);
+  ok(holding === 1, 'Alice\'s MeBulb keeps the PDF open while it is open (Egnyte locks it for others)');
+  // Bob saves: Alice opened the file first and holds it, so Bob's MeBulb asks hers to save; Bob then rebases and is clean
   const before = fs.statSync(PDF).size;
   await B.ev(async () => { await mebulb.saveDoc('save'); });
-  const afterB = fs.statSync(PDF).size; ok(afterB > before, `Bob's save appended ${afterB - before} bytes`);
-  let rebased = false; for (let k = 0; k < 24 && !rebased; k++) { await sleep(500); rebased = await A.ev(() => mebulb.activeDoc().stat.size); rebased = rebased === afterB; }
-  ok(rebased, 'Alice picked up Bob\'s saved file as her new base');
-  const aClean = await A.ev(() => mebulb.activeDoc().dirty); ok(aClean === false, 'Alice shows no unsaved changes after Bob saved the same markups');
+  let afterB = before; for (let k = 0; k < 30 && afterB === before; k++) { await sleep(500); afterB = fs.statSync(PDF).size; }
+  ok(afterB > before, `Bob's Save asked Alice's MeBulb (holding the file) to save: ${afterB - before} bytes appended`);
+  let rebased = false; for (let k = 0; k < 24 && !rebased; k++) { await sleep(500); rebased = await B.ev(() => mebulb.activeDoc().stat.size); rebased = rebased === afterB; }
+  ok(rebased, 'Bob picked up the saved file as his new base');
+  await sleep(1500);
+  const clean = await Promise.all([A.ev(() => mebulb.activeDoc().dirty), B.ev(() => mebulb.activeDoc().dirty)]); ok(clean[0] === false && clean[1] === false, 'neither shows unsaved changes after the save ' + JSON.stringify(clean));
   // Alice adds one more and saves on top of Bob's save (append chain across users)
   await A.ev(async () => { const d = mebulb.activeDoc(); const now = new Date().toISOString(); d.markups.push({ id: 'PM-r2', type: 'ellipse', page: 1, pts: [[300, 300], [380, 360]], style: { stroke: '#2b8a3e', fill: 'none', width: 2, opacity: 1 }, author: 'Alice', created: now, modified: now, layer: '' }); d.dirty = true; await mebulb.saveDoc('save'); });
   ok(/No syntax or stream encoding errors/.test(execSync(`qpdf --check "${PDF}" 2>&1 || true`, { encoding: 'utf8' })), 'file valid after saves by two people');
@@ -89,6 +94,15 @@ import re,sys,zlib
 d=open(sys.argv[1],'rb').read()
 print(d.count(b'/MeBulbData'))
 " "${PDF}"`, { encoding: 'utf8' }).trim(); console.log('MeBulbData occurrences (one per save):', pm);
+  // a read-only PDF (as Egnyte leaves a file someone else has open): shown as read only, Save offers a copy
+  const RO = path.join(path.dirname(PDF), 'Read only copy.pdf'); fs.copyFileSync(path.join(__dirname, 'fixtures', fs.readdirSync(path.join(__dirname, 'fixtures')).find((f) => /\.pdf$/i.test(f))), RO); fs.chmodSync(RO, 0o444);
+  const ro = await A.ev(async (p) => { const d = await mebulb.openPath(p); await new Promise((r) => setTimeout(r, 600)); return { ro: d.readOnly, badge: !!document.querySelector('.tab.on .badge.ro') }; }, RO);
+  ok(ro.ro && ro.badge, 'a read-only PDF opens marked Read only');
+  await A.ev(() => { mebulb.activeDoc().dirty = true; mebulb.saveDoc('save'); }); await sleep(500);
+  const roDlg = await A.ev(() => (document.querySelector('#modal-back:not([hidden]) #modal') || {}).textContent || '');
+  ok(/read only/i.test(roDlg) && /copy/i.test(roDlg), 'saving it offers to save a copy instead: ' + roDlg.replace(/\s+/g, ' ').slice(0, 80));
+  await A.win.click('#modal footer button:has-text("Cancel")').catch(() => {}); await sleep(200);
+  await A.ev(() => { mebulb.state.docs.forEach((d) => { d.dirty = false; }); }); fs.chmodSync(RO, 0o644);
   // close: unsaved prompt
   await B.ev(() => { mebulb.activeDoc().dirty = true; });
   await B.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close());

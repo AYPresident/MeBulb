@@ -12,7 +12,7 @@ function buildCommands() {
   add('tool.underline', 'Underline text', () => { state.toolStyles.strikeout = { ...(state.toolStyles.strikeout || {}), variant: 'under' }; setTool('strikeout'); }, { group: 'Markup', icon: 'underline', enabled: hasDoc, checked: () => state.tool === 'strikeout' && toolStyle('strikeout').variant === 'under' });
   // tools
   Object.entries(TOOLS).forEach(([t, T]) => {
-    if (['sketch', 'textedit', 'cutout'].includes(t)) return;
+    if (['sketch', 'textedit', 'cutout', 'section'].includes(t)) return;
     add('tool.' + t, T.label.replace(/\s*\(.*\)$/, ''), () => { if (t === 'image') { $('#file-image').click(); return; } if (t === 'strikeout') state.toolStyles.strikeout = { ...(state.toolStyles.strikeout || {}), variant: 'strike' }; setTool(t); }, { icon: T.icon, enabled: t === 'select' || t === 'pan' ? null : hasDoc, checked: () => state.tool === t, group: MEASURE_TYPES.has(t) || ['calibrate', 'viewport'].includes(t) ? 'Measure' : ['sketchrect', 'sketchcircle'].includes(t) ? 'Sketch to scale' : ['select', 'pan', 'zoom', 'alignpts'].includes(t) ? 'Navigate' : ['line', 'arrow', 'rect', 'ellipse', 'polygon', 'polyline', 'cloud'].includes(t) ? 'Shapes' : 'Markup', short: T.short });
   });
   const G_FILE = { group: 'File' }, G_EDIT = { group: 'Edit' }, G_VIEW = { group: 'View' }, G_DOC = { group: 'Document' }, G_ARR = { group: 'Arrange' }, G_WIN = { group: 'Window' };
@@ -87,6 +87,9 @@ function buildCommands() {
   add('doc.flatten', 'Flatten markups…', flattenDialog, { ...G_DOC, icon: 'flatten', enabled: hasDoc });
   add('doc.unflatten', 'Unflatten markups…', unflattenDialog, { ...G_DOC, icon: 'unflatten', enabled: hasDoc });
   add('doc.alignGrid', 'Align pages…', autoAlignDialog, { ...G_DOC, icon: 'align', enabled: hasDoc });
+  add('duct.connectSame', 'Connect same-name risers with ducts', () => connectSameNameRisers(), { group: 'Ductwork', icon: 'duct', enabled: hasDoc });
+  add('duct.connectSel', 'Connect the two selected risers', () => connectSelectedRisers(), { group: 'Ductwork', icon: 'duct', enabled: hasDoc });
+  add('duct.section', 'Section view of the selected duct or grille', () => { const m = selected()[0]; if (m && (m.type === 'duct' || m.type === 'grille')) startSectionPlace(m); else toast('Select a duct or grille first'); }, { group: 'Ductwork', icon: 'section', enabled: hasDoc });
   add('doc.refCopy', 'Copy reference marks to pages…', copyRefMarksDialog, { ...G_DOC, icon: 'refpt', enabled: hasDoc });
   add('doc.alignPoints', 'Align this page by points', () => startAlignPick(currentPage()), { ...G_DOC, icon: 'alignpts', enabled: hasDoc });
   add('doc.scale', 'Set page scale…', () => scaleDialog(currentPage()), { ...G_DOC, icon: 'scale', enabled: hasDoc });

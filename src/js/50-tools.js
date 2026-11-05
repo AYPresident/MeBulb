@@ -9,6 +9,7 @@ function setTool(t, opts = {}) {
   if (state.editing) commitEdit();
   if (state.placeItem) endPlace();
   if (state.addLeaderFor && t !== 'select') endAddLeader();
+  if (state.placeSection && t !== 'select') endSectionPlace();
   if (t !== 'equip' && state.placeEquip) { state.placeEquip = null; state.ghost = null; renderDraft(); if (typeof renderEquipPanelSoon === 'function') renderEquipPanelSoon(); }
   state.tool = t; state.toolLocked = !!opts.lock;
   if (t !== 'select') { state.sel.clear(); refreshSelection(); }
@@ -50,6 +51,7 @@ function newDraftMarkup(tool, page, pts) {
   if (state.toolSubjects[tool]) m.subject = state.toolSubjects[tool];
   if (tool === 'stamp') m.text = state.stampText;
   if (tool === 'volume') m.depth = state.volDepth != null ? state.volDepth : defaultDepth(scaleAt(activeDoc(), page, pts[0]));
+  if (tool === 'duct') m.duct = deep(ductDefaults());
   if (tool === 'texthl') { m.style = { ...toolStyle('highlight'), width: 0 }; m.subject = state.toolSubjects.highlight || 'Highlight'; }
   if (REF_TYPES.has(tool)) m.text = nextRefLabel(activeDoc(), page, tool);
   return m;
@@ -79,9 +81,10 @@ function startPan(e) { I.pan = { x: e.clientX, y: e.clientY, sl: V.el.scrollLeft
 
 function selectDown(e, i) {
   const doc = activeDoc();
+  if (state.placeSection) { if (i >= 0) placeSectionAt(doc, i, clientToPage(e, i)); e.preventDefault(); return; }
   if (state.addLeaderFor) { const m = getMarkup(state.addLeaderFor); if (!m || m.type !== 'callout') { endAddLeader(); return; } if (i === m.page) { pushUndo(doc); m.leaders = [...(m.leaders || []), { tip: snapPoint(clientToPage(e, i), i), knee: null }]; touch(m); renderMarkupEl(m, doc); renderSel(doc, m.page); refreshPanels(); } else toast(`Click on page ${m.page + 1}, where the callout is`); e.preventDefault(); return; }
   const hEl = e.target.closest('.hdl');
-  if (hEl) { const m = getMarkup(hEl.dataset.m); if (!m) return; I.drag = { kind: 'handle', id: m.id, h: hEl.dataset.h, page: m.page, orig: deep(m.pts), origHoles: m.holes ? deep(m.holes) : null, moved: false, pid: e.pointerId }; capture(e); e.preventDefault(); return; }
+  if (hEl) { const m = getMarkup(hEl.dataset.m); if (!m) return; I.drag = { kind: 'handle', id: m.id, h: hEl.dataset.h, page: m.page, orig: deep(m.pts), origHoles: m.holes ? deep(m.holes) : null, moved: false, pid: e.pointerId, sk0: m.type === 'sketch' ? { c: m.pts[0].slice(), size: deep(sketchSize(doc, m)) } : null, fixedH0: !!m.fixedH }; capture(e); e.preventDefault(); return; }
   const mEl = e.target.closest('g.mk');
   if (!state.painter && i >= 0 && (e.shiftKey || e.ctrlKey || e.metaKey) && !e.altKey && state.sel.size === 1 && polyEdit(e, i)) return;
   if (state.painter) { if (mEl) { const m = getMarkup(mEl.dataset.id); if (m && !state.sel.has(m.id)) { applyPropsTo([m]); toast('Properties applied · Esc to stop'); } } else endPainter(); e.preventDefault(); return; }
@@ -105,7 +108,7 @@ function capture(e) { try { V.el.setPointerCapture(e.pointerId); } catch { } }
 // the one selected polyline / polygon: Shift+click on a side adds a node there (and drags it);
 // Ctrl+drag on a side bends it into a curve
 function polyEdit(e, i) {
-  const doc = activeDoc(); const m = selected(doc)[0]; if (!m || m.page !== i || !CURVE_TYPES.has(m.type) || isLocked(m, doc) || m.pts.length < 2) return false;
+  const doc = activeDoc(); const m = selected(doc)[0]; if (!m || m.page !== i || !(CURVE_TYPES.has(m.type) || m.type === 'duct') || isLocked(m, doc) || m.pts.length < 2) return false; if (m.type === 'duct' && !e.shiftKey) return false;
   const p = clientToPage(e, i); const near = CV.nearSeg(m, p); if (!near || near.d > 6 / doc.zoom) return false;
   if (m.pts.some((q) => G.dist(q, p) < 5 / doc.zoom)) return false; // on a node: leave it to the node's handle
   if (e.shiftKey) {
@@ -181,7 +184,8 @@ function drawDown(e, i) {
     }
     case 'callout': state.draft = { mode: 'callout', page: i, m: newDraftMarkup('callout', i, [p, p.slice(), p.slice()]), start: p, sx: e.clientX, sy: e.clientY }; placeCalloutBox(state.draft, p, false); capture(e); break;
     case 'point':
-      if (state.tool === 'refpt') { const m = newDraftMarkup('refpt', i, [p]); addMarkup(m); state.sel.clear(); state.sel.add(m.id); refreshSelection(); toolDone(); }
+      if (state.tool === 'grille') { placeGrilleAt(doc, i, p); toolDone(); }
+      else if (state.tool === 'refpt') { const m = newDraftMarkup('refpt', i, [p]); addMarkup(m); state.sel.clear(); state.sel.add(m.id); refreshSelection(); toolDone(); }
       else if (state.tool === 'note') { const m = newDraftMarkup('note', i, [[p[0] - 9, p[1] - 9]]); addMarkup(m); state.sel.clear(); state.sel.add(m.id); refreshSelection(); toolDone(); setTimeout(() => { const c = $('#prop-comment'); if (c) c.focus(); }, 30); }
       else if (state.tool === 'stamp') {
         placeStamp(doc, i, p).then((m) => { if (!m) return; addMarkup(m); noteRecentTool(m); state.sel.clear(); state.sel.add(m.id); refreshSelection(); toolDone(); }).catch((err) => { console.error(err); toast('Could not place the stamp: ' + err.message, 'error'); });
@@ -249,6 +253,8 @@ function dragMove(e) {
     if (!g.moved) { pushUndo(doc); g.moved = true; }
     ms.forEach((m) => { const o = g.orig[m.id]; const f = (q) => [q[0] + dx, q[1] + dy]; m.pts = o.pts.map(f); if (o.holes) m.holes = o.holes.map((h) => h.map(f)); if (o.base) m.base = f(o.base); if (o.knee) m.knee = f(o.knee); if (o.leaders) m.leaders = o.leaders.map((l) => ({ tip: f(l.tip), knee: l.knee ? f(l.knee) : null })); renderMarkupEl(m, doc); });
     syncLinked(doc, ms.filter((m) => m.type === 'sketch')).forEach((x) => renderMarkupEl(x, doc));
+    // a grille on a duct slides along it
+    ms.forEach((m) => { if (m.type !== 'grille' || !m.on || ms.some((x) => x.id === m.on)) return; const d = getMarkup(m.on, doc); if (!d) return; const pts = dedupePts(d.pts); const na = nearestAlong(pts, m.pts[0]); m.t = na.s / (G.len(pts) || 1); m.pts = [na.p]; renderMarkupEl(m, doc); });
     new Set(ms.map((m) => m.page)).forEach((pg) => renderSel(doc, pg)); return;
   }
   if (g.kind === 'label') {
@@ -258,13 +264,13 @@ function dragMove(e) {
   if (g.kind === 'handle') {
     const m = getMarkup(g.id); if (!m) return; let p = snapPoint(clientToPage(e, m.page), m.page, { exclude: m.id });
     if (!g.moved) { pushUndo(doc); g.moved = true; }
-    applyHandle(m, g.h, p, g.orig, e.shiftKey, g.origHoles);
-    if (m.type === 'sketch' && m.link) linkSiblings(doc, m).forEach((x) => renderMarkupEl(x, doc)); else renderMarkupEl(m, doc);
+    applyHandle(m, g.h, p, g.orig, e.shiftKey, g.origHoles, e.altKey, g);
+    if (m.type === 'sketch' && m.link) { syncLinked(doc, [m]); linkSiblings(doc, m).forEach((x) => renderMarkupEl(x, doc)); } else renderMarkupEl(m, doc);
     renderSel(doc, m.page); renderDraft(); if (m.type === 'sketch') renderPropbar();
   }
 }
-function applyHandle(m, h, p, orig, shift, origHoles) {
-  if (m.type === 'sketch') { applySketchHandle(m, h, p, shift); return; }
+function applyHandle(m, h, p, orig, shift, origHoles, alt, g) {
+  if (m.type === 'sketch') { applySketchHandle(m, h, p, shift, alt, g && g.sk0); return; }
   if (h[0] === 'h') { const [hk, hi] = h.slice(1).split('.').map(Number); if (m.holes && m.holes[hk]) m.holes[hk][hi] = p; return; }
   const k = +h.slice(1);
   if (h === 'n') { m.knee = p; return; } // callout knee
@@ -279,14 +285,16 @@ function applyHandle(m, h, p, orig, shift, origHoles) {
     m.pts[k] = p; return;
   }
   const boxCorners = (a, b) => { const r = boxRect(a, b); return [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]]; };
-  if (h[0] === 'c' || h[0] === 'b') {
-    const ia = h[0] === 'c' ? 0 : 1; const cs = boxCorners(orig[ia], orig[ia + 1]); const opp = cs[(k + 2) % 4];
-    if (shift && m.type === 'image' && m.imgW) { const ar = m.imgW / m.imgH; const w = Math.abs(p[0] - opp[0]); p = [p[0], opp[1] + Math.sign(p[1] - opp[1] || 1) * (w / ar)]; }
+  if (h[0] === 'c' || h[0] === 'b') { // a corner: the opposite corner stays put; Alt sizes about the centre
+    const ia = h[0] === 'c' ? 0 : 1; const cs = boxCorners(orig[ia], orig[ia + 1]); let opp = cs[(k + 2) % 4];
+    if (alt) { const c = [(cs[0][0] + cs[2][0]) / 2, (cs[0][1] + cs[2][1]) / 2]; opp = [2 * c[0] - p[0], 2 * c[1] - p[1]]; }
+    if (shift && m.type === 'image' && m.imgW) { const ar = m.imgW / m.imgH; const w = Math.abs(p[0] - opp[0]); p = [p[0], opp[1] + Math.sign(p[1] - opp[1] || 1) * (w / ar)]; if (alt) { const c = [(cs[0][0] + cs[2][0]) / 2, (cs[0][1] + cs[2][1]) / 2]; opp = [2 * c[0] - p[0], 2 * c[1] - p[1]]; } }
     m.pts[ia] = [Math.min(opp[0], p[0]), Math.min(opp[1], p[1])]; m.pts[ia + 1] = [Math.max(opp[0], p[0]), Math.max(opp[1], p[1])]; return;
   }
-  if (h[0] === 'e' || h[0] === 'f') { // one edge of a box: top, right, bottom, left
-    const ia = h[0] === 'e' ? 0 : 1; const r = TEXT_TYPES.has(m.type) ? textBox({ ...m, pts: orig }) : boxRect(orig[ia], orig[ia + 1]); let x1 = r.x, y1 = r.y, x2 = r.x + r.w, y2 = r.y + r.h;
-    if (k === 0) y1 = Math.min(p[1], y2 - 2); else if (k === 1) x2 = Math.max(p[0], x1 + 2); else if (k === 2) y2 = Math.max(p[1], y1 + 2); else x1 = Math.min(p[0], x2 - 2);
+  if (h[0] === 'e' || h[0] === 'f') { // one edge of a box: top, right, bottom, left; Alt moves the opposite edge too
+    const ia = h[0] === 'e' ? 0 : 1; const r = TEXT_TYPES.has(m.type) ? textBox({ ...m, pts: orig }) : boxRect(orig[ia], orig[ia + 1]); let x1 = r.x, y1 = r.y, x2 = r.x + r.w, y2 = r.y + r.h; const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+    if (k === 0) { y1 = Math.min(p[1], (alt ? cy : y2) - 1); if (alt) y2 = 2 * cy - y1; } else if (k === 1) { x2 = Math.max(p[0], (alt ? cx : x1) + 1); if (alt) x1 = 2 * cx - x2; }
+    else if (k === 2) { y2 = Math.max(p[1], (alt ? cy : y1) + 1); if (alt) y1 = 2 * cy - y2; } else { x1 = Math.min(p[0], (alt ? cx : x2) - 1); if (alt) x2 = 2 * cx - x1; }
     m.pts[ia] = [x1, y1]; m.pts[ia + 1] = [x2, y2]; if (TEXT_TYPES.has(m.type) && (k === 0 || k === 2)) m.fixedH = true; return;
   }
   if (h[0] === 's') {
@@ -378,6 +386,7 @@ function finishDraft(fromToolChange) {
     state.sketchDefaults[m.sz.shape] = deep(m.sz); store.set('sketchDefaults2', state.sketchDefaults);
     const nm = (state.sketchNext || '').trim(); if (nm) { m.name = nm; if (state.sketchAutoNum) { const used = sketchNamesUsed(doc); used.add(nm); state.sketchNext = nextName(nm, used); store.set('sketchNext', state.sketchNext); } }
   }
+  if (m.type === 'duct') finishDuctDraft(doc, m);
   addMarkup(m); noteRecentTool(m);
   state.sel.clear(); state.sel.add(m.id);
   if (!fromToolChange) toolDone();
@@ -450,7 +459,7 @@ function onKeyDown(e) {
   const doc = activeDoc();
   if (k === ' ') { if (!I.space) { I.space = true; V.el.classList.add('space'); } e.preventDefault(); return; }
   if (k === 'Control' || k === 'Meta') { ctrlChanged(true); return; }
-  if (k === 'Escape') { if (state.addLeaderFor) { endAddLeader(); return; } if (state.painter) { endPainter(); return; } if (state.alignPick) { cancelAlignPick(); return; } if (state.cutoutFor && state.tool === 'cutout') { state.cutoutFor = null; } if (state.draft) cancelDraft(); else if (state.countId) endCount(); else if (state.tool !== 'select') setTool('select'); else if (state.sel.size) { state.sel.clear(); refreshSelection(); } hideMenu(); closeMenus(); return; }
+  if (k === 'Escape') { if (state.placeSection) { endSectionPlace(); return; } if (state.addLeaderFor) { endAddLeader(); return; } if (state.painter) { endPainter(); return; } if (state.alignPick) { cancelAlignPick(); return; } if (state.cutoutFor && state.tool === 'cutout') { state.cutoutFor = null; } if (state.draft) cancelDraft(); else if (state.countId) endCount(); else if (state.tool !== 'select') setTool('select'); else if (state.sel.size) { state.sel.clear(); refreshSelection(); } hideMenu(); closeMenus(); return; }
   if (doc && k === 'Enter' && !mod && state.addLeaderFor) { e.preventDefault(); endAddLeader(); return; }
   if (doc && k === 'Enter' && !mod) { if (state.draft) { e.preventDefault(); finishDraft(); } else if (state.countId) endCount(); else { const ms = selected(); if (ms.length === 1 && TEXT_TYPES.has(ms[0].type)) { e.preventDefault(); editText(ms[0], false); } } return; }
   if (doc && (k === 'r' || k === 'R') && !mod && !e.altKey && state.tool === 'equip' && state.placeEquip) { e.preventDefault(); state.placeRot = (((state.placeRot || 0) + (e.shiftKey ? -90 : 90)) % 360 + 360) % 360; renderDraft(); return; }
@@ -491,12 +500,16 @@ function onContextMenu(e) {
     const m = getMarkup(id);
     if (TEXT_TYPES.has(m.type)) items.push(['Edit text', () => editText(m, false)]);
     if (m.type === 'callout') items.push(['Add leader', () => startAddLeader(m)]);
+    if (m.type === 'duct') items.push(['Best route', () => rerouteDuct(m, 'best')], ['Route: straight', () => rerouteDuct(m, 'straight')], ['Route: across, then down', () => rerouteDuct(m, 'across')], ['Route: down, then across', () => rerouteDuct(m, 'down')], ['Add grille here', () => { pushUndo(doc); placeGrilleAt(doc, m.page, clientToPage(e, m.page)); }], ['Section view…', () => startSectionPlace(m)], ['Flip airflow', () => applyToSelection((x) => { if (x.type === 'duct') x.duct = { ...ductD(x), rev: !(x.duct && x.duct.rev) }; })], ['-']);
+    if (m.type === 'grille') items.push(['Section view…', () => startSectionPlace(m)], ['-']);
+    if (m.type === 'sketch') { const sel = selected(doc).filter((x) => x.type === 'sketch'); const nm = String(sketchName(doc, m) || '').trim().toUpperCase(); const twin = nm && doc.markups.some((x) => x !== m && x.type === 'sketch' && x.page === m.page && String(sketchName(doc, x) || '').trim().toUpperCase() === nm);
+      if (sel.length === 2) items.push(['Connect these two risers with a duct', () => connectSelectedRisers()]); if (twin) items.push([`Connect the ${sketchName(doc, m)} risers with ducts`, () => connectSameNameRisers(m.page)]); }
     if (m.type === 'textedit') items.push(['Edit text', () => editPdfText(m)]);
     if (m.type === 'sketch') {
       items.push(['Place on other pages\u2026', () => placeOnPagesDialog(m)]);
       items.push(sketchTrans(doc, m) ? ['Remove transition', () => sketchAction('rmtrans', m)] : ['Add transition here\u2026', () => sketchAction('addtrans', m)]);
       if (m.link) items.push(['Unlink from set', () => sketchAction('unlink', m)], ['Delete on all pages', () => sketchAction('delall', m), 'danger']);
-      if (m.labelOff) items.push(['Reset label position', () => resetLabel(m)]);
+      if (m.labelOff) items.push(['Reset label position', () => resetLabel(m)], [m.style.labelArrow === false ? 'Show label arrow' : 'Hide label arrow', () => applyToSelection((x) => { x.style = { ...x.style, labelArrow: m.style.labelArrow === false }; }, { linked: true })]);
       items.push(['-']);
     }
     if (CURVE_TYPES.has(m.type) && i === m.page && state.sel.size === 1 && !isLocked(m, doc)) {

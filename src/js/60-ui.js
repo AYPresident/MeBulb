@@ -26,8 +26,8 @@ async function confirmDialog(title, msg, okLabel = 'Confirm', danger) { const r 
 // ----- tabs -----------------------------------------------------------------------
 function renderTabs() {
   const el = $('#tabs');
-  el.innerHTML = state.docs.map((d) => `<div class="tab${d.id === state.activeId ? ' on' : ''}" data-id="${d.id}" title="${esc(d.name)}" role="tab" tabindex="0"><span class="tab-name">${esc(d.name)}</span>${d.sample ? '<span class="badge">Sample</span>' : ''}${d.dirty ? '<span class="dot" title="Unsaved changes"></span>' : ''}<button class="tab-x" data-close="${d.id}" aria-label="Close ${esc(d.name)}">${icon('close')}</button></div>`).join('');
-  document.title = activeDoc() ? `${activeDoc().name} · MeBulb` : 'MeBulb'; const dt = $('#doc-title'); if (dt) dt.textContent = activeDoc() ? activeDoc().name : '';
+  el.innerHTML = state.docs.map((d) => `<div class="tab${d.id === state.activeId ? ' on' : ''}" data-id="${d.id}" title="${esc(d.name)}" role="tab" tabindex="0"><span class="tab-name">${esc(d.name)}</span>${d.sample ? '<span class="badge">Sample</span>' : ''}${d.readOnly ? `<span class="badge ro" title="${esc(d.readOnlyWhy || 'Read only')}">Read only</span>` : ''}${d.dirty ? '<span class="dot" title="Unsaved changes"></span>' : ''}<button class="tab-x" data-close="${d.id}" aria-label="Close ${esc(d.name)}">${icon('close')}</button></div>`).join('');
+  document.title = activeDoc() ? `${activeDoc().name}${activeDoc().readOnly ? ' (read only)' : ''} · MeBulb` : 'MeBulb'; const dt = $('#doc-title'); if (dt) dt.textContent = activeDoc() ? activeDoc().name : '';
 }
 async function switchDoc(id) {
   const cur = activeDoc(); if (cur && cur.id === id) return;
@@ -75,12 +75,13 @@ function updateDraftBar() {
   else if (d && d.mode === 'multi' && d.rect) html = `<span><b>${esc(TOOLS[d.m.type].short || TOOLS[d.m.type].label)}</b> · rectangle: click the opposite corner, or drag (Shift for a square)</span><button class="btn sm" data-a="cancel">Cancel</button>`;
   else if (d && d.mode === 'multi' && !d.boxDrag) { const t = TOOLS[d.m.type]; const n = d.m.pts.length - 1; html = `<span><b>${esc(t.short || t.label)}</b> · ${n} point${n === 1 ? '' : 's'} · click to add${CURVE_TYPES.has(d.m.type) ? ' (Ctrl+click curves the side, drag to shape it)' : ''}, double-click or Enter to finish</span><button class="btn sm" data-a="undo-pt">Remove point</button><button class="btn sm" data-a="cancel">Cancel</button><button class="btn sm primary" data-a="finish">Finish</button>`; }
   else if (d && d.mode === 'click') html = `<span><b>${esc(TOOLS[d.m.type].short || TOOLS[d.m.type].label)}</b> · click the end point (Shift snaps to 45°)</span><button class="btn sm" data-a="cancel">Cancel</button>`;
+  else if (state.placeSection) html = '<span><b>Section view</b> · click where the detail goes · Esc to cancel</span>';
   else if (state.addLeaderFor) html = '<span><b>Add leaders</b> · click each thing the callout should point to · Enter or Esc when done</span><button class="btn sm primary" data-a="end-leaders">Done</button>';
   else if (state.countId) { const m = getMarkup(state.countId); html = `<span><b>Counting</b> · ${m ? m.pts.length : 0} · click each item, Enter to finish</span><button class="btn sm primary" data-a="end-count">Finish</button>`; }
   else if (state.tool === 'calibrate') html = '<span><b>Calibrate</b> · click both ends of a known dimension</span>';
   bar.innerHTML = html; bar.hidden = !html;
 }
-function refreshPanels() { renderProps(); renderList(); if (panelShown('layers')) renderLayers(); if (panelShown('equipment')) renderEquipPanelSoon(); updateSelDims(); if (panelShown('measure')) renderMeasurePanel(); renderLinkedPanelSoon(); if (panelShown('session')) renderSessionPanel(); renderToolbarsState(); }
+function refreshPanels() { renderProps(); renderList(); if (panelShown('layers')) renderLayers(); if (panelShown('equipment')) renderEquipPanelSoon(); if (panelShown('ductwork')) renderDuctPanelSoon(); updateSelDims(); if (panelShown('measure')) renderMeasurePanel(); renderLinkedPanelSoon(); if (panelShown('session')) renderSessionPanel(); renderToolbarsState(); }
 function refreshAll() { renderTabs(); renderAllMarks(); refreshPanels(); renderPanels(); updateUndoUI(); renderNavbar(); updatePageUI(); updateZoomUI(); renderToggles(); }
 
 // ----- icons (24px stroke icons drawn for this app) -----------------------------------------
@@ -199,6 +200,9 @@ const ICONS = {
   chevr: '<path d="M9 5l7 7-7 7"/>',
   more: '<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
   chevd: '<path d="M5 9l7 7 7-7"/>',
+  duct: '<path class="s-blue" d="M3 9h9.5V3.5M3 15h15.5V3.5"/><path d="M3 9v6M12.5 3.5h6" stroke-width="1.1"/><path class="s-blue" d="M5.5 12h4" stroke-width="1"/><path class="f-blue" d="M10.5 12l-1.6-1v2z"/>',
+  grille: '<rect x="4" y="4" width="16" height="16" rx="1"/><path class="s-blue" d="M4 4l16 16M20 4L4 20"/><rect x="9" y="9" width="6" height="6" stroke-dasharray="1.6 1.2" stroke-width="1"/>',
+  section: '<path d="M4 4v16M20 4v16" stroke-dasharray="4 1.6 1 1.6" stroke-width="1.1"/><path class="s-blue" d="M4 4h4M20 4h-4"/><path class="f-blue" d="M8 4l-1.6-1.3v2.6zM16 4l1.6-1.3v2.6z"/><rect x="8" y="9" width="8" height="6" rx=".5"/>',
   equip: '<rect x="3.5" y="6" width="17" height="12" rx="1"/><circle class="s-blue" cx="9" cy="12" r="3.2"/><path class="s-blue" d="M9 9.6v4.8M6.6 12h4.8"/><path class="s-mute" d="M15 9h3M15 12h3M15 15h3" stroke-dasharray="1.5 1.5"/>',
   import: '<path d="M12 3v11M7.5 9.5L12 14l4.5-4.5"/><path class="s-blue" d="M4 15v4.5h16V15"/>',
   export: '<path d="M12 14V3M7.5 7.5L12 3l4.5 4.5"/><path class="s-blue" d="M4 15v4.5h16V15"/>',

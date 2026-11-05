@@ -76,8 +76,9 @@ function renderLinkedPanel() {
     const sizes = [...new Set(inst.flatMap((x) => [sizeText(sketchSize(doc, x), sc0)].concat(sketchTrans(doc, x) ? [sizeText(sketchTrans(doc, x), sc0)] : [])))];
     const col = first ? first.style.stroke : '#1f5fd1'; const shape = first && sketchSize(doc, first).shape === 'circle' ? 'sketchcircle' : 'sketchrect'; const open = state.linkOpen === L.id;
     return `<div class="lk-card${open ? ' on' : ''}" data-link="${L.id}"><div class="lk-head" data-lk="toggle"><span class="lk-swatch" style="--c:${esc(col)}">${icon(shape)}</span><div class="lk-main"><div class="lk-name">${esc(L.name)}</div><div class="lk-sub">${esc(sizes.join(' → '))} · ${inst.length} page${inst.length > 1 ? 's' : ''}</div></div></div>
-      ${open ? `<div class="lk-grid">${inst.map((x) => { const lab = doc.pages[x.page].label; const sc = scaleForMarkup(doc, x); return `<button class="lk-view${state.sel.has(x.id) ? ' cur' : ''}" data-lk="goto" data-id="${x.id}" title="Go to page ${x.page + 1}"><div class="lk-crop" data-crop="${x.id}"></div><div class="lk-cap"><b>p.${x.page + 1}${lab && lab !== String(x.page + 1) ? ' ' + esc(lab) : ''}</b><span${sketchTrans(doc, x) ? ' class="t"' : ''}>${esc(sketchTrans(doc, x) ? sizeText(sketchSize(doc, x), sc) + '→' + sizeText(sketchTrans(doc, x), sc) : sizeText(sketchSize(doc, x), sc))}</span></div></button>`; }).join('')}</div>
-      <div class="btn-row pad" style="padding-top:0"><button class="btn sm" data-lk="place" data-id="${first ? first.id : ''}">Place on more pages</button><button class="btn sm" data-lk="selall">Select on this page</button></div>` : ''}</div>`;
+      ${open ? `<div class="lk-grid">${inst.map((x) => { const lab = doc.pages[x.page].label; const sc = scaleForMarkup(doc, x); return `<button class="lk-view${state.sel.has(x.id) ? ' cur' : ''}${state.lkPick && state.lkPick.has(x.id) ? ' pick' : ''}" data-lk="goto" data-id="${x.id}" title="Go to page ${x.page + 1} · Ctrl+click to pick several pages" aria-pressed="${!!(state.lkPick && state.lkPick.has(x.id))}"><div class="lk-crop" data-crop="${x.id}"></div><div class="lk-cap"><b>p.${x.page + 1}${lab && lab !== String(x.page + 1) ? ' ' + esc(lab) : ''}</b><span${sketchTrans(doc, x) ? ' class="t"' : ''}>${esc(sketchTrans(doc, x) ? sizeText(sketchSize(doc, x), sc) + '→' + sizeText(sketchTrans(doc, x), sc) : sizeText(sketchSize(doc, x), sc))}</span></div></button>`; }).join('')}</div>
+      ${(() => { const n = inst.filter((x) => state.lkPick && state.lkPick.has(x.id)).length; return n ? `<div class="lk-pickbar pad"><b>${n} page${n === 1 ? '' : 's'} picked</b><button class="btn sm" data-lk="unlinkpick">Unlink</button><button class="btn sm danger" data-lk="rmpick">Remove from ${n === 1 ? 'page' : 'these pages'}</button><button class="btn sm" data-lk="clearpick">Clear</button></div>` : '<p class="muted sm pad" style="margin:0;padding-top:0">Ctrl+click pages to pick several, then unlink them or take the sketch off them.</p>'; })()}
+      <div class="btn-row pad" style="padding-top:0"><button class="btn sm" data-lk="place" data-id="${first ? first.id : ''}">Place on more pages</button><button class="btn sm" data-lk="choose" data-id="${first ? first.id : ''}">Choose pages…</button><button class="btn sm" data-lk="selall">Select on this page</button></div>` : ''}</div>`;
   }).join('');
   drawCrops(doc);
 }
@@ -99,12 +100,40 @@ async function drawCrops(doc) {
     slot.innerHTML = `<img src="${img}" alt="" style="position:absolute;inset:0;width:100%;height:100%"><svg viewBox="${num(box.x, 2)} ${num(box.y, 2)} ${num(box.w, 2)} ${num(box.h, 2)}" xmlns="http://www.w3.org/2000/svg">${markupSvg(m, doc, { noHit: true })}</svg>`;
   }
 }
+// take a linked sketch off some pages, or make those pages independent of the set
+async function linkedPagesAction(doc, ms, what) {
+  if (!ms.length) return; const L = linkOf(doc, ms[0]); const all = L ? doc.markups.filter((x) => x.link === L.id) : ms;
+  if (what === 'remove' && ms.length >= all.length && !(await confirmDialog('Remove from every page?', `That takes ${esc(L ? L.name : 'the sketch')} off all ${all.length} pages.`, 'Remove', true))) return;
+  pushUndo(doc); const ids = new Set(ms.map((m) => m.id));
+  if (what === 'remove') { doc.markups = doc.markups.filter((x) => !ids.has(x.id)); ids.forEach((id) => state.sel.delete(id)); }
+  else ms.forEach((m) => unlinkInstance(doc, m));
+  cleanupLinks(doc); ms.forEach(touch); renderAllMarks(doc); refreshPanels(); renderLinkedPanel(); refreshSelection();
+  const pg = ms.map((m) => m.page + 1).sort((a, b) => a - b).join(', ');
+  toast(what === 'remove' ? `${L ? L.name : 'Sketch'} removed from page${ms.length === 1 ? '' : 's'} ${pg}` : `Page${ms.length === 1 ? '' : 's'} ${pg} unlinked: ${ms.length === 1 ? 'it is now a separate sketch' : 'they are now separate sketches'}`);
+}
+async function chooseLinkedPagesDialog(m) {
+  const doc = activeDoc(); const L = linkOf(doc, m); if (!L) { toast('This sketch is only on one page'); return; }
+  const inst = doc.markups.filter((x) => x.link === L.id).sort((a, b) => a.page - b.page);
+  const rows = inst.map((x) => { const lab = doc.pages[x.page] && doc.pages[x.page].label; return `<label class="check"><input type="checkbox" name="i_${x.id}"> Page ${x.page + 1}${lab && lab !== String(x.page + 1) ? ` · ${esc(lab)}` : ''}</label>`; }).join('');
+  const r = await openDialog({ title: `${esc(L.name)}: choose pages`, body: `<p>Tick the pages to change. Useful when a floor is split over two sheets and the riser belongs on only one of them.</p><div class="page-picks">${rows}</div>${field('Do this', '<select name="what"><option value="remove">Take the sketch off the ticked pages</option><option value="unlink">Unlink the ticked pages (keep them as separate sketches)</option></select>')}`, buttons: [{ label: 'Cancel', value: false }, { label: 'Apply', value: true, primary: true }] });
+  if (!r || !r.value) return; const ms = inst.filter((x) => r.form['i_' + x.id]); if (!ms.length) { toast('No pages ticked'); return; }
+  linkedPagesAction(doc, ms, r.form.what === 'unlink' ? 'unlink' : 'remove');
+}
 function bindLinkedPanel() {
   $('#linked-panel').addEventListener('click', (e) => {
     const b = e.target.closest('[data-lk]'); if (!b) return; const doc = activeDoc(); const a = b.dataset.lk; const card = b.closest('.lk-card');
     if (a.startsWith('tool-')) { setTool(a.slice(5)); return; }
     if (a === 'toggle') { state.linkOpen = state.linkOpen === card.dataset.link ? null : card.dataset.link; renderLinkedPanel(); return; }
-    if (a === 'goto') { const m = getMarkup(b.dataset.id); if (!m) return; setTool('select'); state.sel.clear(); state.sel.add(m.id); goToPage(m.page, m.pts[0]); refreshSelection(); renderLinkedPanel(); return; }
+    if (a === 'goto' && (e.ctrlKey || e.metaKey || e.shiftKey)) { // pick several pages
+      const pick = state.lkPick = state.lkPick || new Set(); const id = b.dataset.id;
+      if (e.shiftKey && state.lkPickLast && card) { const ids = [...card.querySelectorAll('[data-lk="goto"]')].map((x) => x.dataset.id); const i0 = ids.indexOf(state.lkPickLast), i1 = ids.indexOf(id); if (i0 >= 0 && i1 >= 0) ids.slice(Math.min(i0, i1), Math.max(i0, i1) + 1).forEach((x) => pick.add(x)); }
+      else if (pick.has(id)) pick.delete(id); else pick.add(id);
+      state.lkPickLast = id; renderLinkedPanel(); return;
+    }
+    if (a === 'clearpick') { state.lkPick = null; renderLinkedPanel(); return; }
+    if (a === 'unlinkpick' || a === 'rmpick') { const ms = [...(state.lkPick || [])].map((id) => getMarkup(id)).filter((m) => m && m.link === card.dataset.link); state.lkPick = null; linkedPagesAction(doc, ms, a === 'rmpick' ? 'remove' : 'unlink'); return; }
+    if (a === 'choose') { const m = getMarkup(b.dataset.id); if (m) chooseLinkedPagesDialog(m); return; }
+    if (a === 'goto') { state.lkPick = null; const m = getMarkup(b.dataset.id); if (!m) return; setTool('select'); state.sel.clear(); state.sel.add(m.id); goToPage(m.page, m.pts[0]); refreshSelection(); renderLinkedPanel(); return; }
     if (a === 'place') { const m = getMarkup(b.dataset.id); if (m) placeOnPagesDialog(m); return; }
     if (a === 'selall') { const p = currentPage(); const ids = doc.markups.filter((x) => x.link === card.dataset.link && x.page === p).map((x) => x.id); if (!ids.length) { toast('This set is not on the current page'); return; } setTool('select'); state.sel = new Set(ids); refreshSelection(); }
   });

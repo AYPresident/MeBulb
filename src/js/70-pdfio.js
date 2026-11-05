@@ -151,16 +151,16 @@ class Ops {
       this.s.push('q'); if (op < 1 || fo < 1 || p.blend) this.s.push(`/${this.gsName(op, op * fo, p.blend)} gs`);
       if (hasFill) this.s.push(`${this.rgb(p.fill)} rg`);
       if (hasStroke) {
-        this.s.push(`${this.rgb(p.stroke)} RG ${this.n(p.width)} w`); const cap = p.cap || (p.dash === 'dotted' ? 'round' : 'butt'); this.s.push(`${cap === 'round' ? 1 : 0} J ${p.join === 'miter' ? 0 : 1} j`);
-        const da = dashArray(p.dash, p.width); this.s.push(da ? `[${da}] 0 d` : '[] 0 d');
+        this.s.push(`${this.rgb(p.stroke)} RG ${this.n(p.width)} w`); const cap = p.cap || 'butt'; this.s.push(`${cap === 'round' ? 1 : 0} J ${p.join === 'miter' ? 0 : 1} j`);
+        const da = dashArray(p.dash, p.width, p.dashPat); this.s.push(da ? `[${da}] 0 d` : '[] 0 d');
       }
       this.path(p.d); this.s.push(hasFill && hasStroke ? (p.evenodd ? 'B*' : 'B') : hasFill ? (p.evenodd ? 'f*' : 'f') : 'S'); this.s.push('Q'); return;
     }
     if (p.k === 'text') {
       const F = this.font(p); if ([...p.str].some((ch) => /[\u00b2\u00b3\u2192]/.test(ch) && !F.has(ch))) { this.textSpecial(p, op, F); return; }
-      const w = textWidth(p.str, p.size, p.bold, p.font, p.italic); const dx = p.anchor === 'middle' ? -w / 2 : p.anchor === 'end' ? -w : 0; const a = p.rot || 0; const cos = Math.cos(a), sin = Math.sin(a);
+      const w = textW(p); const dx = p.anchor === 'middle' ? -w / 2 : p.anchor === 'end' ? -w : 0; const a = p.rot || 0; const cos = Math.cos(a), sin = Math.sin(a);
       this.s.push('q'); if (op < 1) this.s.push(`/${this.gsName(op, op)} gs`);
-      this.s.push(`BT /${F.res} 1 Tf ${this.rgb(p.color)} rg ${this.bold(F, p.size, p.color)}${this.tm(p.size, cos, sin, p.x + dx * cos, p.y + dx * sin, F.synth)} Tm ${F.hex(p.str)} Tj ET Q`); return;
+      this.s.push(`BT /${F.res} 1 Tf ${this.rgb(p.color)} rg ${this.bold(F, p.size, p.color)}${p.ls ? `${this.n(p.ls / p.size)} Tc ` : ''}${this.tm(p.size, cos, sin, p.x + dx * cos, p.y + dx * sin, F.synth)} Tm ${F.hex(p.str)} Tj ET Q`); return;
     }
     if (p.k === 'asset') { // a stamp's vector artwork: its PDF page as a form XObject
       const A = this.doc && this.doc.assets && this.doc.assets[p.asset]; if (!A) return;
@@ -174,18 +174,18 @@ class Ops {
   }
   // ², ³ and → drawn without relying on the viewer's font: small raised digits and a vector arrow
   textSpecial(p, op, F) {
-    const w = textWidth(p.str, p.size, p.bold, p.font, p.italic); const dx = p.anchor === 'middle' ? -w / 2 : p.anchor === 'end' ? -w : 0; const a = p.rot || 0; const cos = Math.cos(a), sin = Math.sin(a);
+    const w = textW(p); const ls = p.ls || 0; const dx = p.anchor === 'middle' ? -w / 2 : p.anchor === 'end' ? -w : 0; const a = p.rot || 0; const cos = Math.cos(a), sin = Math.sin(a);
     const at = (lx, ly) => [p.x + lx * cos - ly * sin, p.y + lx * sin + ly * cos];
-    const run = (str, lx, ly, size) => { const [X, Y] = at(lx, ly); this.s.push(`BT /${F.res} 1 Tf ${this.rgb(p.color)} rg ${this.bold(F, size, p.color)}${this.tm(size, cos, sin, X, Y, F.synth)} Tm ${F.hex(str)} Tj ET`); };
+    const run = (str, lx, ly, size) => { const [X, Y] = at(lx, ly); this.s.push(`BT /${F.res} 1 Tf ${this.rgb(p.color)} rg ${this.bold(F, size, p.color)}${ls ? `${this.n(ls / size)} Tc ` : ''}${this.tm(size, cos, sin, X, Y, F.synth)} Tm ${F.hex(str)} Tj ET`); };
     this.s.push('q'); if (op < 1) this.s.push(`/${this.gsName(op, op)} gs`);
     let lx = dx; let buf = '';
-    const flush = () => { if (buf) { run(buf, lx, 0, p.size); lx += textWidth(buf, p.size, p.bold, p.font, p.italic); buf = ''; } };
+    const flush = () => { if (buf) { run(buf, lx, 0, p.size); lx += textWidth(buf, p.size, p.bold, p.font, p.italic) + ls * [...buf].length; buf = ''; } };
     for (const ch of p.str) {
       if (F.has(ch)) buf += ch;
-      else if (ch === '\u00b2' || ch === '\u00b3') { flush(); run(ch === '\u00b2' ? '2' : '3', lx, -p.size * 0.36, p.size * 0.62); lx += textWidth(ch, p.size, p.bold, p.font, p.italic); }
+      else if (ch === '\u00b2' || ch === '\u00b3') { flush(); run(ch === '\u00b2' ? '2' : '3', lx, -p.size * 0.36, p.size * 0.62); lx += textWidth(ch, p.size, p.bold, p.font, p.italic) + ls; }
       else if (ch === '\u2192') {
         flush(); const aw = textWidth(ch, p.size, p.bold, p.font, p.italic); const yy = -p.size * 0.32; const h = p.size * 0.16; const a0 = at(lx + aw * 0.12, yy), a1 = at(lx + aw * 0.72, yy), tip = at(lx + aw * 0.9, yy), l = at(lx + aw * 0.6, yy - h), r = at(lx + aw * 0.6, yy + h);
-        this.s.push(`${this.rgb(p.color)} RG ${this.rgb(p.color)} rg ${this.n(Math.max(0.3, p.size * 0.07))} w 0 J ${this.n(a0[0])} ${this.n(a0[1])} m ${this.n(a1[0])} ${this.n(a1[1])} l S ${this.n(tip[0])} ${this.n(tip[1])} m ${this.n(l[0])} ${this.n(l[1])} l ${this.n(r[0])} ${this.n(r[1])} l h f`); lx += aw;
+        this.s.push(`${this.rgb(p.color)} RG ${this.rgb(p.color)} rg ${this.n(Math.max(0.3, p.size * 0.07))} w 0 J ${this.n(a0[0])} ${this.n(a0[1])} m ${this.n(a1[0])} ${this.n(a1[1])} l S ${this.n(tip[0])} ${this.n(tip[1])} m ${this.n(l[0])} ${this.n(l[1])} l ${this.n(r[0])} ${this.n(r[1])} l h f`); lx += aw + ls;
       } else buf += ch;
     }
     flush(); this.s.push('Q');
@@ -198,7 +198,7 @@ function primsBBox(prims) {
   const pts = []; let pad = 0;
   for (const p of prims) {
     if (p.k === 'path') { p.d.forEach((s) => { for (let i = 1; i < s.length; i += 2) pts.push([s[i], s[i + 1]]); }); pad = Math.max(pad, (p.width || 0) / 2 + 1); }
-    else if (p.k === 'text') { const w = textWidth(p.str, p.size, p.bold, p.font, p.italic); const dx = p.anchor === 'middle' ? -w / 2 : p.anchor === 'end' ? -w : 0; const a = p.rot || 0; const c = Math.cos(a), s = Math.sin(a); [[dx, -p.size], [dx + w, -p.size], [dx + w, p.size * 0.3], [dx, p.size * 0.3]].forEach(([lx, ly]) => pts.push([p.x + lx * c - ly * s, p.y + lx * s + ly * c])); }
+    else if (p.k === 'text') { const w = textW(p); const dx = p.anchor === 'middle' ? -w / 2 : p.anchor === 'end' ? -w : 0; const a = p.rot || 0; const c = Math.cos(a), s = Math.sin(a); [[dx, -p.size], [dx + w, -p.size], [dx + w, p.size * 0.3], [dx, p.size * 0.3]].forEach(([lx, ly]) => pts.push([p.x + lx * c - ly * s, p.y + lx * s + ly * c])); }
     else if (p.k === 'image' || p.k === 'asset') pts.push([p.x, p.y], [p.x + p.w, p.y + p.h]);
   }
   if (!pts.length) return null; const b = G.bbox(pts); return { x: b.x - pad, y: b.y - pad, x2: b.x2 + pad, y2: b.y2 + pad };
@@ -231,7 +231,7 @@ async function resourcesFor(pdfDoc, ops, fonts, imgCache) {
   for (const [id, name] of ops.assets) { const key = 'asset:' + id; if (!imgCache.has(key)) { const [pg] = await pdfDoc.embedPdf(b64ToBytes(ops.doc.assets[id].pdf), [0]); imgCache.set(key, pg); } res.XObject[name] = imgCache.get(key).ref; }
   return ctx.obj(res);
 }
-const ANNOT_SUBTYPE = { equip: 'Square', rect: 'Square', ellipse: 'Circle', radius: 'Circle', line: 'Line', arrow: 'Line', length: 'Line', polyline: 'PolyLine', polylength: 'PolyLine', angle: 'PolyLine', polygon: 'Polygon', cloud: 'Polygon', area: 'Polygon', perimeter: 'Polygon', volume: 'Polygon', pen: 'Ink', highlight: 'Ink', text: 'FreeText', callout: 'FreeText', note: 'Text', stamp: 'Stamp', image: 'Stamp', count: 'Square', texthl: 'Highlight', strikeout: 'StrikeOut', sketch: 'Square', refpt: 'Stamp', gridline: 'Line' };
+const ANNOT_SUBTYPE = { equip: 'Square', rect: 'Square', ellipse: 'Circle', radius: 'Circle', line: 'Line', arrow: 'Line', length: 'Line', polyline: 'PolyLine', polylength: 'PolyLine', angle: 'PolyLine', polygon: 'Polygon', cloud: 'Polygon', area: 'Polygon', perimeter: 'Polygon', volume: 'Polygon', pen: 'Ink', highlight: 'Ink', text: 'FreeText', callout: 'FreeText', note: 'Text', stamp: 'Stamp', image: 'Stamp', count: 'Square', texthl: 'Highlight', strikeout: 'StrikeOut', sketch: 'Square', refpt: 'Stamp', gridline: 'Line', duct: 'Polygon', grille: 'Square', section: 'Stamp' };
 
 // a callout with extra leaders: the callout itself (first leader) plus a grouped polyline per extra leader
 function calloutParts(m, doc) {
@@ -247,7 +247,7 @@ function xmlAsciiHex(x) { const a = x.replace(/[^\x20-\x7e]/gu, (c) => `&#${c.co
 async function annotsForPage(pdfDoc, fonts, imgCache, doc, i, pageRef, ms) {
   const ctx = pdfDoc.context; const pg = doc.pages[i]; const M = invertT(pg.T); const cm = `${M.map((v) => num(v, 6)).join(' ')} cm`; const refs = []; const groups = new Map();
   // sketches go out as several plain markups (see sketchParts)
-  for (const m of ms.flatMap((x) => (x.type === 'sketch' ? sketchParts(x, doc) : x.type === 'equip' ? equipParts(x, doc) : x.type === 'callout' && x.leaders && x.leaders.length ? calloutParts(x, doc) : [x]))) {
+  for (const m of ms.flatMap((x) => (x.type === 'sketch' ? sketchParts(x, doc) : x.type === 'equip' ? equipParts(x, doc) : x.type === 'duct' ? ductParts(x, doc) : x.type === 'grille' ? grilleParts(x, doc) : x.type === 'callout' && x.leaders && x.leaders.length ? calloutParts(x, doc) : [x]))) {
     const s = m.style; const base = { Type: 'Annot', F: 4, P: pageRef, C: (hexToRgb(s.stroke) || [0, 0, 0]).map((v) => +(v / 255).toFixed(4)), CA: s.opacity == null ? 1 : s.opacity, T: PDFHexString.fromText(m.author || ''), Subj: PDFHexString.fromText(m.subject || ''), M: PDFString.of(pdfDate(m.modified)), CreationDate: PDFString.of(pdfDate(m.created)) };
     if (m.type === 'count' && m.pts.length) { refs.push(...(await countAnnots(pdfDoc, fonts, imgCache, doc, i, pageRef, m, base))); continue; }
     const prims = m._prims || dl(m, doc); const vb = primsBBox(prims); if (!vb) continue;
@@ -275,10 +275,11 @@ async function annotsForPage(pdfDoc, fonts, imgCache, doc, i, pageRef, ms) {
       const rgb3 = (c) => (hexToRgb(c) || [0, 0, 0]).map((v) => num(v / 255, 3)).join(' '); const z = s.fontSize || 12;
       const pad = s.pad != null ? s.pad : Math.max(3, z * 0.4); const margin = Math.max(0, pad - 1 - (s.width || 0) / 2);
       A.DA = PDFString.of(`${rgb3(s.stroke && s.stroke !== 'none' ? s.stroke : s.fontColor || '#000000')} rg /${FONT_FAMILIES[famOf(s.font)].da} ${num(z, 2)} Tf`);
-      A.RC = xmlAsciiHex(rtXhtml(m)); A.DS = PDFString.of(`font: ${s.bold ? 'bold ' : ''}${s.italic ? 'italic ' : ''}${cssFontName(s.font)} ${num(z, 2)}pt; text-align:${s.align || 'left'};${s.valign ? ` text-valign:${s.valign};` : ''} margin:${num(margin, 3)}pt; line-height:${num(z * (s.lineH || 1.2), 3)}pt; color:${cssColor(s.fontColor || s.stroke)}`);
+      A.RC = xmlAsciiHex(rtXhtml(m)); A.DS = PDFString.of(`font: ${s.bold ? 'bold ' : ''}${s.italic ? 'italic ' : ''}${cssFontName(s.font)} ${num(z, 2)}pt; text-align:${s.align || 'left'};${s.valign ? ` text-valign:${s.valign};` : ''} margin:${num(margin, 3)}pt; line-height:${num(z * (s.lineH || 1.2), 3)}pt;${s.letterSp ? ` letter-spacing:${num(s.letterSp, 3)}pt;` : ''} color:${cssColor(s.fontColor || s.stroke)}`);
     }
     if (sub === 'Text') A.Name = 'Comment';
     if (m.type === 'refpt') A.Name = 'ReferencePoint';
+    else if (m.type === 'section') A.Name = 'SectionView';
     else if (sub === 'Stamp') A.Name = m.type === 'image' ? 'Image' : (m.text || 'Approved').replace(/[^A-Za-z0-9]+/g, '') || 'Approved';
     revuDecorate(A, m, doc, ctx, M, info);
     // markups that came from another app keep their object number, so replies and links to them survive
@@ -337,8 +338,13 @@ class ConcatSource {
 function baseSource(doc) { const b = doc.base; return b.appends.length ? new ConcatSource([b.src, ...b.appends.map((a) => new MemSource(a))]) : b.src; }
 
 // Save. Normal saves append an incremental update (fast even for a 400 MB drawing).
-async function saveDoc(mode = 'save') {
-  const doc = activeDoc(); if (!doc) return; if (state.editing) commitEdit(); cancelDraft();
+async function saveDoc(mode = 'save', opts = {}) {
+  const doc = opts.doc || activeDoc(); if (!doc) return; if (doc === activeDoc()) { if (state.editing) commitEdit(); cancelDraft(); }
+  if (HOST() && mode === 'save' && doc.path) {
+    // in a live session only the person holding the file writes it (Egnyte has it locked for the others)
+    if (doc.sess && !opts.quiet && !sessHolder(doc)) { await sessRequestSave(doc); return; }
+    if (doc.readOnly) { await recheckReadOnly(doc); if (doc.readOnly) { if (!(await confirmDialog('This PDF is read only', `<b>${esc(doc.name)}</b> is in use elsewhere (Egnyte locks it while someone has it open), so it cannot be saved here right now.</p><p>Save your markups as a copy instead? You can also wait until they close it.`, 'Save a copy…'))) return; mode = 'saveas'; } }
+  }
   const busy = $('#busy'); busy.hidden = false; busy.textContent = mode === 'flatten' ? 'Flattening markups…' : 'Saving…'; await raf();
   const H = HOST(); const t0 = performance.now(); if (doc.sess) { doc.sess.saving = true; sessTick(doc, true); }
   try {
@@ -364,7 +370,7 @@ async function saveDoc(mode = 'save') {
           } else { busy.hidden = true; if (!(await resolveDiskChange(doc))) return; busy.hidden = false; doc.stat = await H.writeFile(target, parts); ok = true; }
         }
       } else { doc.stat = await H.writeFile(target, parts); ok = true; }
-      if (ok && mode !== 'flatten') { if (target !== doc.path) { doc.path = target; doc.name = target.split(/[\\/]/).pop(); H.addRecent && H.addRecent(target); } }
+      if (ok && mode !== 'flatten') { if (target !== doc.path) { if (H.release && doc.path) H.release(doc.path).catch(() => {}); doc.path = target; doc.name = target.split(/[\\/]/).pop(); doc.readOnly = false; H.addRecent && H.addRecent(target); if (H.hold) H.hold(target).catch(() => {}); } }
     } else {
       const blob = new Blob(parts, { type: 'application/pdf' }); busy.hidden = true;
       ok = !!(await saveFile(name, blob, 'application/pdf', mode === 'save' ? doc.handle : null)); if (ok && ok.createWritable) doc.handle = ok;
@@ -377,7 +383,11 @@ async function saveDoc(mode = 'save') {
       doc.diskMatches = !!(H ? doc.path : doc.handle); doc.dirty = false; doc.savedAt = nowISO(); renderTabs(); sessionSaved(doc);
       const ms = Math.round(performance.now() - t0); setStatus(`Saved ${doc.name} in ${ms < 1000 ? ms + ' ms' : (ms / 1000).toFixed(1) + ' s'}${appendOnly ? ` (${fmtBytes(appendOnly.bytes.length)} added)` : ' (whole file rewritten)'}`);
     }
-  } catch (e) { console.error(e); toast(e.message || String(e), 'error'); } finally { busy.hidden = true; if (doc.sess) doc.sess.saving = false; }
+  } catch (e) {
+    console.error(e); const msg = String(e && e.message || e);
+    if (HOST() && mode === 'save' && /EPERM|EACCES|EBUSY|read-only|Is it open in another program/i.test(msg)) { markReadOnly(doc, 'Saving was refused: the PDF is in use elsewhere or read-only.'); busy.hidden = true; if (doc.sess) doc.sess.saving = false; if (await confirmDialog('Could not save', `<b>${esc(doc.name)}</b> could not be written: it is in use elsewhere or read-only.</p><p>Save your markups as a copy?`, 'Save a copy…')) setTimeout(() => saveDoc('saveas'), 0); return; }
+    toast(msg, 'error');
+  } finally { busy.hidden = true; if (doc.sess) doc.sess.saving = false; }
 }
 function fmtBytes(n) { return n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : (n / 1048576).toFixed(1) + ' MB'; }
 // someone else changed the file on disk since we opened it (Egnyte synced a newer copy)

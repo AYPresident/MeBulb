@@ -140,6 +140,7 @@ function pageAtClient(x, y) { const d = activeDoc(); if (!d || !d.pageEls) retur
 function renderMarks(doc, i) {
   if (!doc || !doc.pageEls || !doc.pageEls[i] || doc !== activeDoc()) return;
   const g = doc.pageEls[i].querySelector('g.marks');
+  doc.markups.forEach((x) => { if (x.type === 'grille' && x.on && x.page === i) { const pl = grillePlace(doc, x); if (pl.duct) x.pts = [pl.p]; } }); // grilles ride on their duct
   g.innerHTML = doc.markups.filter((m) => m.page === i && layerVisible(doc, m.layer)).map((m) => markupSvg(m, doc, { hideText: state.editing && state.editing.id === m.id })).join('');
   renderSel(doc, i); renderPageExtras(doc, i); renderFlatLayer(doc, i);
 }
@@ -162,6 +163,13 @@ function renderMarkupEl(m, doc = activeDoc(), peer) {
   g.replaceWith(tmp.firstChild);
   // a unit's clearance warnings depend on its neighbours: redraw the others on the page when one changes
   if (m.type === 'equip' && !peer) doc.markups.forEach((x) => { if (x !== m && x.type === 'equip' && x.page === m.page) renderMarkupEl(x, doc, true); });
+  // ductwork: grilles ride on their duct; section details and cut markers follow what they show
+  if (DUCT_TYPES.has(m.type) && !peer) {
+    if (m.type === 'duct') syncGrilles(doc, m).forEach((x) => renderMarkupEl(x, doc, true));
+    const rel = new Set(doc.markups.filter((x) => x.type === 'section' && (x.of === m.id || (m.type === 'duct' && doc.markups.some((gq) => gq.type === 'grille' && gq.on === m.id && gq.id === x.of)))).map((x) => x.id));
+    if (m.type === 'section' && m.of) rel.add(m.of); if (m.type === 'grille' && m.on) rel.add(m.on);
+    rel.forEach((id) => { const x = getMarkup(id, doc); if (x && x !== m) renderMarkupEl(x, doc, true); });
+  }
 }
 function handlesFor(m) {
   const H = [];
