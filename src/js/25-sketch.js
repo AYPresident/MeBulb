@@ -94,6 +94,8 @@ function sketchPrims(m, doc, opts = {}) {
     }
     out.push(...labelPrims(L.lines, L.x, L.y, 0, s).map((p) => ({ ...p, part: 'label', role: 'label' })));
   }
+  // riser sections cut through this riser (on any of its floors): the cut marker
+  if (doc && doc.markups && !opts.noCuts) doc.markups.forEach((x) => { if (x.type !== 'section') return; const of = x.of === m.id ? m : null; const sib = !of && m.link ? doc.markups.find((y) => y.id === x.of && y.link === m.link) : null; if (of || sib) out.push(...sectionCut(doc, m, x).map((p) => ({ ...p, role: 'cut' }))); });
   return out;
 }
 // How a sketch goes into the PDF for other apps (Revu): the shape as a plain Square, Circle or Polygon

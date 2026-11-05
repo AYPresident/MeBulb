@@ -9,8 +9,11 @@
 const DUCT_SERVICES = [['SA', 'Supply air'], ['RA', 'Return air'], ['EA', 'Exhaust air'], ['OA', 'Outside air'], ['TA', 'Transfer air'], ['KE', 'Kitchen exhaust']];
 const DUCT_ENDS = [['open', 'Open (connected)'], ['cap', 'Capped'], ['fp', 'Capped, future provision']];
 const DUCT_DEFAULT = { shape: 'rect', w: 600, h: 300, d: 300, ins: 25, insKind: 'external', service: 'SA', ends: ['open', 'open'] };
-const GRILLE_KINDS = [['supply', 'Supply diffuser', 'SG'], ['return', 'Return grille', 'RG'], ['exhaust', 'Exhaust grille', 'EG'], ['linear', 'Linear slot diffuser', 'LD'], ['transfer', 'Transfer grille', 'TG']];
-const GRILLE_DEFAULT = { kind: 'supply', shape: 'rect', w: 600, h: 600, d: 300, neckW: 250, neckH: 250, neckD: 250, fa: 70, faM2: null, q: null, plenumH: 300 };
+const GRILLE_KINDS = [['supply', 'Supply diffuser', 'SG'], ['return', 'Return grille', 'RG'], ['exhaust', 'Exhaust grille', 'EG'], ['linear', 'Linear slot diffuser', 'LD'], ['transfer', 'Transfer grille', 'TG'], ['spa', 'Stair pressurisation grille', 'SPG'], ['relief', 'Relief air grille', 'RLG'], ['oa', 'Outside air grille', 'OAG']];
+// how a grille sits: below the duct on a spigot and plenum (ceiling), flush in the duct's side or underside, or flush in a riser wall
+const GRILLE_MOUNTS = [['ceiling', 'Ceiling diffuser below the duct'], ['side', 'Flush in the side of the duct'], ['bottom', 'Flush in the underside of the duct'], ['riser', 'Flush in a riser wall']];
+const GRILLE_OUT = new Set(['supply', 'linear', 'spa', 'transfer']); // air comes out of these
+const GRILLE_DEFAULT = { kind: 'supply', shape: 'rect', w: 600, h: 600, d: 300, neckW: 250, neckH: 250, neckD: 250, fa: 70, faM2: null, q: null, plenumH: 300, mount: 'ceiling', z: 2100, slots: 2, slotW: 25 };
 const DW = { duct: null, grille: null };
 function ductDefaults() { if (!DW.duct) DW.duct = { ...DUCT_DEFAULT, ...store.get('ductDefaults', {}) }; return DW.duct; }
 function grilleDefaults() { if (!DW.grille) DW.grille = { ...GRILLE_DEFAULT, ...store.get('grilleDefaults', {}) }; return DW.grille; }
@@ -39,11 +42,23 @@ function offsetPath(pts, d) {
   return out;
 }
 const ring = (l, r) => l.concat(r.slice().reverse());
+// a duct leaving a riser through a face narrower than the duct starts with a transition (taper) from the
+// face size to the duct size: D.trans[0] at the start, D.trans[1] at the end, each { w, h, len } in mm
+function transLenMm(fw, W) { return Math.max(150, Math.round(Math.abs(W - fw) / 2 / Math.tan((15 * Math.PI) / 180) / 10) * 10); } // 15° a side
+function subPath(pts, s0, s1) { const out = [alongPts(pts, s0).p]; let acc = 0; for (let i = 1; i < pts.length; i++) { acc += G.dist(pts[i - 1], pts[i]); if (acc > s0 + 1e-6 && acc < s1 - 1e-6) out.push(pts[i].slice()); } out.push(alongPts(pts, s1).p); return dedupePts(out); }
 function ductGeom(doc, m) {
-  const D = ductD(m); const k = ductK(doc, m); const W = ductWmm(D) * k; const pts = dedupePts(m.pts);
-  const half = W / 2; const left = offsetPath(pts, half), right = offsetPath(pts, -half);
-  const ins = D.ins > 0 ? D.ins * k : 0; const ext = ins && D.insKind !== 'internal';
-  return { D, k, W, pts, left, right, outline: ring(left, right), ins, ext, insL: ext ? offsetPath(pts, half + ins) : null, insR: ext ? offsetPath(pts, -half - ins) : null, len: G.len(pts) };
+  const D = ductD(m); const k = ductK(doc, m); const W = ductWmm(D) * k; const pts = dedupePts(m.pts); const len = G.len(pts);
+  const half = W / 2; const ins = D.ins > 0 ? D.ins * k : 0; const ext = ins && D.insKind !== 'internal';
+  const T = (D.trans || []).map((t) => (t && t.w > 0 && D.shape !== 'round' && pts.length > 1 ? t : null)); const l0 = T[0] ? Math.min(T[0].len * k, len * 0.45) : 0, l1 = T[1] ? Math.min(T[1].len * k, len * 0.45) : 0;
+  const body = l0 || l1 ? subPath(pts, l0, len - l1) : pts; let left = offsetPath(body, half), right = offsetPath(body, -half);
+  let insL = ext ? offsetPath(body, half + ins) : null, insR = ext ? offsetPath(body, -half - ins) : null; const endW = [W, W]; const seams = [];
+  [0, 1].forEach((e) => {
+    if (!T[e]) return; const a = e ? pts[pts.length - 1] : pts[0], b = e ? pts[pts.length - 2] : pts[1]; const L = G.dist(a, b) || 1; const u = [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; const nn = e ? [u[1], -u[0]] : [-u[1], u[0]]; const fw = T[e].w * k; endW[e] = fw;
+    const fl = [a[0] + nn[0] * fw / 2, a[1] + nn[1] * fw / 2], fr = [a[0] - nn[0] * fw / 2, a[1] - nn[1] * fw / 2]; const sm = e ? body[body.length - 1] : body[0]; seams.push([[sm[0] + nn[0] * half, sm[1] + nn[1] * half], [sm[0] - nn[0] * half, sm[1] - nn[1] * half]]);
+    if (e) { left = left.concat([fl]); right = right.concat([fr]); if (ext) { insL = insL.concat([[fl[0] + nn[0] * ins, fl[1] + nn[1] * ins]]); insR = insR.concat([[fr[0] - nn[0] * ins, fr[1] - nn[1] * ins]]); } }
+    else { left = [fl].concat(left); right = [fr].concat(right); if (ext) { insL = [[fl[0] + nn[0] * ins, fl[1] + nn[1] * ins]].concat(insL); insR = [[fr[0] - nn[0] * ins, fr[1] - nn[1] * ins]].concat(insR); } }
+  });
+  return { D, k, W, pts, body, left, right, outline: ring(left, right), ins, ext, insL, insR, len, trans: T, endW, seams };
 }
 function dedupePts(pts) { const out = []; for (const p of pts) if (!out.length || G.dist(out[out.length - 1], p) > 0.01) out.push(p); return out; }
 // the point a distance s along a polyline, with the direction there
@@ -67,11 +82,18 @@ function ductPrims(m, doc, opts = {}) {
   // ends: open (connected), capped, or capped for a future provision
   [0, 1].forEach((e) => {
     const n = g.pts.length; const a = e ? g.pts[n - 1] : g.pts[0], b = e ? g.pts[n - 2] : g.pts[1]; const L = G.dist(a, b) || 1; const u = [(a[0] - b[0]) / L, (a[1] - b[1]) / L]; const nn = [-u[1], u[0]];
-    const ext = g.ext ? g.ins : 0; const h = g.W / 2 + ext; const p1 = [a[0] + nn[0] * h, a[1] + nn[1] * h], p2 = [a[0] - nn[0] * h, a[1] - nn[1] * h]; const end = D.ends[e] || 'open';
-    if (end === 'open') { out.push(line([[a[0] + nn[0] * g.W / 2, a[1] + nn[1] * g.W / 2], [a[0] - nn[0] * g.W / 2, a[1] - nn[1] * g.W / 2]], { width: Math.max(0.25, lw * 0.6) })); return; }
+    const ext = g.ext ? g.ins : 0; const ew = g.endW[e]; const h = ew / 2 + ext; const p1 = [a[0] + nn[0] * h, a[1] + nn[1] * h], p2 = [a[0] - nn[0] * h, a[1] - nn[1] * h]; const end = D.ends[e] || 'open';
+    if (end === 'open') { out.push(line([[a[0] + nn[0] * ew / 2, a[1] + nn[1] * ew / 2], [a[0] - nn[0] * ew / 2, a[1] - nn[1] * ew / 2]], { width: Math.max(0.25, lw * 0.6) })); return; }
     const cw = Math.max(1.4, lw * 2.6); out.push(line([p1, p2], { width: cw, cap: 'butt' }));
     if (end === 'fp') out.push(line([[p1[0] + u[0] * cw * 1.6, p1[1] + u[1] * cw * 1.6], [p2[0] + u[0] * cw * 1.6, p2[1] + u[1] * cw * 1.6]], { width: Math.max(0.3, lw * 0.8), cap: 'butt' }));
     if (s.showLabel !== false) { const txt = end === 'fp' ? 'CAPPED · FUTURE PROVISION' : 'CAPPED'; const ang = uprightAngle(Math.atan2(nn[1], nn[0])); const off = fs * 0.9 + cw * 2; out.push(...lab(labelPrims([txt], a[0] + u[0] * off, a[1] + u[1] * off, ang, { ...s, fontSize: fs * 0.85, fontColor: s.fontColor || col }))); }
+  });
+  // transitions: a seam where the taper meets the duct, and the two sizes
+  g.seams.forEach((sm) => out.push(line(sm, { width: Math.max(0.25, lw * 0.6) })));
+  if (s.showLabel !== false) [0, 1].forEach((e) => {
+    const t = g.trans[e]; if (!t) return; const n = g.pts.length; const a = e ? g.pts[n - 1] : g.pts[0], b = e ? g.pts[n - 2] : g.pts[1]; const L = G.dist(a, b) || 1; const u = [(b[0] - a[0]) / L, (b[1] - a[1]) / L];
+    const tl = Math.min(t.len * g.k, g.len * 0.45); const c = [a[0] + u[0] * tl / 2, a[1] + u[1] * tl / 2]; const ang = uprightAngle(Math.atan2(u[1], u[0])); const nn = [Math.sin(ang), -Math.cos(ang)]; const fs2 = fs * 0.8;
+    const off = g.W / 2 + (g.ext ? g.ins : 0) + fs2 * 1.1; out.push(...lab(labelPrims([`TRANSITION ${Math.round(t.w)}×${Math.round(t.h)} → ${ductSizeText(D)}`], c[0] - nn[0] * off, c[1] - nn[1] * off, ang, { ...s, fontSize: fs2, fontColor: s.fontColor || col })));
   });
   // airflow arrows, one per long run
   if (s.showFlow !== false) {
@@ -81,9 +103,10 @@ function ductPrims(m, doc, opts = {}) {
   // size label along the longest run: inside the duct when it fits, beside it otherwise
   if (s.showLabel !== false) {
     let bi = 1, bl = 0; for (let i = 1; i < g.pts.length; i++) { const l = G.dist(g.pts[i - 1], g.pts[i]); if (l > bl) { bl = l; bi = i; } }
-    const a = g.pts[bi - 1], b = g.pts[bi]; const ang = uprightAngle(Math.atan2(b[1] - a[1], b[0] - a[0])); const c = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; const lines = [m.text, ductLabel(m)].filter(Boolean);
+    const a = g.pts[bi - 1], b = g.pts[bi]; const ang = uprightAngle(Math.atan2(b[1] - a[1], b[0] - a[0])); const c = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    const cq = doc && doc.markups && s.showQ !== false ? ductCalcFor(doc, m) : null; const over = cq && cq.q > 0 && calcWarn(cq).length; const lines = [m.text, ductLabel(m), cq && cq.q > 0 ? `${Math.round(cq.q)} L/s · ${num(cq.v, 1)} m/s · ${num(cq.pa, 2)} Pa/m${over ? ' !' : ''}` : ''].filter(Boolean);
     const M = labelMetrics(lines, s); const inside = M.h + 2 * M.padY < g.W * 0.92 && M.w < bl * 0.8; const off = inside ? 0 : g.W / 2 + (g.ext ? g.ins : 0) + M.h / 2 + M.padY + 2; const nn = [Math.sin(ang), -Math.cos(ang)];
-    out.push(...lab(labelPrims(lines, c[0] + nn[0] * off, c[1] + nn[1] * off, ang, { ...s, fontColor: s.fontColor || col })));
+    out.push(...lab(labelPrims(lines, c[0] + nn[0] * off, c[1] + nn[1] * off, ang, { ...s, fontColor: over ? '#c92a2a' : s.fontColor || col })));
   }
   if (doc && doc.markups && !opts.noCuts) doc.markups.forEach((x) => { if (x.type === 'section' && x.of === m.id && x.page === m.page) out.push(...sectionCut(doc, m, x)); });
   return out;
@@ -91,7 +114,7 @@ function ductPrims(m, doc, opts = {}) {
 
 // ----- grilles ----------------------------------------------------------------------------------------------
 function grilleD(m) { return { ...GRILLE_DEFAULT, ...(m.gr || {}) }; }
-function grilleFA(G0) { if (G0.faM2 > 0) return +G0.faM2; const face = G0.shape === 'round' ? Math.PI * (G0.d / 1000) ** 2 / 4 : (G0.w / 1000) * (G0.h / 1000); return face * (G0.fa || 0) / 100; }
+function grilleFA(G0) { if (G0.faM2 > 0) return +G0.faM2; const slot = G0.kind === 'linear' && (G0.mount === 'side' || G0.mount === 'bottom'); const face = G0.shape === 'round' && !slot ? Math.PI * (G0.d / 1000) ** 2 / 4 : (G0.w / 1000) * ((slot ? (G0.slots || 2) * (G0.slotW || 25) : G0.h) / 1000); return face * (G0.fa || 0) / 100; }
 function grilleFaceText(G0) { return G0.shape === 'round' ? `Ø${Math.round(G0.d)}` : `${Math.round(G0.w)}×${Math.round(G0.h)}`; }
 function grilleNeckText(G0) { return G0.shape === 'round' ? `Ø${Math.round(G0.neckD || G0.d)}` : `${Math.round(G0.neckW)}×${Math.round(G0.neckH)}`; }
 function grilleVel(G0) { const fa = grilleFA(G0); return G0.q > 0 && fa > 0 ? G0.q / 1000 / fa : null; }
@@ -100,21 +123,67 @@ function grilleLines(m) {
   const G0 = grilleD(m); const s = m.style; const fa = grilleFA(G0); const v = grilleVel(G0);
   return [s.showTag !== false ? m.tag : '', s.showSize !== false ? grilleFaceText(G0) : '', s.showFa !== false && fa > 0 ? `FA ${num(fa, 3)} m²${G0.faM2 > 0 ? '' : ` (${num(G0.fa, 1)}%)`}` : '', s.showQ !== false && G0.q > 0 ? `${Math.round(G0.q)} L/s${v ? ` · ${num(v, 2)} m/s` : ''}` : ''].filter(Boolean);
 }
-// a grille on a duct sits on its centreline, turned with it
+// where a grille sits: on a duct (along it, by mount), on a riser face, or free-standing. Returns the plan
+// centre, the direction along the face (rot), the outward normal, and what it is on
 function grillePlace(doc, m) {
-  const d = m.on && getMarkup(m.on, doc); if (d && d.type === 'duct' && d.page === m.page && d.pts.length > 1) { const pts = dedupePts(d.pts); const a = alongPts(pts, clamp(m.t || 0, 0, 1) * G.len(pts)); return { p: a.p, rot: a.ang, duct: d }; }
-  return { p: m.pts[0], rot: ((m.rot || 0) * Math.PI) / 180, duct: null };
+  const host = m.on && getMarkup(m.on, doc); const G0 = grilleD(m);
+  if (host && host.type === 'duct' && host.page === m.page && host.pts.length > 1) {
+    const pts = dedupePts(host.pts); const len = G.len(pts); const half = len ? Math.min(0.5, ((G0.shape === 'round' && G0.mount !== 'side' && G0.mount !== 'bottom' ? G0.d : G0.w) * ductK(doc, m)) / 2 / len) : 0; const a = alongPts(pts, clamp(m.t || 0, half, 1 - half) * len); /* the whole grille stays on the duct */ const nL = [-Math.sin(a.ang), Math.cos(a.ang)]; const side = m.side === -1 ? -1 : 1;
+    if (G0.mount === 'side') { const W = ductWmm(ductD(host)) * ductK(doc, host); const th = grilleThick(doc, m); const n = [nL[0] * side, nL[1] * side]; return { p: [a.p[0] + n[0] * (W / 2 - th / 2), a.p[1] + n[1] * (W / 2 - th / 2)], rot: a.ang, n, duct: host, host, face: true, axis: a.p }; }
+    return { p: a.p, rot: a.ang, n: nL, duct: host, host };
+  }
+  if (host && host.type === 'sketch' && host.page === m.page) {
+    const F = riserFaces(doc, host); const f = F[clamp(m.face | 0, 0, F.length - 1)];
+    if (f) { const u = [-f.n[1], f.n[0]]; const flen = f.wmm * ductK(doc, host); const half = Math.min(0.5, (G0.w * ductK(doc, host)) / 2 / (flen || 1)); const t = clamp(m.t == null ? 0.5 : m.t, half, 1 - half); /* within the wall */ const th = grilleThick(doc, m); const q = [f.p[0] + u[0] * (t - 0.5) * flen - f.n[0] * th / 2, f.p[1] + u[1] * (t - 0.5) * flen - f.n[1] * th / 2]; return { p: q, rot: Math.atan2(u[1], u[0]), n: f.n, host, riser: host, face: true, flen }; }
+  }
+  return { p: m.pts[0], rot: ((m.rot || 0) * Math.PI) / 180, n: null, duct: null, host: null };
 }
+// a grille flush in a wall shows on plan as a thin strip of the wall
+function grilleThick(doc, m) { return Math.max(2.4, 50 * ductK(doc, m)); }
 function grilleGeom(doc, m) {
   const G0 = grilleD(m); const k = ductK(doc, m); const pl = grillePlace(doc, m); const c = pl.p; const cs = Math.cos(pl.rot), sn = Math.sin(pl.rot);
-  const tr = (x, y) => [c[0] + x * cs - y * sn, c[1] + x * sn + y * cs];
-  const hw = ((G0.shape === 'round' ? G0.d : G0.w) * k) / 2, hh = ((G0.shape === 'round' ? G0.d : G0.h) * k) / 2;
-  return { G0, k, c, rot: pl.rot, tr, hw, hh, corners: [tr(-hw, -hh), tr(hw, -hh), tr(hw, hh), tr(-hw, hh)], duct: pl.duct };
+  const tr = (x, y) => [c[0] + x * cs - y * sn, c[1] + x * sn + y * cs]; let hw, hh;
+  if (pl.face) { hw = (G0.w * k) / 2; hh = grilleThick(doc, m) / 2; } // along the wall, and the wall's thickness
+  else if (G0.mount === 'bottom' && pl.duct) { const W = ductWmm(ductD(pl.duct)) * ductK(doc, pl.duct); hw = (G0.w * k) / 2; hh = Math.min(G0.kind === 'linear' ? (G0.slots || 2) * ((G0.slotW || 25) + 25) * k : G0.h * k, W * 0.9) / 2; }
+  else { hw = ((G0.shape === 'round' ? G0.d : G0.w) * k) / 2; hh = ((G0.shape === 'round' ? G0.d : G0.h) * k) / 2; }
+  return { G0, k, c, rot: pl.rot, tr, hw, hh, corners: [tr(-hw, -hh), tr(hw, -hh), tr(hw, hh), tr(-hw, hh)], duct: pl.duct, riser: pl.riser || null, n: pl.n, face: !!pl.face, mount: pl.face ? (pl.riser ? 'riser' : 'side') : pl.duct ? G0.mount === 'bottom' ? 'bottom' : 'ceiling' : 'free' };
+}
+// put a grille on whatever is under p: a riser wall, a duct, or nothing
+function attachGrille(doc, m, p, tolPt) {
+  const G0 = grilleD(m); const r = riserEdgeAt(doc, m.page, p, tolPt);
+  if (r) { m.on = r.m.id; m.face = r.face; m.t = r.t; m.gr = { ...G0, mount: 'riser' }; m.pts = [p.slice()]; return 'riser'; }
+  const d = ductAt(doc, m.page, p, tolPt);
+  if (d) { const pts = dedupePts(d.pts); const na = nearestAlong(pts, p); m.on = d.id; m.t = na.s / (G.len(pts) || 1); const a = alongPts(pts, na.s); const cr = Math.cos(a.ang) * (p[1] - a.p[1]) - Math.sin(a.ang) * (p[0] - a.p[0]); m.side = cr >= 0 ? 1 : -1; if (G0.mount === 'riser') m.gr = { ...G0, mount: grilleDefaults().mount === 'riser' ? 'ceiling' : grilleDefaults().mount }; m.pts = [na.p]; return 'duct'; }
+  delete m.on; delete m.t; delete m.face; if (G0.mount === 'riser' || G0.mount === 'side' || G0.mount === 'bottom') m.gr = { ...G0, mount: 'ceiling' }; m.pts = [p.slice()]; return null;
+}
+// a point on (or just by) a riser's outline: which riser, which face, how far along it
+function riserEdgeAt(doc, page, p, tol) {
+  let best = null;
+  for (const r of doc.markups) {
+    if (r.type !== 'sketch' || r.page !== page) continue;
+    for (const f of riserFaces(doc, r)) {
+      const u = [-f.n[1], f.n[0]]; const flen = f.wmm * ductK(doc, r); const v = [p[0] - f.p[0], p[1] - f.p[1]]; const along = v[0] * u[0] + v[1] * u[1], off = v[0] * f.n[0] + v[1] * f.n[1];
+      if (Math.abs(along) > flen / 2 + tol || Math.abs(off) > tol + Math.min(6, flen * 0.15)) continue; const d = Math.abs(off); if (!best || d < best.d) best = { m: r, face: f.i, t: clamp(along / flen + 0.5, 0, 1), d };
+    }
+  }
+  return best;
 }
 function grillePrims(m, doc, opts = {}) {
   const s = m.style; const g = grilleGeom(doc, m); const G0 = g.G0; const col = s.stroke || '#1c7ed6'; const op = s.opacity; const lw = s.width || 0.8; const out = []; const { tr, hw, hh } = g;
   const line = (pts, extra = {}) => ({ k: 'path', d: P.poly(pts), stroke: col, width: Math.max(0.3, lw * 0.7), fill: 'none', opacity: op, ...extra });
-  if (G0.shape === 'round') {
+  const outA = GRILLE_OUT.has(G0.kind); const thin = Math.max(0.25, lw * 0.45);
+  if (g.face) { // flush in a duct side or a riser wall: a strip of the wall with blades, and which way the air goes
+    out.push({ k: 'path', d: P.poly(g.corners, true), stroke: col, width: lw, fill: s.fill && s.fill !== 'none' ? s.fill : '#ffffff', fillOpacity: 1, opacity: op, hit: 'box' });
+    if (G0.kind === 'linear') out.push(line([tr(-hw, 0), tr(hw, 0)], { width: thin }));
+    else { const nb = Math.max(3, Math.min(16, Math.round((hw * 2) / Math.max(2.5, hh * 1.6)))); for (let i = 1; i < nb; i++) { const x = -hw + (2 * hw * i) / nb; out.push(line([tr(x, -hh), tr(x, hh)], { width: thin })); } }
+    const n = g.n; const al = Math.min(Math.max(6, hw * 0.7), 18); const c0 = [g.c[0] + n[0] * hh, g.c[1] + n[1] * hh]; const tipOut = [c0[0] + n[0] * al, c0[1] + n[1] * al];
+    const [ta, tb] = outA ? [c0, tipOut] : [tipOut, c0]; const ah = arrowHead(tb, ta, 'arrow', { width: thin }); out.push(line([ta, ah.cut], { width: thin }), ...ah.prims.map((q) => ({ ...q, stroke: col, fill: col, opacity: op })));
+    out.push({ k: 'path', d: P.poly([tr(-hw - 2, -hh - 3), tr(hw + 2, -hh - 3), tr(hw + 2, hh + 3), tr(-hw - 2, hh + 3)], true), stroke: 'none', fill: 'transparent', hitOnly: true, hit: 'box' });
+  } else if (g.mount === 'bottom') { // flush in the underside: hidden from above, so dashed
+    out.push({ k: 'path', d: P.poly(g.corners, true), stroke: col, width: lw, dash: 'dashshort', fill: s.fill && s.fill !== 'none' ? s.fill : col, fillOpacity: 0.06, opacity: op, hit: 'box' });
+    if (G0.kind === 'linear') { const n = Math.max(1, G0.slots || 2); for (let i = 0; i < n; i++) { const y = -hh + (2 * hh * (i + 0.5)) / n; out.push(line([tr(-hw * 0.96, y), tr(hw * 0.96, y)], { dash: 'dashshort' })); } }
+    else { const [c0, c1, c2, c3] = g.corners; out.push(line([c0, c2], { dash: 'dashshort', width: thin }), line([c1, c3], { dash: 'dashshort', width: thin })); }
+  } else if (G0.shape === 'round') {
     out.push({ k: 'path', d: P.ellipse(g.c[0], g.c[1], hw, hw), stroke: col, width: lw, fill: s.fill && s.fill !== 'none' ? s.fill : '#ffffff', fillOpacity: s.fillOpacity == null ? 0.9 : s.fillOpacity, opacity: op, hit: 'box' });
     const r = hw * 0.7071; if (G0.kind !== 'return') out.push(line([tr(-r, -r), tr(r, r)]), line([tr(r, -r), tr(-r, r)])); else out.push(line([tr(-r, -r), tr(r, r)]));
     out.push({ k: 'path', d: P.ellipse(g.c[0], g.c[1], hw * 0.45, hw * 0.45), stroke: col, width: Math.max(0.25, lw * 0.5), fill: 'none', dash: 'dashshort', opacity: op });
@@ -124,24 +193,43 @@ function grillePrims(m, doc, opts = {}) {
     if (G0.kind === 'supply') { out.push(line([c0, c2]), line([c1, c3])); const nw = Math.min(hw, (G0.neckW * g.k) / 2), nh = Math.min(hh, (G0.neckH * g.k) / 2); out.push(line([tr(-nw, -nh), tr(nw, -nh), tr(nw, nh), tr(-nw, nh), tr(-nw, -nh)], { dash: 'dashshort', width: Math.max(0.25, lw * 0.45) })); }
     else if (G0.kind === 'return') { out.push(line([c0, c2])); for (const f of [0.33, 0.66]) { out.push(line([tr(-hw + 2 * hw * f, -hh), tr(hw, hh - 2 * hh * f)], { width: Math.max(0.25, lw * 0.45) }), line([tr(-hw, -hh + 2 * hh * f), tr(hw - 2 * hw * f, hh)], { width: Math.max(0.25, lw * 0.45) })); } }
     else if (G0.kind === 'exhaust') { out.push(line([c1, c3])); out.push(line([tr(-hw * 0.6, -hh * 0.6), tr(hw * 0.6, -hh * 0.6), tr(hw * 0.6, hh * 0.6), tr(-hw * 0.6, hh * 0.6), tr(-hw * 0.6, -hh * 0.6)], { width: Math.max(0.25, lw * 0.45) })); }
-    else if (G0.kind === 'linear') { for (let i = 1; i <= 2; i++) { const y = -hh + (2 * hh * i) / 3; out.push(line([tr(-hw * 0.94, y), tr(hw * 0.94, y)])); } }
+    else if (G0.kind === 'linear') { const n = Math.max(1, G0.slots || 2); for (let i = 1; i <= n; i++) { const y = -hh + (2 * hh * i) / (n + 1); out.push(line([tr(-hw * 0.94, y), tr(hw * 0.94, y)])); } }
+    else if (G0.kind === 'spa' || G0.kind === 'relief' || G0.kind === 'oa') { out.push(line([c0, c2]), line([c1, c3])); for (let i = 1; i < 4; i++) { const y = -hh + (2 * hh * i) / 4; out.push(line([tr(-hw, y), tr(hw, y)], { width: thin })); } }
     else { out.push(line([c0, c2], { dash: 'dashshort' }), line([c1, c3], { dash: 'dashshort' })); }
   }
-  // label beside the grille, reading horizontally
-  const lines = grilleLines(m); if (lines.length && s.showLabel !== false) { const M = labelMetrics(lines, s); const ext = Math.max(...g.corners.map((q) => q[0] - g.c[0])); out.push(...labelPrims(lines, g.c[0] + ext + M.w / 2 + M.padX + 3, g.c[1], 0, { ...s, fontColor: s.fontColor || col })); }
+  // label: out from the wall for a flush grille, otherwise beside it reading horizontally
+  const lines = grilleLines(m); if (lines.length && s.showLabel !== false) {
+    const M = labelMetrics(lines, s);
+    if (g.face && g.n) { const d = Math.abs(g.n[0]) * (M.w / 2 + M.padX) + Math.abs(g.n[1]) * (M.h / 2 + M.padY) + g.hh + Math.min(Math.max(6, g.hw * 0.7), 18) + 4; out.push(...labelPrims(lines, g.c[0] + g.n[0] * d, g.c[1] + g.n[1] * d, 0, { ...s, fontColor: s.fontColor || col })); }
+    else { const ext = Math.max(...g.corners.map((q) => q[0] - g.c[0])); out.push(...labelPrims(lines, g.c[0] + ext + M.w / 2 + M.padX + 3, g.c[1], 0, { ...s, fontColor: s.fontColor || col })); }
+  }
   if (doc && doc.markups && !opts.noCuts) doc.markups.forEach((x) => { if (x.type === 'section' && x.of === m.id && x.page === m.page) out.push(...sectionCut(doc, m, x)); });
   return out;
 }
 function nextGrilleTag(doc, kind) { const pre = grilleKind(kind)[2]; let n = 1; const used = new Set(doc.markups.filter((m) => m.type === 'grille').map((m) => m.tag)); while (used.has(`${pre}-${String(n).padStart(2, '0')}`)) n++; return `${pre}-${String(n).padStart(2, '0')}`; }
 // a grille click: on a duct it attaches to it; elsewhere it stands alone
 function placeGrilleAt(doc, page, p) {
-  const G0 = deep(grilleDefaults()); const m = newMarkup('grille', page, [p.slice()], { gr: G0, tag: nextGrilleTag(doc, G0.kind) }); m.style = toolStyle('grille'); m.subject = state.toolSubjects.grille || grilleKind(G0.kind)[1];
-  const d = ductAt(doc, page, p, 6 / doc.zoom); if (d) { const pts = dedupePts(d.pts); const na = nearestAlong(pts, p); m.on = d.id; m.t = na.s / (G.len(pts) || 1); m.pts = [na.p]; }
+  const G0 = deep(grilleDefaults()); if (G0.mount === 'riser') G0.mount = 'ceiling'; const m = newMarkup('grille', page, [p.slice()], { gr: G0, tag: '' }); m.style = toolStyle('grille'); m.subject = state.toolSubjects.grille || grilleKind(G0.kind)[1];
+  const on = attachGrille(doc, m, p, 6 / doc.zoom);
+  if (on === 'riser') { const r = getMarkup(m.on, doc); const nm = String(sketchName(doc, r) || ''); const rk = riserGrilleKind(nm); if (rk && grilleDefaults().kind === 'supply') m.gr = { ...m.gr, kind: rk }; const f = riserFaces(doc, r)[m.face]; if (f && m.gr.w > f.wmm) m.gr = { ...m.gr, w: Math.round(f.wmm * 0.8 / 50) * 50 || Math.round(f.wmm * 0.8) }; m.subject = grilleKind(m.gr.kind)[1]; }
+  m.tag = nextGrilleTag(doc, m.gr.kind); if (on) m.pts = [grillePlace(doc, m).p];
   addMarkup(m, doc); state.sel.clear(); state.sel.add(m.id); refreshSelection(); noteRecentTool(m); return m;
+}
+// a riser named like a stair pressurisation, relief or outside air riser gets that kind of grille
+function riserGrilleKind(name) { const n = name.toUpperCase(); return /\bSP|STAIR|PRESS/.test(n) ? 'spa' : /\bREL|RLF|\bRA\b/.test(n) ? 'relief' : /\bOA|FRESH|\bFA\b|OUTSIDE/.test(n) ? 'oa' : /\bEX|\bEA\b|EXH/.test(n) ? 'exhaust' : null; }
+// the same grille on every floor the riser goes through
+function grilleEveryFloor(doc, m) {
+  const r = m.on && getMarkup(m.on, doc); if (!r || r.type !== 'sketch') return 0; const L = linkOf(doc, r); if (!L) { toast('This riser is only on one page'); return 0; }
+  pushUndo(doc); let n = 0;
+  doc.markups.filter((x) => x.link === L.id && x.id !== r.id).forEach((x) => {
+    if (doc.markups.some((g) => g.type === 'grille' && g.on === x.id && g.face === m.face && Math.abs((g.t ?? 0.5) - (m.t ?? 0.5)) < 0.05)) return; // one there already
+    const c = { ...deep(m), id: uid(), page: x.page, on: x.id, created: nowISO(), modified: nowISO() }; delete c.group; c.pts = [grillePlace(doc, c).p]; doc.markups.push(c); n++;
+  });
+  renderAllMarks(doc); refreshPanels(); toast(n ? `${m.tag || 'Grille'} added on ${n} more floor${n === 1 ? '' : 's'}` : 'Every floor already has this grille'); return n;
 }
 function ductAt(doc, page, p, tol = 0) { let best = null; for (const m of doc.markups) { if (m.type !== 'duct' || m.page !== page || m.pts.length < 2) continue; const g = ductGeom(doc, m); const na = nearestAlong(g.pts, p); if (na.d <= g.W / 2 + tol && (!best || na.d < best.d)) best = { m, d: na.d }; } return best && best.m; }
 // grilles on a duct follow it when it moves or changes
-function syncGrilles(doc, duct) { const out = []; doc.markups.forEach((x) => { if (x.type === 'grille' && x.on === duct.id) { const pl = grillePlace(doc, x); if (pl.duct) { x.pts = [pl.p]; out.push(x); } } }); return out; }
+function syncGrilles(doc, host) { const out = []; doc.markups.forEach((x) => { if (x.type === 'grille' && x.on === host.id) { const pl = grillePlace(doc, x); if (pl.host) { x.pts = [pl.p]; out.push(x); } } }); return out; }
 
 // ----- section views -------------------------------------------------------------------------------------
 const SECTION_SCALES = [5, 10, 20, 25, 50];
@@ -150,6 +238,7 @@ function nextSectionLetter(doc) { const used = new Set(doc.markups.filter((m) =>
 function sectionCut(doc, src, sec) {
   const s = sec.style; const col = s.stroke || '#343a40'; const fs = s.fontSize || 8; const out = []; let c, ang, half;
   if (src.type === 'duct') { const g = ductGeom(doc, src); const a = alongPts(g.pts, clamp(sec.t == null ? 0.5 : sec.t, 0, 1) * g.len); c = a.p; ang = a.ang; half = g.W / 2 + (g.ext ? g.ins : 0) + fs * 1.2; }
+  else if (src.type === 'sketch') { const F = riserFaces(doc, src); const f = F[clamp(riserViewFace(doc, sec), 0, F.length - 1)]; if (!f) return out; c = src.pts[0]; ang = Math.atan2(f.n[1], f.n[0]); half = (f.wmm * ductK(doc, src)) / 2 + fs * 1.2; }
   else { const g = grilleGeom(doc, src); c = g.c; ang = g.rot; half = Math.max(g.hw, g.hh) + fs * 1.2; }
   const u = [Math.cos(ang), Math.sin(ang)], nn = [-u[1], u[0]]; const p1 = [c[0] + nn[0] * half, c[1] + nn[1] * half], p2 = [c[0] - nn[0] * half, c[1] - nn[1] * half];
   out.push({ k: 'path', d: P.poly([p1, p2]), stroke: col, width: 0.9, dash: 'center', fill: 'none', opacity: s.opacity });
@@ -173,6 +262,7 @@ function sectionPrims(m, doc) {
   out.push({ k: 'path', d: P.poly([[o[0], o[1] + fs * 1.5], [o[0] + tw, o[1] + fs * 1.5]]), stroke: col, width: 0.8, fill: 'none', opacity: op }); T(`1:${scl}`, o[0], o[1] + fs * 2.7, { size: fs * 0.9 });
   const top = o[1] + fs * 4.2; const x0 = o[0] + fs * 2;
   if (!src) { T('(the duct or grille this section cut has been deleted)', o[0], top + fs, { size: fs * 0.9 }); out.push({ k: 'path', d: P.poly([[o[0], o[1]], [o[0] + 200, o[1]], [o[0] + 200, top + fs * 2], [o[0], top + fs * 2]], true), stroke: 'none', fill: 'transparent', hitOnly: true, hit: 'box' }); return out; }
+  if (src.type === 'sketch') return riserSectionPrims(m, doc, src, { o, k, fs, col, op, T, out, top, tw });
   const notes = []; let right = x0, bottom = top;
   const ductSection = (D, cx, y) => { // cross-section of a duct centred on cx, top at y; returns its bottom
     const ins = D.ins > 0 ? D.ins * k : 0; const ext = ins && D.insKind !== 'internal';
@@ -187,6 +277,24 @@ function sectionPrims(m, doc) {
     const D = ductD(src); const wmm = ductWmm(D) + (D.ins > 0 && D.insKind !== 'internal' ? 2 * D.ins : 0); const cx = x0 + (wmm * k) / 2; bottom = ductSection(D, cx, top) + fs * 3;
     notes.push(`${ductSizeText(D)} ${serviceName(D.service).toUpperCase()} DUCT`); if (D.ins > 0) notes.push(`${Math.round(D.ins)} mm ${D.insKind === 'internal' ? 'INTERNAL ACOUSTIC LINING' : 'EXTERNAL INSULATION'}`); if (src.text) notes.push(src.text);
     const aa = ductAreas(doc, src); notes.push(`RUN ${num(aa.L, 2)} m`);
+  } else if (src.type === 'grille' && ['side', 'bottom'].includes(grilleGeom(doc, src).mount) && src.on && getMarkup(src.on, doc)) {
+    // a grille flush in the duct: the duct cut across, the grille in its side or underside, the air leaving it
+    const gg = grilleGeom(doc, src); const G0 = gg.G0; const duct = getMarkup(src.on, doc); const D = ductD(duct); const W = (D.shape === 'round' ? D.d : D.w) * k, Hh = (D.shape === 'round' ? D.d : D.h) * k;
+    const wmm = ductWmm(D) + (D.ins > 0 && D.insKind !== 'internal' ? 2 * D.ins : 0); const cx = x0 + (wmm * k) / 2 + fs * 3; const yb = ductSection(D, cx, top); const yt = yb - Hh - (D.ins > 0 && D.insKind !== 'internal' ? D.ins * k : 0); const outA = GRILLE_OUT.has(G0.kind); const thin = 0.5;
+    const arrow = (a, b) => { const ah = arrowHead(b, a, 'arrow', { width: 0.6 }); out.push({ k: 'path', d: P.poly([a, ah.cut]), stroke: col, width: 0.6, fill: 'none', opacity: op }, ...ah.prims.map((q) => ({ ...q, stroke: col, fill: col }))); };
+    if (gg.mount === 'side') {
+      const sd = src.side === -1 ? 1 : -1; const xe = cx + sd * W / 2; const gh = Math.min((G0.kind === 'linear' ? (G0.slots || 2) * ((G0.slotW || 25) + 25) : G0.h) * k, Hh * 0.9); const yc = yb - (D.ins > 0 && D.insKind !== 'internal' ? D.ins * k : 0) - Hh / 2;
+      out.push({ k: 'path', d: P.poly([[xe, yc - gh / 2], [xe, yc + gh / 2]]), stroke: col, width: 3, fill: 'none', opacity: op, cap: 'butt' }); for (let j = 1; j < 5; j++) { const yy = yc - gh / 2 + (gh * j) / 5; out.push({ k: 'path', d: P.poly([[xe - sd * 2, yy - 1], [xe + sd * 2, yy + 1]]), stroke: '#ffffff', width: thin, fill: 'none', opacity: op }); }
+      [-0.25, 0.25].forEach((f) => { const yy = yc + gh * f; const a = [xe + sd * 3, yy], b = [xe + sd * fs * 3, yy]; outA ? arrow(a, b) : arrow(b, a); });
+      out.push(...dimPrims([xe + sd * fs * 4, yc + gh / 2], [xe + sd * fs * 4, yc - gh / 2], sd * fs * 0.2, `${Math.round(G0.kind === 'linear' ? (G0.slots || 2) * (G0.slotW || 25) : G0.h)}`, col, fs * 0.8, op)); right = Math.max(right, cx + W / 2 + fs * 8);
+    } else {
+      const gw = Math.min((G0.kind === 'linear' ? (G0.slots || 2) * ((G0.slotW || 25) + 25) : G0.h) * k, W * 0.9); const ye = yb - (D.ins > 0 && D.insKind !== 'internal' ? D.ins * k : 0);
+      out.push({ k: 'path', d: P.poly([[cx - gw / 2, ye], [cx + gw / 2, ye]]), stroke: col, width: 3, fill: 'none', opacity: op, cap: 'butt' }); for (let j = 1; j < 5; j++) { const xx = cx - gw / 2 + (gw * j) / 5; out.push({ k: 'path', d: P.poly([[xx - 1, ye - 2], [xx + 1, ye + 2]]), stroke: '#ffffff', width: thin, fill: 'none', opacity: op }); }
+      [-0.25, 0.25].forEach((f) => { const xx = cx + gw * f; const a = [xx, ye + 3], b = [xx + f * fs, ye + fs * 3]; outA ? arrow(a, b) : arrow(b, a); });
+    }
+    bottom = yb + fs * 5; void yt;
+    const fa = grilleFA(G0); const v = grilleVel(G0);
+    notes.push(`${src.tag ? src.tag + ' ' : ''}${Math.round(G0.w)} LONG ${grilleKind(G0.kind)[1].toUpperCase()}`, `FLUSH IN THE ${gg.mount === 'side' ? 'SIDE' : 'UNDERSIDE'} OF THE ${ductSizeText(D)} ${D.service} DUCT`, `FREE AREA ${num(fa, 3)} m²${G0.faM2 > 0 ? '' : ` (${num(G0.fa, 1)}%)`}`); if (G0.kind === 'linear') notes.push(`${G0.slots || 2} SLOTS × ${G0.slotW || 25} mm`); if (G0.q > 0) notes.push(`${Math.round(G0.q)} L/s${v ? ` @ ${num(v, 2)} m/s FACE VELOCITY` : ''}`);
   } else if (src.type === 'grille') {
     const G0 = grilleD(src); const face = (G0.shape === 'round' ? G0.d : G0.w) * k; const neck = (G0.shape === 'round' ? G0.neckD || G0.d : G0.neckW) * k; const ple = (G0.plenumH || 300) * k; const spig = 150 * k; const cx = x0 + Math.max(face, 1) / 2 + fs; let y = top;
     const duct = src.on && getMarkup(src.on, doc); if (duct && duct.type === 'duct') { const D = ductD(duct); y = ductSection(D, cx, y) + 0; notes.push(`FROM ${ductSizeText(D)} ${D.service} DUCT`); }
@@ -210,13 +318,95 @@ function sectionPrims(m, doc) {
   out.unshift({ k: 'path', d: P.poly([[o[0] - fs * 0.6, o[1] - fs * 0.6], [R, o[1] - fs * 0.6], [R, bottom], [o[0] - fs * 0.6, bottom]], true), stroke: s.frame === false ? 'none' : col, width: 0.5, fill: '#ffffff', fillOpacity: s.fillOpacity == null ? 0.92 : s.fillOpacity, opacity: op, hit: 'box' });
   return out;
 }
-function startSectionPlace(src) { if (!src || !['duct', 'grille'].includes(src.type)) return; if (state.tool !== 'select') setTool('select'); state.placeSection = src.id; V.el.classList.add('picking'); toast('Click where the section detail goes (Esc to cancel)'); updateDraftBar(); }
+// ----- riser section: the riser through every floor it is linked on, with its grilles -----------------------------
+const RISER_SCALES = [20, 50, 100, 200];
+function riserInstances(doc, src) { const L = linkOf(doc, src); return (L ? doc.markups.filter((x) => x.type === 'sketch' && x.link === L.id) : [src]).sort((a, b) => a.page - b.page); }
+// the wall the section looks at: chosen, or the one with most grilles, or the long one
+function riserViewFace(doc, m) {
+  if (m.face != null) return m.face; const src = getMarkup(m.of, doc); if (!src || src.type !== 'sketch') return 0; const ids = new Set(riserInstances(doc, src).map((x) => x.id)); const cnt = [0, 0, 0, 0];
+  doc.markups.forEach((g) => { if (g.type === 'grille' && ids.has(g.on) && g.face != null) cnt[g.face & 3]++; }); const mx = Math.max(...cnt); if (mx > 0) return cnt.indexOf(mx);
+  const F = riserFaces(doc, src); const lf = F.find((f) => f.long && (f.i === 1 || f.i === 0)); return lf ? lf.i : 1;
+}
+function levelName(doc, page, i) { const lab = doc.pages[page] && doc.pages[page].label; return lab && !/^\d+$/.test(lab) ? lab : i ? `Level ${i}` : 'Ground'; }
+// airflow in the riser on floor i: with the air going up, everything let out on that floor and above; going
+// down, that floor and below; otherwise the riser's total (set on it, or all its grilles)
+function riserFloorQ(doc, src, floors, i, flow, gr) {
+  const L = linkOf(doc, src); const set = L && L.q > 0 ? +L.q : src.q > 0 ? +src.q : 0; const qOf = (x) => gr.filter((g) => g.on === x.id).reduce((a, g) => a + +(grilleD(g).q || 0), 0);
+  const tot = floors.reduce((a, x) => a + qOf(x), 0); if (flow !== 'up' && flow !== 'down') return set || tot;
+  const part = (flow === 'up' ? floors.slice(i) : floors.slice(0, i + 1)).reduce((a, x) => a + qOf(x), 0); return set && tot ? (set * part) / tot : part;
+}
+function riserSectionPrims(m, doc, src, X) {
+  const { o, fs, col, op, T, out, top, tw } = X; const scl = m.scale || 100; const k = 72 / 25.4 / scl; const inst = riserInstances(doc, src); const fv = riserViewFace(doc, m);
+  const floors = (m.order === 'down' ? inst.slice().reverse() : inst); const lv = m.levels || {}; const ftf0 = +m.ftf || 3300; const slab = m.slab == null ? 200 : +m.slab; const rl0 = +m.rl0 || 0;
+  const line = (pts, extra = {}) => out.push({ k: 'path', d: P.poly(pts), stroke: col, width: 0.8, fill: 'none', opacity: op, ...extra });
+  const fwOf = (x, sz) => { const F = riserFaces(doc, { ...x, sz: sz || sketchSize(doc, x), link: sz ? null : x.link }); const f = F[fv] || F[0]; return f ? f.wmm : 0; };
+  const sizeTxt = (sz) => (sz.shape === 'circle' ? `Ø${Math.round(sz.d * 25.4)}` : `${Math.round(sz.w * 25.4)}×${Math.round(sz.h * 25.4)}`);
+  // heights, from the bottom floor up
+  const H = floors.map((x) => +((lv[x.page] || {}).h) || ftf0); const total = H.reduce((a, b) => a + b, 0) + slab;
+  const maxW = Math.max(...floors.map((x) => Math.max(fwOf(x), sketchTrans(doc, x) ? fwOf(x, sketchTrans(doc, x)) : 0)), 300);
+  const lx = o[0] + fs * 7.5; const cx = lx + fs * 2.6 + (maxW / 2 + 900) * k; const slabL = cx - (maxW / 2 + 900) * k, slabR = cx + (maxW / 2 + 900) * k; const y0 = top + fs * 0.5 + total * k; // bottom of the lowest slab
+  const ids = new Set(floors.map((x) => x.id)); const gr = doc.markups.filter((g) => g.type === 'grille' && ids.has(g.on)); const labX = slabR + fs * 1.5; let labW = 0; const labs = [];
+  let yb = y0 - slab * k; // top of the slab under the floor being drawn
+  floors.forEach((x, i) => {
+    const h = H[i]; const yt = yb - (h - slab) * k; const A = sketchSize(doc, x), B = sketchTrans(doc, x); const wa = fwOf(x) * k, wb = B ? fwOf(x, B) * k : wa;
+    // slab under this floor (cut by the riser opening), hatched
+    const sw = Math.max(wa, i ? (fwOf(floors[i - 1], sketchTrans(doc, floors[i - 1]) || null) * k) : wa) / 2;
+    const slabAt = (yTop, half) => { [[slabL, cx - half], [cx + half, slabR]].forEach(([a, b]) => { out.push({ k: 'path', d: P.poly([[a, yTop], [b, yTop], [b, yTop + slab * k], [a, yTop + slab * k]], true), stroke: col, width: 0.6, fill: col, fillOpacity: 0.08, opacity: op }); for (let hx = a + 4; hx < b - 1; hx += 6) line([[hx, yTop + slab * k], [Math.min(b, hx + slab * k * 0.9), yTop]], { width: 0.3 }); }); };
+    slabAt(yb, sw);
+    // level marker and name at the top of the slab
+    const rl = rl0 + H.slice(0, i).reduce((a, b) => a + b, 0); const nm = (lv[x.page] && lv[x.page].name) || levelName(doc, x.page, i);
+    out.push({ k: 'path', d: P.poly([[lx - fs * 0.6, yb - fs * 0.7], [lx + fs * 0.6, yb - fs * 0.7], [lx, yb]], true), stroke: col, width: 0.5, fill: col, fillOpacity: 1, opacity: op });
+    line([[lx - fs * 0.8, yb], [slabL, yb]], { width: 0.4, dash: 'dashed' }); T(nm.toUpperCase(), o[0], yb - fs * 1.7, { size: fs * 0.85, bold: true }); T(`RL ${rl >= 0 ? '+' : '−'}${Math.abs(rl / 1000).toFixed(3)}`, o[0], yb - fs * 0.5, { size: fs * 0.75 });
+    // the shaft walls, with a taper where the size changes on this floor
+    if (B && Math.abs(wb - wa) > 0.05) { const ym = (yb + yt) / 2, d = Math.min(300 * k, (yb - yt) * 0.2); [-1, 1].forEach((sg) => line([[cx + sg * wa / 2, yb], [cx + sg * wa / 2, ym + d], [cx + sg * wb / 2, ym - d], [cx + sg * wb / 2, yt]], { width: 1.2 })); }
+    else [-1, 1].forEach((sg) => line([[cx + sg * wa / 2, yb], [cx + sg * wa / 2, yt]], { width: 1.2 }));
+    // size, beside the shaft low on the floor, with the airflow it carries there
+    const qf = riserFloorQ(doc, src, floors, i, m.flow, gr); const cf = qf > 0 ? ductCalc(qf, sizeMm(B || A)) : null; const wf = cf ? calcWarn(cf) : [];
+    labs.push({ y: yb - fs * 1.2, t: (B ? `${sizeTxt(A)} → ${sizeTxt(B)}` : sizeTxt(A)) + (cf ? ` · ${Math.round(qf)} L/s · ${num(cf.v, 1)} m/s · ${num(cf.pa, 2)} Pa/m${wf.length ? ' !' : ''}` : ''), bold: true, color: wf.length ? '#c92a2a' : null });
+    // airflow arrow in the shaft
+    if (m.flow === 'up' || m.flow === 'down') { const ya = (yb + yt) / 2, al = Math.min(fs * 2.4, (yb - yt) * 0.3); const a = [cx, m.flow === 'up' ? ya + al / 2 : ya - al / 2], b = [cx, m.flow === 'up' ? ya - al / 2 : ya + al / 2]; const ah = arrowHead(b, a, 'arrow', { width: 0.7 }); line([a, ah.cut], { width: 0.7 }); out.push(...ah.prims.map((q) => ({ ...q, stroke: col, fill: col }))); }
+    // grilles on this floor
+    gr.filter((g) => g.on === x.id).forEach((g) => {
+      const G0 = grilleD(g); const f = g.face & 3; const t = g.t == null ? 0.5 : g.t; const gw = G0.w * k, gh = G0.h * k; const zb = yb - (+G0.z || 0) * k; const zt = zb - gh; const ws = (B ? wb : wa);
+      const rel = (f - fv + 4) & 3; let gx1, gx2; let dash = null;
+      if (rel === 0 || rel === 2) { const xc = cx + (rel === 0 ? 1 : -1) * (t - 0.5) * ws; gx1 = xc - gw / 2; gx2 = xc + gw / 2; dash = rel === 2 ? 'dashshort' : null;
+        out.push({ k: 'path', d: P.poly([[gx1, zt], [gx2, zt], [gx2, zb], [gx1, zb]], true), stroke: col, width: 0.9, fill: '#ffffff', fillOpacity: rel === 0 ? 1 : 0, dash, opacity: op });
+        const nb = Math.max(2, Math.min(10, Math.round(gh / 2.2))); for (let j = 1; j < nb; j++) { const yy = zt + (gh * j) / nb; line([[gx1, yy], [gx2, yy]], { width: 0.35, dash }); } }
+      else { // in a side wall: seen edge on at the shaft side, air across
+        const Fv = riserFaces(doc, x)[fv], Ff = riserFaces(doc, x)[f]; const right = Fv && Ff ? Ff.n[0] * -Fv.n[1] + Ff.n[1] * Fv.n[0] > 0 : rel === 1; const ex = cx + (right ? 1 : -1) * ws / 2; gx1 = Math.min(ex, ex + (right ? 2.5 : -2.5)); gx2 = Math.max(ex, ex + (right ? 2.5 : -2.5));
+        out.push({ k: 'path', d: P.poly([[gx1, zt], [gx2, zt], [gx2, zb], [gx1, zb]], true), stroke: col, width: 0.9, fill: col, fillOpacity: 0.3, opacity: op });
+        const sg = right ? 1 : -1; const outA = GRILLE_OUT.has(G0.kind); const ym = (zt + zb) / 2; const a = [ex + sg * (outA ? 3 : fs * 2.4), ym], b = [ex + sg * (outA ? fs * 2.4 : 3), ym]; const ah = arrowHead(b, a, 'arrow', { width: 0.6 }); line([a, ah.cut], { width: 0.6 }); out.push(...ah.prims.map((q) => ({ ...q, stroke: col, fill: col })));
+      }
+      const fa = grilleFA(G0); const v = grilleVel(G0); const txt = `${g.tag ? g.tag + ' ' : ''}${Math.round(G0.w)}×${Math.round(G0.h)}${G0.q > 0 ? ` · ${Math.round(G0.q)} L/s` : ''}${v ? ` · ${num(v, 1)} m/s` : ''}${fa > 0 ? ` · FA ${num(fa, 3)} m²` : ''}${rel === 2 ? ' (far wall)' : ''}`;
+      labs.push({ y: (zt + zb) / 2, t: txt, from: [rel === 0 || rel === 2 ? gx2 : gx2, (zt + zb) / 2] });
+      // mounting height
+      if (rel === 0 && +G0.z > 0) { const dx = cx + ws / 2 + fs * 1.4; out.push(...dimPrims([dx, yb], [dx, zb], 0, `${Math.round(+G0.z)}`, col, fs * 0.7, op)); }
+    });
+    // floor to floor dimension on the far left
+    out.push(...dimPrims([slabL, yb], [slabL, yb - h * k], -fs * 1.2, `${Math.round(h)}`, col, fs * 0.75, op));
+    yb -= h * k;
+  });
+  // roof / top slab
+  const last = floors[floors.length - 1]; const wl = last ? (sketchTrans(doc, last) ? fwOf(last, sketchTrans(doc, last)) : fwOf(last)) * k : 0;
+  [[slabL, cx - wl / 2], [cx + wl / 2, slabR]].forEach(([a, b]) => { out.push({ k: 'path', d: P.poly([[a, yb], [b, yb], [b, yb + slab * k], [a, yb + slab * k]], true), stroke: col, width: 0.6, fill: col, fillOpacity: 0.08, opacity: op }); });
+  T(`${(m.topName || 'Roof').toUpperCase()}`, o[0], yb - fs * 0.6, { size: fs * 0.85, bold: true });
+  // labels in a column to the right, kept apart, with leaders
+  labs.sort((a, b) => a.y - b.y); let lastY = -Infinity; labs.forEach((L0) => { const y = Math.max(L0.y, lastY + fs * 1.2); lastY = y; T(L0.t, labX, y + fs * 0.32, { size: fs * 0.82, bold: !!L0.bold, ...(L0.color ? { color: L0.color } : {}) }); labW = Math.max(labW, textWidth(L0.t, fs * 0.82, !!L0.bold)); if (L0.from) line([[L0.from[0], L0.from[1]], [labX - 3, y]], { width: 0.35 }); });
+  // title notes
+  const nm = sketchName(doc, src); T(`${nm ? nm + ' · ' : ''}RISER THROUGH ${floors.length} FLOOR${floors.length === 1 ? '' : 'S'} · LOOKING AT THE ${['+X', '+Y', '−X', '−Y'][fv]} WALL`, o[0] + tw + fs * 1.5, o[1] + fs * 1.1, { size: fs * 0.8 });
+  const R = Math.max(labX + labW, o[0] + tw + fs * 30) + fs; const bottom = y0 + fs * 2.5;
+  out.unshift({ k: 'path', d: P.poly([[o[0] - fs * 0.6, o[1] - fs * 0.6], [R, o[1] - fs * 0.6], [R, bottom], [o[0] - fs * 0.6, bottom]], true), stroke: m.style.frame === false ? 'none' : col, width: 0.5, fill: '#ffffff', fillOpacity: m.style.fillOpacity == null ? 0.92 : m.style.fillOpacity, opacity: op, hit: 'box' });
+  return out;
+}
+function startSectionPlace(src) { if (!src || !['duct', 'grille', 'sketch'].includes(src.type)) return; if (state.tool !== 'select') setTool('select'); state.placeSection = src.id; V.el.classList.add('picking'); toast(`Click where the ${src.type === 'sketch' || (src.type === 'grille' && src.on && (getMarkup(src.on) || {}).type === 'sketch') ? 'riser section' : 'section detail'} goes (Esc to cancel)`); updateDraftBar(); }
 function endSectionPlace() { if (!state.placeSection) return; state.placeSection = null; V.el.classList.remove('picking'); updateDraftBar(); }
 function placeSectionAt(doc, page, p) {
-  const src = getMarkup(state.placeSection, doc); endSectionPlace(); if (!src) return null; if (src.page !== page) { toast('Place the section on the same page as the duct or grille', 'error'); return null; }
-  const m = newMarkup('section', page, [p.slice()], { of: src.id, letter: nextSectionLetter(doc), scale: 10, t: src.type === 'duct' ? 0.5 : null }); m.style = toolStyle('section'); m.subject = 'Section view';
+  const src = getMarkup(state.placeSection, doc); endSectionPlace(); if (!src) return null; if (src.page !== page) { toast(`Place the section on the same page as the ${src.type === 'sketch' ? 'riser' : src.type}`, 'error'); return null; }
+  const riser = src.type === 'sketch' || (src.type === 'grille' && src.on && (getMarkup(src.on, doc) || {}).type === 'sketch'); const rs = src.type === 'grille' && riser ? getMarkup(src.on, doc) : src;
+  const m = newMarkup('section', page, [p.slice()], { of: rs.id, letter: nextSectionLetter(doc), scale: riser ? 100 : 10, t: src.type === 'duct' ? 0.5 : null }); m.style = toolStyle('section'); m.subject = riser ? 'Riser section' : 'Section view';
+  if (riser) { m.ftf = 3300; m.flow = ''; if (src.type === 'grille') m.face = src.face & 3; }
   if (src.type === 'duct') { const g = ductGeom(doc, src); const na = nearestAlong(g.pts, p); m.t = clamp(na.s / (g.len || 1), 0.05, 0.95); }
-  addMarkup(m, doc); renderMarkupEl(src, doc); state.sel.clear(); state.sel.add(m.id); refreshSelection(); return m;
+  addMarkup(m, doc); renderMarkupEl(rs, doc); state.sel.clear(); state.sel.add(m.id); refreshSelection(); return m;
 }
 
 // ----- routing ------------------------------------------------------------------------------------------------
@@ -247,15 +437,17 @@ async function routeDuct(doc, page, a, b, opts = {}) {
   // equipment and other risers are in the way (the two ends are not)
   const skip = new Set(opts.ignore || []);
   const blockPoly = (poly, pad) => { const bb = G.bbox(poly); for (let r = ri(bb.y - pad); r <= ri(bb.y2 + pad); r++) for (let c = ci(bb.x - pad); c <= ci(bb.x2 + pad); c++) { const p = [X1 + (c + 0.5) * cell, Y1 + (r + 0.5) * cell]; if (G.pointInPoly(p, poly) || pad > 0 && polyDist(poly, p) < pad) block[r * C + c] = 1; } };
-  for (const m of doc.markups) { if (m.page !== page || skip.has(m.id)) continue; if (m.type === 'equip') blockPoly(eqGeom(doc, m).body, Wpt / 2); else if (m.type === 'sketch') { const gg = sizeGeom(sketchSize(doc, m), scaleForMarkup(doc, m), m.pts[0], sketchRot(doc, m)); blockPoly(gg.corners, Wpt / 2); } }
+  const soft = new Set(opts.soft || []); // the risers at the two ends: not through them, but right up to them
+  for (const m of doc.markups) { if (m.page !== page || skip.has(m.id)) continue; const pad = soft.has(m.id) ? 0 : Wpt / 2; if (m.type === 'equip') blockPoly(eqGeom(doc, m).body, pad); else if (m.type === 'sketch') { const gg = sizeGeom(sketchSize(doc, m), scaleForMarkup(doc, m), m.pts[0], sketchRot(doc, m)); blockPoly(gg.corners, pad); } }
   const s0 = ri(a[1]) * C + ci(a[0]), s1 = ri(b[1]) * C + ci(b[0]); block[s0] = 0; block[s1] = 0;
   const BEND = (opts.bendMm == null ? 1500 : opts.bendMm) * k, LINE = (opts.lineMm == null ? 600 : opts.lineMm) * k, NEAR = (opts.nearMm == null ? 100 : opts.nearMm) * k;
   const DX = [1, 0, -1, 0], DY = [0, 1, 0, -1]; const gs = new Float32Array(N * 4).fill(Infinity); const from = new Int32Array(N * 4).fill(-1); const done = new Uint8Array(N * 4);
   const tx = s1 % C, ty = (s1 / C) | 0; const hfun = (id) => (Math.abs((id % C) - tx) + Math.abs(((id / C) | 0) - ty)) * cell;
-  const H = new MinHeap(); for (let d = 0; d < 4; d++) { gs[s0 * 4 + d] = 0; H.push(hfun(s0), s0 * 4 + d); }
+  const H = new MinHeap(); for (let d = 0; d < 4; d++) { if (opts.dir0 != null && d !== opts.dir0) continue; gs[s0 * 4 + d] = 0; H.push(hfun(s0), s0 * 4 + d); }
   let goal = -1; let iter = 0;
   while (H.size && iter++ < 3e6) {
-    const st = H.pop(); if (done[st]) continue; done[st] = 1; const id = st >> 2, d = st & 3; if (id === s1) { goal = st; break; }
+    const st = H.pop(); if (done[st]) continue; done[st] = 1; const id = st >> 2, d = st & 3;
+    if (id === s1) { if (opts.dir1 == null || d === opts.dir1) { goal = st; break; } const ns = s1 * 4 + opts.dir1; const cost = gs[st] + BEND; if (!done[ns] && cost < gs[ns]) { gs[ns] = cost; from[ns] = st; H.push(cost, ns); } continue; } // arrive square to the face
     const c = id % C, r = (id / C) | 0;
     for (let nd = 0; nd < 4; nd++) {
       if (nd === ((d + 2) & 3)) continue; const cc = c + DX[nd], rr = r + DY[nd]; if (cc < 0 || rr < 0 || cc >= C || rr >= R) continue; const nid = rr * C + cc; if (block[nid]) continue;
@@ -265,7 +457,7 @@ async function routeDuct(doc, page, a, b, opts = {}) {
   }
   if (goal < 0) return { pts: lRoute(a, b, true), cost: Infinity, found: false };
   // walk back, keep only the corners, then make the first and last runs meet the real end points squarely
-  const cells = []; for (let st = goal; st >= 0; st = from[st]) cells.push(st); cells.reverse();
+  const cells = []; for (let st = goal; st >= 0; st = from[st]) { if (cells.length && (cells[cells.length - 1] >> 2) === (st >> 2)) { cells[cells.length - 1] = st; continue; } cells.push(st); } cells.reverse(); // the turn onto the face happens at the end point itself
   const centre = (id) => [X1 + ((id % C) + 0.5) * cell, Y1 + (((id / C) | 0) + 0.5) * cell];
   const corners = [centre(cells[0] >> 2)]; for (let i = 1; i < cells.length - 1; i++) { if ((cells[i] & 3) !== (cells[i + 1] & 3)) corners.push(centre(cells[i] >> 2)); } corners.push(centre(cells[cells.length - 1] >> 2));
   return { pts: squareRoute(a, b, corners), cost: gs[goal], found: true, crossings: cells.reduce((n, st) => n + (wall[st >> 2] ? 1 : 0), 0), nseg };
@@ -286,11 +478,47 @@ function lRoute(a, b, acrossFirst) { if (Math.abs(a[0] - b[0]) < 0.5 || Math.abs
 
 // ----- connecting risers -------------------------------------------------------------------------------------------
 function riserAt(doc, page, p) { for (const m of doc.markups) { if (m.type !== 'sketch' || m.page !== page) continue; const g = sizeGeom(sketchSize(doc, m), scaleForMarkup(doc, m), m.pts[0], sketchRot(doc, m)); if (insideOutline(g, p)) return m; } return null; }
-function ductForRiser(doc, r) { const sz = sketchSize(doc, r); const D = deep(ductDefaults()); if (sz) { if (sz.shape === 'circle') { D.shape = 'round'; D.d = Math.round(sz.d * 25.4); } else { D.shape = 'rect'; const a = Math.round(sz.w * 25.4), b = Math.round(sz.h * 25.4); D.w = Math.max(a, b); D.h = Math.min(a, b); } } return D; }
+function ductForRiser(doc, r) { const sz = sketchSize(doc, r); const D = deep(ductDefaults()); if (sz) { if (sz.shape === 'circle') { D.shape = 'round'; D.d = Math.round(sz.d * 25.4); } else { D.shape = 'rect'; const a = Math.round(sz.w * 25.4), b = Math.round(sz.h * 25.4); D.w = Math.max(a, b); D.h = Math.min(a, b); } } delete D.trans; return D; }
+// the four faces of a riser: centre point on the outline, outward normal, face width (mm) and the riser's
+// depth behind it (mm); a round riser has four quarter points
+function riserFaces(doc, r) {
+  const sz = sketchSize(doc, r); if (!sz) return []; const sc = scaleForMarkup(doc, r); const k = 1 / sc.inPerPt; const rot = sketchRot(doc, r); const c = r.pts[0]; const cs = Math.cos(rot), sn = Math.sin(rot);
+  if (sz.shape === 'circle') { const R = (sz.d * k) / 2; return [0, 1, 2, 3].map((i) => { const n = [Math.cos(rot + (i * Math.PI) / 2), Math.sin(rot + (i * Math.PI) / 2)]; return { i, p: [c[0] + n[0] * R, c[1] + n[1] * R], n, wmm: sz.d * 25.4, dmm: sz.d * 25.4, long: true }; }); }
+  const hw = (sz.w * k) / 2, hh = (sz.h * k) / 2; const ax = [cs, sn], ay = [-sn, cs];
+  return [[ax, hw, sz.h, sz.w], [ay, hh, sz.w, sz.h], [[-ax[0], -ax[1]], hw, sz.h, sz.w], [[-ay[0], -ay[1]], hh, sz.w, sz.h]].map(([n, off, fw, dp], i) => ({ i, p: [c[0] + n[0] * off, c[1] + n[1] * off], n, wmm: fw * 25.4, dmm: dp * 25.4, long: fw >= dp - 1e-6 }));
+}
+const axisDir = (n) => (Math.abs(n[0]) >= Math.abs(n[1]) ? (n[0] >= 0 ? 0 : 2) : n[1] >= 0 ? 1 : 3); // index into the router's directions
+// duct between two risers, leaving and entering square to a face. The long face is preferred (a 600×300
+// riser feeds a 600 wide duct through its 600 face); a narrower face gets a transition up to the duct size.
+async function riserRoute(doc, ra, rb, D, how = 'best') {
+  const page = ra.page; const k = 1 / (25.4 * scaleForMarkup(doc, ra).inPerPt); const Wmm = ductWmm(D); const FA = riserFaces(doc, ra), FB = riserFaces(doc, rb);
+  if (!FA.length || !FB.length) return null; const ca = ra.pts[0], cb = rb.pts[0]; const L0 = G.dist(ca, cb) || 1; const toB = [(cb[0] - ca[0]) / L0, (cb[1] - ca[1]) / L0];
+  const fits = (f) => D.shape === 'round' || f.wmm >= Wmm - 1; const dot = (a, b) => a[0] * b[0] + a[1] * b[1];
+  const score = (f, dir) => dot(f.n, dir) + (fits(f) ? 0.75 : 0);
+  let ca2 = FA, cb2 = FB; const horiz = (f) => Math.abs(f.n[0]) > Math.abs(f.n[1]);
+  if (how === 'across') { ca2 = FA.filter((f) => horiz(f) && f.n[0] * toB[0] >= 0); cb2 = FB.filter((f) => !horiz(f) && f.n[1] * -toB[1] >= 0); }
+  else if (how === 'down') { ca2 = FA.filter((f) => !horiz(f) && f.n[1] * toB[1] >= 0); cb2 = FB.filter((f) => horiz(f) && f.n[0] * -toB[0] >= 0); }
+  if (!ca2.length) ca2 = FA; if (!cb2.length) cb2 = FB;
+  const pick = (fs, dir, n) => fs.filter((f) => dot(f.n, dir) > -0.2 || how !== 'best').sort((x, y) => score(y, dir) - score(x, dir)).slice(0, n);
+  const A = pick(ca2, toB, how === 'best' ? 2 : 1), B = pick(cb2, [-toB[0], -toB[1]], how === 'best' ? 2 : 1); if (!A.length || !B.length) return null;
+  const transFor = (f) => (fits(f) ? null : { w: Math.round(f.wmm), h: Math.round((D.w * D.h) / Math.max(1, f.wmm)), len: transLenMm(f.wmm, Wmm) });
+  let best = null;
+  for (const fa of A) for (const fb of B) {
+    const ta = transFor(fa), tb = transFor(fb); const sa = ((ta ? ta.len : 0) + 200) * k, sb = ((tb ? tb.len : 0) + 200) * k;
+    const a1 = [fa.p[0] + fa.n[0] * sa, fa.p[1] + fa.n[1] * sa], b1 = [fb.p[0] + fb.n[0] * sb, fb.p[1] + fb.n[1] * sb];
+    let mid, cost;
+    if (how === 'straight') { mid = [a1, b1]; cost = G.dist(a1, b1); }
+    else if (how === 'across' || how === 'down') { mid = lRoute(a1, b1, how === 'across'); cost = G.len(mid); }
+    else { const r = await routeDuct(doc, page, a1, b1, { wmm: Wmm, soft: [ra.id, rb.id], dir0: axisDir(fa.n), dir1: axisDir([-fb.n[0], -fb.n[1]]) }); mid = r.pts; cost = r.found ? r.cost : G.len(r.pts) * 3; }
+    cost += ((ta ? 8000 : 0) + (tb ? 8000 : 0)) * k; // out of the long face unless the route that way is far worse
+    if (!best || cost < best.cost) best = { cost, pts: simplifyRoute([fa.p.slice(), ...mid, fb.p.slice()]), trans: [ta, tb], faces: [fa.i, fb.i] };
+  }
+  return best;
+}
 async function connectRisers(doc, ra, rb, how = 'best') {
-  const page = ra.page; const D = ductForRiser(doc, ra); const a = ra.pts[0].slice(), b = rb.pts[0].slice();
-  const pts = how === 'straight' ? [a, b] : how === 'across' ? lRoute(a, b, true) : how === 'down' ? lRoute(a, b, false) : (await routeDuct(doc, page, a, b, { wmm: ductWmm(D), ignore: [ra.id, rb.id] })).pts;
-  const m = newMarkup('duct', page, pts, { duct: D, from: ra.id, to: rb.id }); m.style = toolStyle('duct'); m.subject = state.toolSubjects.duct || 'Duct';
+  const page = ra.page; const D = ductForRiser(doc, ra); const r = await riserRoute(doc, ra, rb, D, how);
+  const pts = r ? r.pts : [ra.pts[0].slice(), rb.pts[0].slice()]; if (r && (r.trans[0] || r.trans[1])) D.trans = r.trans;
+  const m = newMarkup('duct', page, pts, { duct: D, from: ra.id, to: rb.id, faces: r ? r.faces : null }); m.style = toolStyle('duct'); m.subject = state.toolSubjects.duct || 'Duct';
   const na = sketchName(doc, ra), nb = sketchName(doc, rb); m.text = na && nb ? (na === nb ? `${na} duct` : `${na} → ${nb}`) : '';
   return m;
 }
@@ -315,13 +543,26 @@ async function connectSameNameRisers(page = currentPage()) {
 }
 async function rerouteDuct(m, how) {
   const doc = activeDoc(); if (!m || m.type !== 'duct' || m.pts.length < 2) return; const a = m.pts[0].slice(), b = m.pts[m.pts.length - 1].slice();
-  const pts = how === 'straight' ? [a, b] : how === 'across' ? lRoute(a, b, true) : how === 'down' ? lRoute(a, b, false) : (await routeDuct(doc, m.page, a, b, { wmm: ductWmm(ductD(m)), ignore: [m.from, m.to, m.id].filter(Boolean) })).pts;
+  const ra = m.from && getMarkup(m.from, doc), rb = m.to && getMarkup(m.to, doc); const D = ductD(m);
+  if (ra && rb && ra.type === 'sketch' && rb.type === 'sketch' && ra.page === m.page && rb.page === m.page) { // between two risers: out of a face again
+    const r = await riserRoute(doc, ra, rb, { ...D, trans: null }, how); if (r) { pushUndo(doc); m.pts = r.pts; m.faces = r.faces; m.duct = { ...D, trans: r.trans[0] || r.trans[1] ? r.trans : null }; touch(m); syncGrilles(doc, m); renderMarks(doc, m.page); refreshPanels(); renderSel(doc, m.page); return; }
+  }
+  const pts = how === 'straight' ? [a, b] : how === 'across' ? lRoute(a, b, true) : how === 'down' ? lRoute(a, b, false) : (await routeDuct(doc, m.page, a, b, { wmm: ductWmm(D), ignore: [m.from, m.to, m.id].filter(Boolean) })).pts;
   pushUndo(doc); m.pts = pts; touch(m); syncGrilles(doc, m); renderMarks(doc, m.page); refreshPanels(); renderSel(doc, m.page);
 }
 // a duct drawn by hand that starts or ends in a riser takes the riser's centre and name
+// a duct drawn by hand that starts or ends in a riser starts at the riser face it heads out of (with a
+// transition when that face is narrower than the duct) and takes the riser's name
+function snapToFace(doc, r, D, p, toward) {
+  const F = riserFaces(doc, r); if (!F.length) return null; const d = [toward[0] - r.pts[0][0], toward[1] - r.pts[0][1]]; const L = Math.hypot(d[0], d[1]) || 1;
+  const f = F.slice().sort((x, y) => (y.n[0] * d[0] + y.n[1] * d[1]) / L - (x.n[0] * d[0] + x.n[1] * d[1]) / L)[0]; const W = ductWmm(D);
+  return { p: f.p.slice(), face: f.i, trans: D.shape === 'round' || f.wmm >= W - 1 ? null : { w: Math.round(f.wmm), h: Math.round((D.w * D.h) / Math.max(1, f.wmm)), len: transLenMm(f.wmm, W) } };
+}
 function finishDuctDraft(doc, m) {
-  if (!m.duct) m.duct = deep(ductDefaults()); const a = riserAt(doc, m.page, m.pts[0]), b = riserAt(doc, m.page, m.pts[m.pts.length - 1]);
-  if (a) { m.from = a.id; m.pts[0] = a.pts[0].slice(); } if (b && b !== a) { m.to = b.id; m.pts[m.pts.length - 1] = b.pts[0].slice(); }
+  if (!m.duct) m.duct = deep(ductDefaults()); const a = riserAt(doc, m.page, m.pts[0]), b = riserAt(doc, m.page, m.pts[m.pts.length - 1]); const n = m.pts.length; const tr = [null, null];
+  if (a && n > 1) { m.from = a.id; const f = snapToFace(doc, a, ductD(m), m.pts[0], m.pts[1]); if (f) { m.pts[0] = f.p; tr[0] = f.trans; } }
+  if (b && b !== a && n > 1) { m.to = b.id; const f = snapToFace(doc, b, ductD(m), m.pts[n - 1], m.pts[n - 2]); if (f) { m.pts[n - 1] = f.p; tr[1] = f.trans; } }
+  if (tr[0] || tr[1]) m.duct = { ...m.duct, trans: tr };
   if (a && b && !m.text) { const na = sketchName(doc, a), nb = sketchName(doc, b); m.text = na && nb ? (na === nb ? `${na} duct` : `${na} → ${nb}`) : ''; }
 }
 
@@ -333,45 +574,68 @@ function ductFields(D, pre) {
     <div class="field two"><div><label>Insulation (mm)</label>${numIn(pre + '.ins', D.ins, 'Insulation thickness, 0 for none', 5)}</div><div><label>Insulation type</label><select data-k="${pre}.insKind"><option value="external"${D.insKind !== 'internal' ? ' selected' : ''}>External wrap</option><option value="internal"${D.insKind === 'internal' ? ' selected' : ''}>Internal lining</option></select></div></div>
     <div class="field two"><div><label>Start</label><select data-k="${pre}.end0">${DUCT_ENDS.map(([k, l]) => `<option value="${k}"${(D.ends || [])[0] === k ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></div><div><label>End</label><select data-k="${pre}.end1">${DUCT_ENDS.map(([k, l]) => `<option value="${k}"${(D.ends || [])[1] === k ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></div></div>`;
 }
-function grilleFields(G0, pre) {
-  return `<div class="field two"><div><label>Type</label><select data-k="${pre}.kind">${GRILLE_KINDS.map(([k, l]) => `<option value="${k}"${G0.kind === k ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></div><div><label>Face</label><select data-k="${pre}.shape"><option value="rect"${G0.shape !== 'round' ? ' selected' : ''}>Square / rectangular</option><option value="round"${G0.shape === 'round' ? ' selected' : ''}>Round</option></select></div></div>
+function grilleFields(G0, pre, host) {
+  const mounts = host === 'riser' ? GRILLE_MOUNTS.filter(([v]) => v === 'riser') : host === 'duct' ? GRILLE_MOUNTS.filter(([v]) => v !== 'riser') : host === 'free' ? GRILLE_MOUNTS.filter(([v]) => v === 'ceiling') : GRILLE_MOUNTS.filter(([v]) => v !== 'riser');
+  const mount = G0.mount || 'ceiling'; const flush = mount === 'side' || mount === 'riser';
+  const mountRow = host === 'riser' ? '' : `<div class="field"><label>${host ? 'Mounting' : 'On a duct'}</label><select data-k="${pre}.mount"${host === 'free' ? ' disabled title="Put it on a duct to choose"' : ''}>${mounts.map(([v, l]) => `<option value="${v}"${mount === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></div>`;
+  return `${mountRow}<div class="field two"><div><label>Type</label><select data-k="${pre}.kind">${GRILLE_KINDS.map(([k, l]) => `<option value="${k}"${G0.kind === k ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></div><div><label>Face</label><select data-k="${pre}.shape"><option value="rect"${G0.shape !== 'round' ? ' selected' : ''}>Square / rectangular</option><option value="round"${G0.shape === 'round' ? ' selected' : ''}>Round</option></select></div></div>
     ${G0.shape === 'round' ? `<div class="field two"><div><label>Face Ø (mm)</label>${numIn(pre + '.d', G0.d, 'Face diameter')}</div><div><label>Neck Ø (mm)</label>${numIn(pre + '.neckD', G0.neckD, 'Neck diameter')}</div></div>` : `<div class="field two"><div><label>Face W (mm)</label>${numIn(pre + '.w', G0.w, 'Face width')}</div><div><label>Face H (mm)</label>${numIn(pre + '.h', G0.h, 'Face height (length)')}</div></div><div class="field two"><div><label>Neck W (mm)</label>${numIn(pre + '.neckW', G0.neckW, 'Neck width')}</div><div><label>Neck H (mm)</label>${numIn(pre + '.neckH', G0.neckH, 'Neck height')}</div></div>`}
     <div class="field two"><div><label>Free area (%)</label>${numIn(pre + '.fa', G0.fa, 'Free area as a percentage of the face (from the data sheet)', 1)}</div><div><label>or free area (m²)</label><input type="number" class="num" data-k="${pre}.faM2" value="${G0.faM2 > 0 ? num(G0.faM2, 4) : ''}" min="0" step="0.001" placeholder="from %" title="Free area from the data sheet; overrides the percentage"></div></div>
-    <div class="field two"><div><label>Airflow (L/s)</label>${numIn(pre + '.q', G0.q, 'Design airflow', 5)}</div><div><label>Plenum height (mm)</label>${numIn(pre + '.plenumH', G0.plenumH, 'Plenum box height, for the section view', 25)}</div></div>`;
+    <div class="field two"><div><label>Airflow (L/s)</label>${numIn(pre + '.q', G0.q, 'Design airflow', 5)}</div>${mount === 'ceiling' ? `<div><label>Plenum height (mm)</label>${numIn(pre + '.plenumH', G0.plenumH, 'Plenum box height, for the section view', 25)}</div>` : host === 'riser' || (!host && mount === 'riser') ? `<div><label>Height to underside (mm)</label>${numIn(pre + '.z', G0.z, 'From the floor to the bottom of the grille, for the riser section', 50)}</div>` : '<div></div>'}</div>
+    ${G0.kind === 'linear' ? `<div class="field two"><div><label>Slots</label>${numIn(pre + '.slots', G0.slots || 2, 'Number of slots', 1)}</div><div><label>Slot width (mm)</label>${numIn(pre + '.slotW', G0.slotW || 25, 'Width of each slot', 5)}</div></div>` : ''}${flush ? '<p class="muted sm">Flush in the wall: on plan it shows as a strip of the wall with an arrow for the air.</p>' : ''}`;
 }
 function ductPropsHtml(doc, m) {
   const D = ductD(m); const a = ductAreas(doc, m); const fr = m.from && getMarkup(m.from, doc), to = m.to && getMarkup(m.to, doc); const gr = doc.markups.filter((x) => x.type === 'grille' && x.on === m.id).length; const secs = doc.markups.filter((x) => x.type === 'section' && x.of === m.id);
   return `<section class="psec"><h3>Duct</h3><div class="measure-readout"><div class="mr-val">${esc(ductSizeText(D))} ${esc(D.service || '')}</div><div class="mr-sub">${num(a.L, 2)} m · ${ductBends(m)} bend${ductBends(m) === 1 ? '' : 's'}${fr || to ? ` · ${esc([fr ? sketchName(doc, fr) : '…', to ? sketchName(doc, to) : '…'].join(' → '))}` : ''}</div></div>
     ${ductFields(D, 'duct')}
+    ${(() => { const c = ductCalcFor(doc, m); const q0 = ductQ(doc, m); const w = c.q > 0 ? calcWarn(c) : []; const sg = w.length ? suggestSizes(c.q, { depths: [D.h, 200, 300, 400].filter((x, i, a) => x > 0 && a.indexOf(x) === i) }) : null;
+      return `<div class="field two"><div><label>Airflow (L/s)</label><input type="number" class="num" data-k="duct.q" value="${D.q > 0 ? num(D.q, 0) : ''}" min="0" step="10" placeholder="${q0 > 0 ? Math.round(q0) + ' from grilles' : 'L/s'}" title="Design airflow; blank uses the sum of the grilles on it"></div><div><label>Velocity · friction</label><div class="dc-mini${w.length ? ' warn' : ''}">${c.q > 0 ? `${num(c.v, 2)} m/s · ${num(c.pa, 2)} Pa/m` : '—'}</div></div></div>${w.length ? `<div class="dc-warn">${icon('warn')} ${esc(w.join('; '))}.${sg && (sg.rect.length || sg.round) ? ` Try ${[...sg.rect.slice(0, 3).map((r) => r.w + '×' + r.h), sg.round ? 'Ø' + sg.round.d : ''].filter(Boolean).join(', ')}.` : ''}</div>` : ''}`; })()}
     <div class="field"><label>Name</label><input type="text" data-k="text" value="${esc(m.text || '')}" maxlength="60" placeholder="e.g. M1 duct"></div>
-    <div class="chk-row"><label class="check"><input type="checkbox" data-k="style.showLabel"${m.style.showLabel !== false ? ' checked' : ''}> Size label</label><label class="check"><input type="checkbox" data-k="style.showFlow"${m.style.showFlow !== false ? ' checked' : ''}> Airflow arrows</label><label class="check"><input type="checkbox" data-k="style.showIns"${m.style.showIns !== false ? ' checked' : ''}> Insulation</label></div>
+    <div class="chk-row"><label class="check"><input type="checkbox" data-k="style.showLabel"${m.style.showLabel !== false ? ' checked' : ''}> Size label</label><label class="check"><input type="checkbox" data-k="style.showFlow"${m.style.showFlow !== false ? ' checked' : ''}> Airflow arrows</label><label class="check"><input type="checkbox" data-k="style.showIns"${m.style.showIns !== false ? ' checked' : ''}> Insulation</label><label class="check"><input type="checkbox" data-k="style.showQ"${m.style.showQ !== false ? ' checked' : ''}> Airflow and Pa/m</label></div>
     <dl class="meta"><dt>Sheet metal</dt><dd>${num(a.metal, 2)} m²</dd>${D.ins > 0 ? `<dt>Insulation</dt><dd>${num(a.ins, 2)} m²</dd>` : ''}<dt>Grilles</dt><dd>${gr}</dd>${secs.length ? `<dt>Sections</dt><dd>${secs.map((x) => x.letter).join(', ')}</dd>` : ''}</dl>
     <div class="btn-row"><button type="button" class="btn sm" data-act="duct-route">Best route</button><button type="button" class="btn sm" data-act="duct-flip">Flip airflow</button><button type="button" class="btn sm" data-act="duct-grilles">Add grilles…</button><button type="button" class="btn sm" data-act="duct-section">Section view</button></div></section>`;
 }
 function grillePropsHtml(doc, m) {
-  const G0 = grilleD(m); const fa = grilleFA(G0); const v = grilleVel(G0); const d = m.on && getMarkup(m.on, doc);
-  return `<section class="psec"><h3>Grille</h3><div class="measure-readout"><div class="mr-val">${esc(m.tag || '')} ${esc(grilleFaceText(G0))}</div><div class="mr-sub">Free area ${num(fa, 3)} m²${v ? ` · ${num(v, 2)} m/s face velocity` : ''}${d ? ` · on ${esc(d.text || ductLabel(d))}` : ''}</div></div>
+  const G0 = grilleD(m); const fa = grilleFA(G0); const v = grilleVel(G0); const h = m.on && getMarkup(m.on, doc); const d = h && h.type === 'duct' ? h : null; const r = h && h.type === 'sketch' ? h : null;
+  const onTxt = d ? ` · on ${esc(d.text || ductLabel(d))}` : r ? ` · in the ${['+X', '+Y', '−X', '−Y'][m.face & 3]} wall of ${esc(sketchName(doc, r) || 'the riser')}` : '';
+  return `<section class="psec"><h3>Grille</h3><div class="measure-readout"><div class="mr-val">${esc(m.tag || '')} ${esc(grilleFaceText(G0))}</div><div class="mr-sub">Free area ${num(fa, 3)} m²${v ? ` · ${num(v, 2)} m/s face velocity` : ''}${onTxt}</div></div>
     <div class="field"><label>Tag</label><input type="text" data-k="tag" value="${esc(m.tag || '')}" maxlength="20"></div>
-    ${grilleFields(G0, 'gr')}
-    ${d ? '' : field('Rotation (°)', `<input type="number" class="num" data-k="rot" value="${num(m.rot || 0, 1)}" step="15">`)}
+    ${grilleFields(G0, 'gr', r ? 'riser' : d ? 'duct' : 'free')}
+    ${h ? '' : field('Rotation (°)', `<input type="number" class="num" data-k="rot" value="${num(m.rot || 0, 1)}" step="15">`)}
+    ${d && G0.mount === 'side' ? '<div class="btn-row"><button type="button" class="btn sm" data-act="grille-side">Other side of the duct</button></div>' : ''}
+    ${r && r.link ? '<div class="btn-row"><button type="button" class="btn sm" data-act="grille-floors">Put it on every floor</button></div>' : ''}
     <div class="chk-row"><label class="check"><input type="checkbox" data-k="style.showTag"${m.style.showTag !== false ? ' checked' : ''}> Tag</label><label class="check"><input type="checkbox" data-k="style.showSize"${m.style.showSize !== false ? ' checked' : ''}> Size</label><label class="check"><input type="checkbox" data-k="style.showFa"${m.style.showFa !== false ? ' checked' : ''}> Free area</label><label class="check"><input type="checkbox" data-k="style.showQ"${m.style.showQ !== false ? ' checked' : ''}> Airflow</label></div>
-    <div class="btn-row"><button type="button" class="btn sm" data-act="duct-section">Section view</button>${d ? '<button type="button" class="btn sm" data-act="grille-detach">Detach from duct</button>' : ''}</div></section>`;
+    <div class="btn-row"><button type="button" class="btn sm" data-act="duct-section">${r ? 'Riser section' : 'Section view'}</button>${h ? `<button type="button" class="btn sm" data-act="grille-detach">Detach from ${r ? 'riser' : 'duct'}</button>` : ''}</div></section>`;
 }
 function sectionPropsHtml(doc, m) {
   const src = getMarkup(m.of, doc);
+  if (src && src.type === 'sketch') {
+    const inst = riserInstances(doc, src); const floors = m.order === 'down' ? inst.slice().reverse() : inst; const F = riserFaces(doc, src); const fv = riserViewFace(doc, m); const lv = m.levels || {};
+    return `<section class="psec"><h3>Riser section</h3><p class="muted sm">${esc(sketchName(doc, src) || 'The riser')} through ${floors.length} floor${floors.length === 1 ? '' : 's'} (its linked pages), with the grilles in its walls. It redraws when the riser or a grille changes.</p>
+      <div class="field two"><div><label>Letter</label><input type="text" data-k="letter" value="${esc(m.letter || 'A')}" maxlength="3"></div><div><label>Scale</label><select data-k="sec.scale">${RISER_SCALES.map((v) => `<option value="${v}"${(m.scale || 100) === v ? ' selected' : ''}>1:${v}</option>`).join('')}</select></div></div>
+      <div class="field two"><div><label>Looking at</label><select data-k="sec.face">${F.map((f) => `<option value="${f.i}"${fv === f.i ? ' selected' : ''}>${['+X', '+Y', '−X', '−Y'][f.i]} wall (${Math.round(f.wmm)} wide)</option>`).join('')}</select></div><div><label>Airflow in the riser</label><select data-k="sec.flow">${[['', 'Not shown'], ['up', 'Up'], ['down', 'Down']].map(([v, l]) => `<option value="${v}"${(m.flow || '') === v ? ' selected' : ''}>${l}</option>`).join('')}</select></div></div>
+      <div class="field two"><div><label>Floor to floor (mm)</label>${numIn('sec.ftf', m.ftf || 3300, 'Typical floor to floor height', 50)}</div><div><label>Slab (mm)</label>${numIn('sec.slab', m.slab == null ? 200 : m.slab, 'Slab thickness', 10)}</div></div>
+      <div class="field two"><div><label>Lowest floor RL (mm)</label><input type="number" class="num" data-k="sec.rl0" value="${num(+m.rl0 || 0, 0)}" step="50"></div><div><label>Floor order</label><select data-k="sec.order"><option value="up"${m.order !== 'down' ? ' selected' : ''}>First page lowest</option><option value="down"${m.order === 'down' ? ' selected' : ''}>First page highest</option></select></div></div>
+      <h4 class="eq-h">Floors</h4><div class="lv-rows">${floors.map((x, i) => `<div class="field two lv-row"><div><label>Page ${x.page + 1}</label><input type="text" data-k="sec.lvname.${x.page}" value="${esc((lv[x.page] || {}).name || levelName(doc, x.page, i))}" maxlength="30"></div><div><label>Height (mm)</label><input type="number" class="num" data-k="sec.lvh.${x.page}" value="${(lv[x.page] || {}).h || ''}" placeholder="${m.ftf || 3300}" step="50"></div></div>`).reverse().join('')}</div></section>`;
+  }
   return `<section class="psec"><h3>Section view</h3><p class="muted sm">${src ? `Cuts ${esc(src.type === 'duct' ? src.text || ductLabel(src) : (src.tag || 'grille'))}. It redraws when that changes.` : 'What it cut has been deleted.'}</p>
     <div class="field two"><div><label>Letter</label><input type="text" data-k="letter" value="${esc(m.letter || 'A')}" maxlength="3"></div><div><label>Detail scale</label><select data-k="sec.scale">${SECTION_SCALES.map((v) => `<option value="${v}"${(m.scale || 10) === v ? ' selected' : ''}>1:${v}</option>`).join('')}</select></div></div>
     ${src && src.type === 'duct' ? field('Cut position along the duct', `<div class="range"><input type="range" min="0.02" max="0.98" step="0.01" data-k="sec.t" value="${m.t == null ? 0.5 : m.t}"><output>${Math.round((m.t == null ? 0.5 : m.t) * 100)}%</output></div>`) : ''}</section>`;
 }
 // property keys: duct.<f>, gr.<f>, sec.<f>; dd.* / gd.* change the defaults for new ones
 function setDuctField(m, k, v) {
-  const [g, f] = k.split('.'); const numish = !['shape', 'service', 'insKind', 'kind', 'end0', 'end1'].includes(f); const val = numish ? (v === '' || v == null ? null : +v) : v;
+  const [g, f] = k.split('.'); const numish = !['shape', 'service', 'insKind', 'kind', 'end0', 'end1', 'mount'].includes(f); const val = numish ? (v === '' || v == null ? null : +v) : v;
   if (g === 'duct') { const D = ductD(m); if (f === 'end0' || f === 'end1') { D.ends = D.ends.slice(); D.ends[f === 'end0' ? 0 : 1] = val; } else D[f] = val; m.duct = D; return true; }
   if (g === 'gr') { const G0 = grilleD(m); G0[f] = f === 'faM2' && !(val > 0) ? null : val; if (f === 'kind' && m.tag && /^[A-Z]{2}-\d+$/.test(m.tag)) m.tag = nextGrilleTag(activeDoc(), val); m.gr = G0; return true; }
-  if (g === 'sec') { if (f === 'scale') m.scale = +v || 10; else if (f === 't') m.t = clamp(+v, 0, 1); return true; }
+  if (g === 'sec') {
+    const parts = k.split('.'); if (f === 'scale') m.scale = +v || 10; else if (f === 't') m.t = clamp(+v, 0, 1); else if (f === 'face') m.face = +v & 3; else if (f === 'flow') m.flow = v || ''; else if (f === 'order') m.order = v === 'down' ? 'down' : 'up';
+    else if (f === 'ftf') m.ftf = +v > 0 ? +v : 3300; else if (f === 'slab') m.slab = +v >= 0 ? +v : 200; else if (f === 'rl0') m.rl0 = +v || 0;
+    else if (f === 'lvname' || f === 'lvh') { const pg = parts[2]; m.levels = { ...(m.levels || {}) }; const L0 = { ...(m.levels[pg] || {}) }; if (f === 'lvname') L0.name = String(v || '').trim(); else L0.h = +v > 0 ? +v : null; m.levels[pg] = L0; }
+    return true;
+  }
   return false;
 }
-function applyDuctDefault(k, v) { const [g, f] = k.split('.'); const numish = !['shape', 'service', 'insKind', 'kind', 'end0', 'end1'].includes(f); const val = numish ? (v === '' ? null : +v) : v; if (g === 'dd') { const D = ductDefaults(); if (f === 'end0' || f === 'end1') { D.ends = (D.ends || ['open', 'open']).slice(); D.ends[f === 'end0' ? 0 : 1] = val; } else D[f] = val; } else { const G0 = grilleDefaults(); G0[f] = f === 'faM2' && !(val > 0) ? null : val; } saveDuctDefaults(); }
+function applyDuctDefault(k, v) { const [g, f] = k.split('.'); const numish = !['shape', 'service', 'insKind', 'kind', 'end0', 'end1', 'mount'].includes(f); const val = numish ? (v === '' ? null : +v) : v; if (g === 'dd') { const D = ductDefaults(); if (f === 'end0' || f === 'end1') { D.ends = (D.ends || ['open', 'open']).slice(); D.ends[f === 'end0' ? 0 : 1] = val; } else D[f] = val; } else { const G0 = grilleDefaults(); G0[f] = f === 'faM2' && !(val > 0) ? null : val; } saveDuctDefaults(); }
 
 async function addGrillesDialog(d) {
   const doc = activeDoc(); if (!d || d.type !== 'duct') return; const G0 = grilleDefaults(); const L = ductLengthMm(doc, d) / 1000;
@@ -390,9 +654,10 @@ function renderDuctPanel() {
   el.innerHTML = `<div class="ts-bar"><button class="btn sm" data-dw="draw">${icon('duct')} Draw duct</button><button class="btn sm" data-dw="grille">${icon('grille')} Grille</button><span class="grow"></span><button class="icon-btn sm" data-dw="more" aria-label="More ductwork options">${icon('more')}</button></div>
     <section class="psec"><h3>Connect risers</h3><p class="muted sm">Routes a duct between risers: square runs, few bends, around walls, equipment and other risers. Edit the corners afterwards, or right-click the duct for other routes.</p>
       <div class="btn-row"><button class="btn sm primary" data-dw="same"${same.length ? '' : ' disabled'} title="${same.length ? 'Risers sharing a name on this page: ' + esc(same.join(', ')) : 'No two risers on this page share a name'}">Connect same-name risers${same.length ? ` (${esc(same.join(', '))})` : ''}</button><button class="btn sm" data-dw="sel">Connect the two selected</button></div></section>
+    ${ductCalcHtml()}
     <section class="psec"><h3>New ducts</h3>${ductFields(D, 'dd')}<p class="muted sm">Ducts connected to a riser take the riser's size.</p></section>
     <section class="psec"><h3>New grilles</h3>${grilleFields(G0, 'gd')}<p class="muted sm">Click on a duct to put the grille on it, or anywhere for a free-standing one.</p></section>
-    ${ducts.length ? `<h4 class="eq-h">Ducts (${ducts.length})</h4><div class="eq-placed">${ducts.slice(0, 200).map((m) => { const d = ductD(m); return `<button class="eq-pl" data-dm="${esc(m.id)}"><b>${esc(m.text || ductSizeText(d))}</b> ${esc(ductSizeText(d))} ${esc(d.service || '')}${d.ins > 0 ? ' · ' + esc(ductInsText(d)) : ''}<span class="muted"> · ${num(ductLengthMm(doc, m) / 1000, 1)} m · p${m.page + 1}</span>${d.ends.some((e) => e !== 'open') ? '<span class="muted"> · capped</span>' : ''}</button>`; }).join('')}</div>` : ''}
+    ${ducts.length ? `<h4 class="eq-h">Ducts (${ducts.length})</h4><div class="eq-placed">${ducts.slice(0, 200).map((m) => { const d = ductD(m); const c = ductCalcFor(doc, m); const w = c.q > 0 ? calcWarn(c) : []; return `<button class="eq-pl${w.length ? ' over' : ''}" data-dm="${esc(m.id)}"${w.length ? ` title="${esc(w.join('; '))}"` : ''}><b>${esc(m.text || ductSizeText(d))}</b> ${esc(ductSizeText(d))} ${esc(d.service || '')}${d.ins > 0 ? ' · ' + esc(ductInsText(d)) : ''}${c.q > 0 ? ` · ${Math.round(c.q)} L/s · ${num(c.pa, 2)} Pa/m` : ''}<span class="muted"> · ${num(ductLengthMm(doc, m) / 1000, 1)} m · p${m.page + 1}</span>${d.ends.some((e) => e !== 'open') ? '<span class="muted"> · capped</span>' : ''}</button>`; }).join('')}</div>` : ''}
     ${grs.length ? `<h4 class="eq-h">Grilles (${grs.length})</h4><div class="eq-placed">${grs.slice(0, 300).map((m) => { const g = grilleD(m); const v = grilleVel(g); return `<button class="eq-pl" data-dm="${esc(m.id)}"><b>${esc(m.tag || '')}</b> ${esc(grilleFaceText(g))} · FA ${num(grilleFA(g), 3)} m²${g.q ? ` · ${Math.round(g.q)} L/s` : ''}${v ? ` · ${num(v, 2)} m/s` : ''}<span class="muted"> · p${m.page + 1}</span></button>`; }).join('')}</div>` : ''}`;
 }
 function bindDuctPanel() {
@@ -400,12 +665,13 @@ function bindDuctPanel() {
   el.addEventListener('click', (e) => {
     const b = e.target.closest('[data-dw]'); const doc = activeDoc();
     if (b) { const k = b.dataset.dw;
-      if (k === 'draw') setTool('duct'); else if (k === 'grille') setTool('grille'); else if (k === 'same') connectSameNameRisers(); else if (k === 'sel') connectSelectedRisers();
+      if (k === 'draw') setTool('duct'); else if (k === 'grille') setTool('grille'); else if (k === 'same') connectSameNameRisers(); else if (k === 'sel') connectSelectedRisers(); else if (k === 'calc-apply') ductCalcApply(); else if (k === 'calc-from') ductCalcFrom();
       else if (k === 'more') { const r = b.getBoundingClientRect(); showMenu(r.left, r.bottom + 2, [['Duct and grille schedule (CSV)…', () => ductSchedule()]]); }
       return; }
     const p = e.target.closest('[data-dm]'); if (p && doc) { const m = getMarkup(p.dataset.dm); if (m) { setTool('select'); state.sel.clear(); state.sel.add(m.id); goToPage(m.page, m.pts[0]); refreshSelection(); } }
   });
   el.addEventListener('change', (e) => { const t = e.target; const k = t.dataset.k; if (!k || !/^(dd|gd)\./.test(k)) return; applyDuctDefault(k, t.value); renderDuctPanel(); });
+  bindDuctCalc(el);
 }
 function ductSchedule() {
   const doc = activeDoc(); if (!doc) return; const q = (v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`; const rows = [['Kind', 'Tag / name', 'Page', 'Size', 'Service', 'Insulation', 'Length m', 'Sheet metal m²', 'Insulation m²', 'Ends', 'Free area m²', 'Airflow L/s', 'Face velocity m/s']];

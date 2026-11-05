@@ -339,13 +339,14 @@ function baseSource(doc) { const b = doc.base; return b.appends.length ? new Con
 
 // Save. Normal saves append an incremental update (fast even for a 400 MB drawing).
 async function saveDoc(mode = 'save', opts = {}) {
-  const doc = opts.doc || activeDoc(); if (!doc) return; if (doc === activeDoc()) { if (state.editing) commitEdit(); cancelDraft(); }
+  const doc = opts.doc || activeDoc(); if (!doc) return; if (doc === activeDoc() && !opts.auto) { if (state.editing) commitEdit(); cancelDraft(); }
+  const auto = !!opts.auto; const rev0 = doc.rev || 0;
   if (HOST() && mode === 'save' && doc.path) {
     // in a live session only the person holding the file writes it (Egnyte has it locked for the others)
     if (doc.sess && !opts.quiet && !sessHolder(doc)) { await sessRequestSave(doc); return; }
-    if (doc.readOnly) { await recheckReadOnly(doc); if (doc.readOnly) { if (!(await confirmDialog('This PDF is read only', `<b>${esc(doc.name)}</b> is in use elsewhere (Egnyte locks it while someone has it open), so it cannot be saved here right now.</p><p>Save your markups as a copy instead? You can also wait until they close it.`, 'Save a copy…'))) return; mode = 'saveas'; } }
+    if (doc.readOnly) { await recheckReadOnly(doc); if (doc.readOnly && auto) { setStatus(`Autosave skipped: ${doc.name} is read only here`); return; } if (doc.readOnly) { if (!(await confirmDialog('This PDF is read only', `<b>${esc(doc.name)}</b> is in use elsewhere (Egnyte locks it while someone has it open), so it cannot be saved here right now.</p><p>Save your markups as a copy instead? You can also wait until they close it.`, 'Save a copy…'))) return; mode = 'saveas'; } }
   }
-  const busy = $('#busy'); busy.hidden = false; busy.textContent = mode === 'flatten' ? 'Flattening markups…' : 'Saving…'; await raf();
+  const busy = auto ? { hidden: true, textContent: '' } : $('#busy'); busy.hidden = auto; busy.textContent = mode === 'flatten' ? 'Flattening markups…' : 'Saving…'; if (auto) setStatus(`Autosaving ${doc.name}…`); await raf();
   const H = HOST(); const t0 = performance.now(); if (doc.sess) { doc.sess.saving = true; sessTick(doc, true); }
   try {
     cleanupLinks(doc); await ensureDocFonts(doc); if (!doc.reader) doc.reader = await openReader(baseSource(doc));
@@ -361,13 +362,15 @@ async function saveDoc(mode = 'save', opts = {}) {
       target = mode === 'save' && doc.path ? doc.path : await H.saveDialog({ defaultPath: doc.path ? doc.path.replace(/[^\\/]*$/, name) : name });
       if (!target) return;
       busy.textContent = 'Writing…'; await raf();
+      if (auto && !doc.sess && doc.stat && H.stat) { const st = await H.stat(target).catch(() => null); if (st && (st.size !== doc.stat.size || Math.abs(st.mtimeMs - doc.stat.mtimeMs) >= 2)) { setStatus(`Autosave paused for ${doc.name}: the PDF changed on disk since you opened it. Save to choose what to do.`); doc.autoBlocked = true; return; } }
       if (appendOnly && target === doc.path && doc.diskMatches && doc.stat) {
         try { doc.stat = await H.append(target, appendOnly.bytes, doc.stat); ok = true; }
         catch (e) {
           if (!(e && /CHANGED/.test(e.message || e))) throw e;
           if (doc.sess) { // live session: take their newer file, merge, and append our update to it
             await sessRebase(doc); const upd2 = await incrementalUpdate(doc, {}); appendOnly = upd2; doc.stat = await H.append(target, upd2.bytes, doc.stat); ok = true;
-          } else { busy.hidden = true; if (!(await resolveDiskChange(doc))) return; busy.hidden = false; doc.stat = await H.writeFile(target, parts); ok = true; }
+          } else if (auto) { setStatus(`Autosave paused for ${doc.name}: someone else saved the PDF since you opened it. Save to choose what to do.`); doc.autoBlocked = true; return; }
+          else { busy.hidden = true; if (!(await resolveDiskChange(doc))) return; busy.hidden = false; doc.stat = await H.writeFile(target, parts); ok = true; }
         }
       } else { doc.stat = await H.writeFile(target, parts); ok = true; }
       if (ok && mode !== 'flatten') { if (target !== doc.path) { if (H.release && doc.path) H.release(doc.path).catch(() => {}); doc.path = target; doc.name = target.split(/[\\/]/).pop(); doc.readOnly = false; H.addRecent && H.addRecent(target); if (H.hold) H.hold(target).catch(() => {}); } }
@@ -380,13 +383,13 @@ async function saveDoc(mode = 'save', opts = {}) {
       if (appendOnly) { doc.base.appends.push(appendOnly.bytes); doc.reader = await openReader(baseSource(doc)); }
       else { doc.base = { src: new MemSource(full), appends: [] }; doc.reader = await openReader(doc.base.src); }
       if (doc.ownSigPending) { doc.ownSig = doc.ownSigPending; doc.ownSigPending = null; } if (doc.vpSigPending) { doc.vpSig = doc.vpSigPending; doc.vpSigPending = null; }
-      doc.diskMatches = !!(H ? doc.path : doc.handle); doc.dirty = false; doc.savedAt = nowISO(); renderTabs(); sessionSaved(doc);
-      const ms = Math.round(performance.now() - t0); setStatus(`Saved ${doc.name} in ${ms < 1000 ? ms + ' ms' : (ms / 1000).toFixed(1) + ' s'}${appendOnly ? ` (${fmtBytes(appendOnly.bytes.length)} added)` : ' (whole file rewritten)'}`);
+      doc.diskMatches = !!(H ? doc.path : doc.handle); doc.dirty = (doc.rev || 0) !== rev0; doc.lastSaveT = Date.now(); doc.autoBlocked = false; doc.savedAt = nowISO(); renderTabs(); if (doc.dirty) { doc.dirtySince = Date.now(); recoveryChanged(doc); } sessionSaved(doc);
+      const ms = Math.round(performance.now() - t0); setStatus(`${auto ? 'Autosaved' : 'Saved'} ${doc.name} in ${ms < 1000 ? ms + ' ms' : (ms / 1000).toFixed(1) + ' s'}${appendOnly ? ` (${fmtBytes(appendOnly.bytes.length)} added)` : ' (whole file rewritten)'}`);
     }
   } catch (e) {
     console.error(e); const msg = String(e && e.message || e);
-    if (HOST() && mode === 'save' && /EPERM|EACCES|EBUSY|read-only|Is it open in another program/i.test(msg)) { markReadOnly(doc, 'Saving was refused: the PDF is in use elsewhere or read-only.'); busy.hidden = true; if (doc.sess) doc.sess.saving = false; if (await confirmDialog('Could not save', `<b>${esc(doc.name)}</b> could not be written: it is in use elsewhere or read-only.</p><p>Save your markups as a copy?`, 'Save a copy…')) setTimeout(() => saveDoc('saveas'), 0); return; }
-    toast(msg, 'error');
+    if (HOST() && mode === 'save' && /EPERM|EACCES|EBUSY|read-only|Is it open in another program/i.test(msg)) { markReadOnly(doc, 'Saving was refused: the PDF is in use elsewhere or read-only.'); if (auto) { setStatus(`Autosave could not write ${doc.name}: it is in use elsewhere or read only`); return; } busy.hidden = true; if (doc.sess) doc.sess.saving = false; if (await confirmDialog('Could not save', `<b>${esc(doc.name)}</b> could not be written: it is in use elsewhere or read-only.</p><p>Save your markups as a copy?`, 'Save a copy…')) setTimeout(() => saveDoc('saveas'), 0); return; }
+    if (auto) setStatus(`Autosave failed for ${doc.name}: ${msg}`); else toast(msg, 'error');
   } finally { busy.hidden = true; if (doc.sess) doc.sess.saving = false; }
 }
 function fmtBytes(n) { return n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : (n / 1048576).toFixed(1) + ' MB'; }

@@ -17,13 +17,15 @@ async function prefsDialog() {
     </section>
     <section class="psec"><h3>Files</h3>
       ${field('Stream files larger than (MB) instead of loading them whole', `<input type="number" name="largeFileMB" min="8" max="2000" value="${P0.largeFileMB}">`)}
-      ${field('Save a recovery copy of unsaved markups every (minutes)', `<input type="number" name="autosaveMins" min="1" max="60" value="${P0.autosaveMins}">`)}
+      <div class="field two"><div><label>Autosave the PDF (desktop app)</label><select name="autosavePdf">${AUTOSAVE_CHOICES.map((v) => `<option value="${v}"${autosaveMins() === v ? ' selected' : ''}>${v ? `Every ${v} minute${v === 1 ? '' : 's'}` : 'Off'}</option>`).join('')}</select></div>
+      <div><label>Recovery copy of unsaved markups</label><select name="recoveryMins">${[[0, 'A few seconds after each change'], [1, 'Every minute'], [2, 'Every 2 minutes'], [5, 'Every 5 minutes']].map(([v, l]) => `<option value="${v}"${+(P0.recoveryMins || 0) === v ? ' selected' : ''}>${l}</option>`).join('')}</select></div></div>
+      <p class="muted sm" style="margin-top:-4px">Autosave writes the PDF itself (only a PDF you can write; in a live session, only by the person holding the file). The recovery copy stays on this PC and is offered back if MeBulb stops before you save: File ▸ Recover unsaved work.</p>
     </section>`,
     buttons: [{ label: 'Cancel', value: false }, { label: 'Save', value: true, primary: true }] });
   if (!r || !r.value) return; const f = r.form;
   state.author = f.author.trim() || 'Reviewer'; store.set('author', state.author);
   if (f.theme !== state.theme) setTheme(f.theme); if (f.units !== state.units) setUnits(f.units);
-  state.prefs = { ...P0, liveJoin: f.liveJoin, linkLabelMode: f.linkLabelMode, largeFileMB: clamp(+f.largeFileMB || 48, 8, 2000), autosaveMins: clamp(+f.autosaveMins || 2, 1, 60) }; savePrefs();
+  state.prefs = { ...P0, liveJoin: f.liveJoin, linkLabelMode: f.linkLabelMode, largeFileMB: clamp(+f.largeFileMB || 48, 8, 2000), autosavePdf: +f.autosavePdf || 0, recoveryMins: +f.recoveryMins || 0 }; savePrefs(); renderSaveBadge();
   state.sketchAutoNum = !!f.autonum; store.set('sketchAutoNum', state.sketchAutoNum);
   refreshPanels(); toast('Preferences saved');
 }

@@ -40,7 +40,7 @@ async function switchDoc(id) {
 async function closeDoc(id) {
   const d = state.docs.find((x) => x.id === id); if (!d) return;
   if (d.dirty) { const ok = await confirmDialog('Close without saving?', `<b>${esc(d.name)}</b> has unsaved markups. Close it anyway?`, 'Close without saving', true); if (!ok) return; }
-  const idx = state.docs.indexOf(d); state.docs.splice(idx, 1); try { d.pdf && d.pdf.loadingTask.destroy(); } catch { } if (d.fid && HOST()) HOST().close(d.fid); sessionClosed(d);
+  const idx = state.docs.indexOf(d); state.docs.splice(idx, 1); try { d.pdf && d.pdf.loadingTask.destroy(); } catch { } if (d.fid && HOST()) HOST().close(d.fid); sessionClosed(d, d.dirty);
   if (state.activeId === id) { state.activeId = null; const next = state.docs[Math.min(idx, state.docs.length - 1)]; if (next) await switchDoc(next.id); else { mountDoc(null); refreshAll(); } }
   else renderTabs();
 }
@@ -82,7 +82,7 @@ function updateDraftBar() {
   bar.innerHTML = html; bar.hidden = !html;
 }
 function refreshPanels() { renderProps(); renderList(); if (panelShown('layers')) renderLayers(); if (panelShown('equipment')) renderEquipPanelSoon(); if (panelShown('ductwork')) renderDuctPanelSoon(); updateSelDims(); if (panelShown('measure')) renderMeasurePanel(); renderLinkedPanelSoon(); if (panelShown('session')) renderSessionPanel(); renderToolbarsState(); }
-function refreshAll() { renderTabs(); renderAllMarks(); refreshPanels(); renderPanels(); updateUndoUI(); renderNavbar(); updatePageUI(); updateZoomUI(); renderToggles(); }
+function refreshAll() { renderTabs(); renderAllMarks(); refreshPanels(); renderPanels(); updateUndoUI(); renderNavbar(); updatePageUI(); updateZoomUI(); renderToggles(); renderSaveBadge(); }
 
 // ----- icons (24px stroke icons drawn for this app) -----------------------------------------
 const ICONS = {
@@ -207,6 +207,7 @@ const ICONS = {
   import: '<path d="M12 3v11M7.5 9.5L12 14l4.5-4.5"/><path class="s-blue" d="M4 15v4.5h16V15"/>',
   export: '<path d="M12 14V3M7.5 7.5L12 3l4.5 4.5"/><path class="s-blue" d="M4 15v4.5h16V15"/>',
   info: '<circle cx="12" cy="12" r="8.5"/><path class="s-blue" d="M12 11v5.5M12 7.6v.1"/>',
+  warn: '<path d="M12 3.5l9 16H3z"/><path class="s-red" d="M12 9.5v4.5M12 16.8v.1"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   scale: '<path d="M3 17h18M3 13v8M21 13v8M12 15v4M7.5 16v3M16.5 16v3M8 9l4-6 4 6z"/>',
   pages2: '<rect x="3" y="3" width="10" height="13" rx="1"/><rect x="11" y="8" width="10" height="13" rx="1"/><path d="M14 13h4M14 16h4"/>',

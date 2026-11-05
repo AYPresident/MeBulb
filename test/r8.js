@@ -18,7 +18,7 @@ const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) pro
 
   // ---- linked sketches: pick pages, take the riser off some, unlink others
   await ev(() => mebulb.setTool('sketchrect')); await click(700, 300); await page.waitForTimeout(150);
-  const sk = await ev(() => { const d = mebulb.activeDoc(); const m = d.markups[d.markups.length - 1]; mebulb.placeOnPages(d, m, [0, 1, 2, 3]); mebulb.renderAllMarks(d); mebulb.setTool('select'); const S = mebulb.state; S.sel.clear(); S.sel.add(m.id); mebulb.refreshSelection(); mebulb.openPanel('linked'); return { id: m.id, link: m.link }; });
+  const sk = await ev(() => { const d = mebulb.activeDoc(); const m = d.markups[d.markups.length - 1]; mebulb.placeOnPages(d, m, [0, 1, 2, 3]); mebulb.renderAllMarks(d); mebulb.setTool('select'); const S = mebulb.state; S.sel.clear(); S.linkOpen = m.link; mebulb.refreshSelection(); mebulb.openPanel('linked'); return { id: m.id, link: m.link }; });
   await page.waitForTimeout(400);
   const tiles = await ev((link) => [...document.querySelectorAll(`#linked-panel .lk-card[data-link="${link}"] [data-lk="goto"]`)].map((b) => b.dataset.id), sk.link);
   ok(tiles.length === 4, 'linked panel shows the riser on 4 pages');
@@ -131,7 +131,7 @@ const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) pro
   // hand-drawn duct from one riser to the other connects to both
   await ev(() => { mebulb.setZoom(0.6); mebulb.goToPage(2, [800, 760]); mebulb.setTool('duct'); }); await page.waitForTimeout(300); await click(330, 562, [], 2); await click(330, 950, [], 2); { const [x, y] = await P(1250, 802, 2); await page.mouse.click(x, y); await page.mouse.dblclick(x, y); } await page.waitForTimeout(150);
   const hd = await ev(() => { const d = mebulb.activeDoc(); const m = d.markups.filter((x) => x.type === 'duct').pop(); return { from: m.from, to: m.to, a: m.pts[0], n: d.markups.filter((x) => x.type === 'duct').length }; });
-  ok(hd.n === 2 && hd.from === risers[0] && hd.to === risers[1] && Math.abs(hd.a[0] - 330) < 0.01 && Math.abs(hd.a[1] - 560) < 0.01, 'a duct drawn from riser to riser snaps to both centres and records the connection');
+  ok(hd.n === 2 && hd.from === risers[0] && hd.to === risers[1] && Math.abs(hd.a[0] - 330) < 0.01 && hd.a[1] > 563 && hd.a[1] < 572, 'a duct drawn from riser to riser starts at the riser face it leaves through and records the connection');
   // grille tool: a click on the duct puts the grille on it
   const onDuct = await ev(() => { const d = mebulb.activeDoc(); const m = d.markups.filter((x) => x.type === 'duct').pop(); return [m.pts[0][0], (m.pts[0][1] + m.pts[1][1]) / 2]; });
   await ev(() => mebulb.setTool('grille')); await click(onDuct[0] + 1, onDuct[1], [], 2); await page.waitForTimeout(150);

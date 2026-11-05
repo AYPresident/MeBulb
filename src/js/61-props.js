@@ -218,7 +218,10 @@ function bindProps() {
     else if (act === 'duct-route' && ms[0]) rerouteDuct(ms[0], 'best');
     else if (act === 'duct-flip' && ms[0]) applyToSelection((x) => { if (x.type === 'duct') x.duct = { ...ductD(x), rev: !(x.duct && x.duct.rev) }; });
     else if (act === 'duct-section' && ms[0]) startSectionPlace(ms[0]);
-    else if (act === 'grille-detach' && ms[0]) applyToSelection((x) => { delete x.on; delete x.t; });
+    else if (act === 'grille-detach' && ms[0]) applyToSelection((x) => { delete x.on; delete x.t; delete x.face; delete x.side; if (x.gr && x.gr.mount !== 'ceiling') x.gr = { ...x.gr, mount: 'ceiling' }; });
+    else if (act === 'grille-side' && ms[0]) applyToSelection((x) => { if (x.type === 'grille') { x.side = x.side === -1 ? 1 : -1; x.pts = [grillePlace(activeDoc(), x).p]; } });
+    else if (act === 'grille-floors' && ms[0]) grilleEveryFloor(activeDoc(), ms[0]);
+    else if (act === 'sk-grille' && ms[0]) { setTool('grille'); toast('Click on the riser outline, on the wall the grille goes in'); }
     else if (act === 'duct-grilles' && ms[0]) addGrillesDialog(ms[0]);
     else if (act === 'zoom-sel' && ms[0]) zoomToBox(ms[0].page, markupBBox(ms[0], activeDoc()));
     else if (act === 'toolset-sel') addSelectionToToolset();
@@ -265,11 +268,14 @@ function sketchPropsHtml(doc, m) {
       <div class="link-pages">${sibs.map((x) => { const lab = doc.pages[x.page] && doc.pages[x.page].label; return `<button type="button" class="lp-chip${x.id === m.id ? ' cur' : ''}" data-act="goto-${x.id}" title="Go to page ${x.page + 1}">p.${x.page + 1}${lab && lab !== String(x.page + 1) ? ' ' + esc(lab) : ''} <span>${esc(sizeText(sketchSize(doc, x), scaleForMarkup(doc, x)))}</span>${sketchTrans(doc, x) ? '<span class="t">→</span>' : ''}</button>`; }).join('')}</div>
       <div class="btn-row"><button type="button" class="btn sm" data-act="sk-place">Place on more pages</button><button type="button" class="btn sm" data-act="sk-choose">Choose pages…</button><button type="button" class="btn sm" data-act="sk-view">Show on all pages</button></div><div class="btn-row"><button type="button" class="btn sm" data-act="sk-unlink">Unlink this page</button><button type="button" class="btn sm danger" data-act="sk-delall">Delete on all pages</button></div></section>`;
   } else h += `<section class="psec"><h3>Linked set</h3><p class="muted sm">Place this sketch on other pages, for example every floor a riser passes through. The copies stay linked: resize one and they all change.</p><div class="btn-row"><button type="button" class="btn sm primary" data-act="sk-place">Place on pages</button></div></section>`;
+  { const ids = new Set(m.link ? doc.markups.filter((x) => x.link === m.link).map((x) => x.id) : [m.id]); const ng = doc.markups.filter((x) => x.type === 'grille' && ids.has(x.on)).length; const ns = doc.markups.filter((x) => x.type === 'section' && ids.has(x.of)).map((x) => x.letter);
+    const sz = sizeMm(sketchSize(doc, m)); const rq = riserQ(doc, m); const L0 = linkOf(doc, m); const setq = L0 ? L0.q : m.q; const rc = rq > 0 ? ductCalc(rq, sz) : null; const rw = rc ? calcWarn(rc) : [];
+    h += `<section class="psec"><h3>Riser</h3><div class="field two"><div><label>Airflow (L/s)</label><input type="number" class="num" data-k="riser.q" value="${setq > 0 ? num(setq, 0) : ''}" min="0" step="10" placeholder="${rq > 0 ? Math.round(rq) + ' from grilles' : 'L/s'}" title="Total airflow in the riser; blank uses the sum of its grilles"></div><div><label>Velocity · friction</label><div class="dc-mini${rw.length ? ' warn' : ''}">${rc ? `${num(rc.v, 2)} m/s · ${num(rc.pa, 2)} Pa/m` : '—'}</div></div></div>${rw.length ? `<div class="dc-warn">${icon('warn')} ${esc(rw.join('; '))} at full flow.</div>` : ''}<p class="muted sm">${ng ? `${ng} grille${ng === 1 ? '' : 's'} in its walls${m.link ? ' over all floors' : ''}.` : 'Put grilles in its walls with the Grille tool: click on the riser outline.'}${ns.length ? ` Section${ns.length === 1 ? '' : 's'} ${esc(ns.join(', '))}.` : ''}</p><div class="btn-row"><button type="button" class="btn sm" data-act="duct-section">Riser section…</button><button type="button" class="btn sm" data-act="sk-grille">Add a grille</button></div></section>`; }
   h += `<section class="psec"><h3>Display</h3>${sketchSymbolFields(m.style, sc, m)}</section>`;
   return h;
 }
 function applySketchProp(doc, T, k, v, live) {
-  const isSize = /^(sz|tsz)\.(w|h|d|shape)$/.test(k); const isOther = k === 'rot' || k === 'link.name' || k === 'link.sync' || k === 'sk.name' || k === 'sketchNext' || k === 'sketchAutoNum';
+  const isSize = /^(sz|tsz)\.(w|h|d|shape)$/.test(k); const isOther = k === 'rot' || k === 'link.name' || k === 'link.sync' || k === 'sk.name' || k === 'sketchNext' || k === 'sketchAutoNum' || k === 'riser.q';
   if (!isSize && !isOther) return false;
   if (k === 'sketchNext') { if (!live) { state.sketchNext = String(v).trim(); store.set('sketchNext', state.sketchNext); } return true; }
   if (k === 'sketchAutoNum') { state.sketchAutoNum = !!v; store.set('sketchAutoNum', state.sketchAutoNum); return true; }
@@ -280,6 +286,7 @@ function applySketchProp(doc, T, k, v, live) {
   const m = T.ms && T.ms.length === 1 && T.ms[0].type === 'sketch' ? T.ms[0] : null; if (!m) return true;
   if (live) return true; // sizes apply on change or Enter
   const L = linkOf(doc, m);
+  if (k === 'riser.q') { pushUndo(doc); const q = +v > 0 ? +v : null; if (L) L.q = q; else m.q = q; touch(m); renderAllMarks(doc); renderProps(); refreshPanels(); return true; }
   let nz = null; let which = 'size';
   if (isSize) {
     which = k.startsWith('tsz') ? 'trans' : 'size'; const f = k.split('.')[1]; const cur = which === 'trans' ? sketchTrans(doc, m) : sketchSize(doc, m); if (!cur) return true;

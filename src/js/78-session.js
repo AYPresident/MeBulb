@@ -29,12 +29,49 @@ function sessRoot(doc, dir) { return pjoin(dir, sanit(doc.name.replace(/\.pdf$/i
 async function myUid() { const i = state.hostInfo || (HOST() ? await HOST().info() : {}); return sanit(`${i.user || 'user'}@${i.host || 'pc'}`); }
 const verOf = (m) => (m && m.modified ? Date.parse(m.modified) || 0 : 0);
 
+// ----- join code -------------------------------------------------------------------------------------------
+// The person who starts a session gets a short code; others need it to join. session.json in the
+// session folder keeps only a salted SHA-256 of it. It stops people joining by accident or without being
+// asked; it does not encrypt anything (whoever can open the Egnyte folder can still open the PDF).
+const CODE_ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const normCode = (c) => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/O/g, '0').replace(/I/g, '1');
+const fmtCode = (c) => { c = normCode(c); return c.length > 3 ? c.slice(0, 3) + '-' + c.slice(3) : c; };
+function newCode() { const a = crypto.getRandomValues(new Uint8Array(6)); return [...a].map((x) => CODE_ABC[x % CODE_ABC.length]).join(''); }
+async function codeHash(salt, code) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(salt + ':' + normCode(code))); return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join(''); }
+async function sessInfoRead(H, root) { const r = await H.sessRead(pjoin(root, 'session.json')).catch(() => null); if (!r) return null; try { return JSON.parse(r.text); } catch { return null; } }
+async function sessInfoWrite(H, root, code, open) {
+  const salt = [...crypto.getRandomValues(new Uint8Array(8))].map((x) => x.toString(16).padStart(2, '0')).join('');
+  const info = { v: 1, by: state.author, t: Date.now(), open: !!open, salt: open ? null : salt, hash: open ? null : await codeHash(salt, code) };
+  await H.sessWrite(pjoin(root, 'session.json'), JSON.stringify(info)); return info;
+}
+const codeKey = (doc) => 'sesscode:' + String(doc.path || doc.name).toLowerCase();
+async function codeOk(info, code) { return !!(info && (info.open || (code && info.hash === await codeHash(info.salt, code)))); }
+// ask for the code until it is right (or they give up)
+async function askCode(doc, info, why) {
+  let msg = why || '';
+  for (let tries = 0; tries < 5; tries++) {
+    const r = await openDialog({ title: 'Join the live session', body: `<p>${info.by ? `<b>${esc(info.by)}</b> started a live session on` : 'There is a live session on'} <b>${esc(doc.name)}</b>. Enter the code they gave you to join.</p>${field('Session code', '<input type="text" name="code" autocomplete="off" spellcheck="false" maxlength="12" placeholder="ABC-123" class="code-in">')}${msg ? `<p class="err sm" role="alert">${esc(msg)}</p>` : ''}`, buttons: [{ label: 'Work alone', value: false }, { label: 'Join', value: true, primary: true }], onOpen: (box) => setTimeout(() => { const i = box.querySelector('input[name=code]'); if (i) i.focus(); }, 30) });
+    if (!r || !r.value) return null; const code = normCode(r.form.code);
+    if (await codeOk(info, code)) return code; msg = code ? `${fmtCode(code)} is not the code for this session. Check it with the person who started it.` : 'Type the code first.';
+  }
+  toast('Too many wrong codes: working alone on this PDF', 'error'); return null;
+}
+
 // ----- start / stop ------------------------------------------------------------------------------------
-async function sessionStart(doc = activeDoc()) {
+async function sessionStart(doc = activeDoc(), opts = {}) {
   const H = HOST(); if (!H || !doc || !doc.path) { toast('Open the PDF from the Egnyte drive in the MeBulb desktop app to share it live.', 'error'); return; }
   if (doc.sess) return;
-  const dir = await H.sessDir(doc.path); const uid = await myUid(); const T = new FolderTransport(H, sessRoot(doc, dir), uid);
-  const S = { T, uid, name: state.author, color: peerColor(uid), seq: 1, applied: new Set(), known: new Map(), metaKnown: {}, mt: new Map(), tomb: new Map(Object.entries(doc.tomb || {}).map(([k, v]) => [k, +v])), metaT: {}, rc: 0, rlog: new Map(), rlogMeta: new Map(), peers: new Map(), sent: 0, recv: 0, lastSent: null, lastRecv: null, errors: 0, timers: [], queue: [], started: Date.now() };
+  const dir = await H.sessDir(doc.path); const uid = await myUid(); const root = sessRoot(doc, dir); const T = new FolderTransport(H, root, uid);
+  // the code: start a new session with a fresh one, or prove you have the code of the running one
+  let info = await sessInfoRead(H, root); let code = opts.code ? normCode(opts.code) : store.get(codeKey(doc), null); let mine = false;
+  if (info && !info.open && !(await codeOk(info, code))) {
+    const live = (await T.peers().catch(() => [])).filter((p) => p && p.uid !== uid && !p.left && Date.now() - (p.t || 0) < 180000);
+    if (!live.length && opts.fresh) info = null; // nobody there now: start over with a new code
+    else { code = opts.silent ? null : await askCode(doc, info, code ? 'The code you used before has been changed.' : ''); if (!code) return false; }
+  }
+  if (!info) { code = newCode(); info = await sessInfoWrite(H, root, code, false); mine = true; }
+  if (code) store.set(codeKey(doc), code);
+  const S = { T, root, info, code: info.open ? null : code, uid, name: state.author, color: peerColor(uid), seq: 1, applied: new Set(), known: new Map(), metaKnown: {}, mt: new Map(), tomb: new Map(Object.entries(doc.tomb || {}).map(([k, v]) => [k, +v])), metaT: {}, rc: 0, rlog: new Map(), rlogMeta: new Map(), peers: new Map(), sent: 0, recv: 0, lastSent: null, lastRecv: null, errors: 0, timers: [], queue: [], started: Date.now() };
   doc.markups.forEach((m) => { S.known.set(m.id, JSON.stringify(m)); S.mt.set(m.id, verOf(m)); });
   SESS_META.forEach((k) => { S.metaKnown[k] = JSON.stringify(doc[k] ?? null); S.metaT[k] = 0; });
   doc.sess = S;
@@ -47,7 +84,16 @@ async function sessionStart(doc = activeDoc()) {
   S.timers.push(setInterval(() => sessTick(doc), 1200), setInterval(() => sessPull(doc).catch(sessErr(doc)), 4000), setInterval(() => sessPresence(doc).catch(sessErr(doc)), 9000), setInterval(() => sessCheckPdf(doc).catch(sessErr(doc)), 8000));
   await T.watch(debounce(() => sessPull(doc).catch(sessErr(doc)), 250));
   await sessPresence(doc); sessGc(doc).catch(() => {});
-  store.set('sess:' + doc.path, true); renderSessionPanel(); renderSessionBadge(); toast('Live session on: your team sees your changes as Egnyte syncs them');
+  store.set('sess:' + doc.path, true); renderSessionPanel(); renderSessionBadge();
+  if (mine) { openPanel('session'); toast(`Live session on. Give your team the code ${fmtCode(code)} to join (Live session panel).`); }
+  else toast('Joined the live session: your team sees your changes as Egnyte syncs them');
+  return true;
+}
+// a new code (or none) for the running session; people already in it stay in
+async function sessSetCode(doc, open) {
+  const S = doc.sess; const H = HOST(); if (!S || !H) return; const code = open ? null : newCode();
+  S.info = await sessInfoWrite(H, S.root, code, open); S.code = code; if (code) store.set(codeKey(doc), code);
+  renderSessionPanel(); toast(open ? 'No code needed now: anyone who opens this PDF can join' : `New session code: ${fmtCode(code)}. People already in the session stay in.`);
 }
 async function sessionStop(doc = activeDoc(), quiet) {
   const S = doc && doc.sess; if (!S) return; sessTick(doc, true); await sessFlush(doc).catch(() => {});
@@ -127,7 +173,7 @@ function sessApply(doc, ops) {
   }
   if (!n) return; S.recv += n; S.lastRecv = Date.now();
   if (doc === activeDoc()) { if (meta) { renderAllMarks(doc); } else pages.forEach((p) => renderMarks(doc, p)); refreshPanels(); renderList(); }
-  doc.dirty = true; renderTabs(); renderSessionBadge(); if (rightShown('session')) renderSessionPanel();
+  if (!doc.dirty) doc.dirtySince = Date.now(); doc.dirty = true; doc.rev = (doc.rev || 0) + 1; recoveryChanged(doc); renderTabs(); renderSessionBadge(); if (rightShown('session')) renderSessionPanel();
   if (who.size && Date.now() - S.started > 5000) setStatus(`${[...who].join(', ')} updated ${n} markup${n === 1 ? '' : 's'}`);
 }
 // undo must not take back other people's changes made after the snapshot
@@ -182,8 +228,9 @@ async function sessGc(doc) {
   const S = doc.sess; if (!S || !doc.stat) return; const cutoff = doc.stat.mtimeMs - 24 * 3600e3;
   for (const f of await S.T.list()) if (f.mtimeMs < cutoff && f.name.endsWith('.json')) await S.T.remove(f.name).catch(() => {});
 }
-async function sessionSaved(doc) { const S = doc.sess; if (S) { await sessPresence(doc).catch(() => {}); sessGc(doc).catch(() => {}); } recoveryClear(doc); }
+async function sessionSaved(doc) { const S = doc.sess; doc.fileIds = doc.markups.map((m) => m.id); if (S) { await sessPresence(doc).catch(() => {}); sessGc(doc).catch(() => {}); } if (!doc.dirty) recoveryClear(doc); renderSaveBadge(); }
 async function sessionOpened(doc) {
+  doc.fileIds = doc.markups.map((m) => m.id);
   if (!HOST() || !doc.path) { recoveryOffer(doc); return; }
   await recoveryOffer(doc);
   try {
@@ -192,37 +239,19 @@ async function sessionOpened(doc) {
     for (const f of pres) { if (!f.name.endsWith('.json') || f.name === uid + '.json' || now - f.mtimeMs > 180000) continue; const r = await HOST().sessRead(pjoin(root, 'presence', f.name)).catch(() => null); if (r) { try { const p = JSON.parse(r.text); if (!p.left) others.push(p.name); } catch { } } }
     const pref = state.prefs.liveJoin || 'ask'; const was = store.get('sess:' + doc.path, false);
     if (others.length || was) {
-      if (pref === 'always' || (was && !others.length && pref !== 'never')) { await sessionStart(doc); return; }
+      if (others.length && pref !== 'never') { // a running session that needs a code we do not have: ask for the code straight away
+        const info = await sessInfoRead(HOST(), root); if (info && !info.open && !(await codeOk(info, store.get(codeKey(doc), null)))) { await sessionStart(doc, {}); return; }
+      }
+      if (pref === 'always' || (was && !others.length && pref !== 'never')) { await sessionStart(doc, { fresh: !others.length }); return; }
       if (pref === 'never') return;
       const r = await openDialog({ title: 'Join the live session?', body: `<p>${others.length ? `<b>${esc(others.join(', '))}</b> ${others.length === 1 ? 'is' : 'are'} working on this PDF right now.` : 'You were in a live session on this PDF.'}</p><p>Join to see each other's markups as they are made. Changes travel through the Egnyte drive, so expect a few seconds' delay.</p><label class="check"><input type="checkbox" name="always"> Always join automatically</label>`, buttons: [{ label: 'Work alone', value: false }, { label: 'Join', value: true, primary: true }] });
       if (r && r.form && r.form.always) { state.prefs.liveJoin = r.value ? 'always' : 'never'; savePrefs(); }
-      if (r && r.value) await sessionStart(doc);
+      if (r && r.value) await sessionStart(doc, { fresh: !others.length });
     }
   } catch (e) { console.warn(e); }
 }
-function sessionClosed(doc) { if (doc.sess) sessionStop(doc, true); (doc.extraFids || []).forEach((f) => HOST() && HOST().close(f)); if (HOST() && HOST().release && doc.path) HOST().release(doc.path).catch(() => {}); recoveryClear(doc, true); }
+function sessionClosed(doc, discarded) { if (discarded) recoveryClear(doc); if (doc.sess) sessionStop(doc, true); (doc.extraFids || []).forEach((f) => HOST() && HOST().close(f)); if (HOST() && HOST().release && doc.path) HOST().release(doc.path).catch(() => {}); recoveryClear(doc, true); }
 async function sessionShutdown() { for (const d of state.docs) if (d.sess) await sessionStop(d, true); }
-
-// ----- crash recovery: unsaved markups copied to AppData every few minutes ------------------------------
-const recKey = (doc) => { let h = 0; const s = (doc.path || doc.name).toLowerCase(); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return 'r' + h.toString(36); };
-async function recoveryWrite() {
-  const H = HOST();
-  for (const doc of state.docs) {
-    if (!doc.dirty || doc.sample) continue; const body = JSON.stringify({ path: doc.path, name: doc.name, t: Date.now(), payload: JSON.parse(payloadJson(doc)) });
-    try { if (H) { const dir = await H.outboxDir(); await H.sessWrite(pjoin(dir, recKey(doc) + '.json'), body); } else if (body.length < 1.5e6) localStorage.setItem('planmark:rec:' + recKey(doc), body); } catch { }
-  }
-}
-async function recoveryClear(doc, onlyIfClean) { if (onlyIfClean && doc.dirty) return; const H = HOST(); try { if (H) { const dir = await H.outboxDir(); await H.sessRm(pjoin(dir, recKey(doc) + '.json')); } else localStorage.removeItem('planmark:rec:' + recKey(doc)); } catch { } }
-async function recoveryOffer(doc) {
-  const H = HOST(); let rec = null;
-  try { if (H) { const dir = await H.outboxDir(); const r = await H.sessRead(pjoin(dir, recKey(doc) + '.json')); rec = r ? JSON.parse(r.text) : null; } else { const t = localStorage.getItem('planmark:rec:' + recKey(doc)); rec = t ? JSON.parse(t) : null; } } catch { }
-  if (!rec || !rec.payload) return; if (doc.stat && rec.t < doc.stat.mtimeMs) { recoveryClear(doc); return; }
-  const n = (rec.payload.markups || []).length;
-  const r = await openDialog({ title: 'Recover unsaved markups?', body: `<p>MeBulb kept a copy of unsaved work on <b>${esc(doc.name)}</b> from ${esc(fmtDate(new Date(rec.t).toISOString()))} (${n} markup${n === 1 ? '' : 's'}).</p>`, buttons: [{ label: 'Discard it', value: 'discard', danger: true }, { label: 'Recover', value: true, primary: true }] });
-  if (r && r.value === true) { pushUndo(doc); const P = rec.payload; doc.markups = P.markups || []; SESS_META.forEach((k) => { if (P[k] !== undefined) doc[k] = P[k]; }); doc.dirty = true; renderAllMarks(doc); refreshAll(); toast('Unsaved markups recovered'); }
-  else if (r && r.value === 'discard') recoveryClear(doc);
-}
-setInterval(() => recoveryWrite(), 30000);
 
 // ----- panel and status badge -----------------------------------------------------------------------------------
 function ago(t) { if (!t) return 'never'; const s = Math.round((Date.now() - t) / 1000); return s < 5 ? 'just now' : s < 60 ? `${s} s ago` : s < 3600 ? `${Math.round(s / 60)} min ago` : fmtDate(new Date(t).toISOString()); }
@@ -240,20 +269,25 @@ function renderSessionPanel() {
   const S = d.sess;
   if (!S) {
     el.innerHTML = `<section class="psec"><h3>Live session</h3><p class="muted">Work on <b>${esc(d.name)}</b> at the same time as your team. Everyone opens this PDF from the Egnyte drive and joins.</p>
-      <div class="btn-row"><button class="btn primary" data-sa="start"${d.path ? '' : ' disabled'}>${icon('people')} Start live session</button></div>
+      <div class="btn-row"><button class="btn primary" data-sa="start"${d.path ? '' : ' disabled'}>${icon('people')} Start or join live session</button></div>
+      <p class="muted sm">Starting a session gives you a code to pass on; joining one asks for its code.</p>
       ${d.path ? '' : '<p class="muted sm">This PDF was not opened from a folder on disk, so it cannot be shared.</p>'}</section>
       <section class="psec collapsed"><h3>How it works</h3><p class="muted sm">Your changes are saved every second as small files in a hidden <b>.mebulb</b> folder beside the PDF. Egnyte syncs that folder like any other, and everyone's MeBulb merges the changes: the newest edit to each markup wins. If you lose connection, your changes wait on this PC and go out when Egnyte reconnects. Saving writes everyone's markups into the PDF itself.</p></section>`;
     applyCollapsed(el); return;
   }
   const me = `<li><span class="pdot" style="background:${S.color}"></span><span><b>${esc(state.author)}</b> <span class="muted">(you)</span></span><small>page ${currentPage() + 1}</small></li>`;
   const peers = [...S.peers.values()].map((p) => `<li><span class="pdot" style="background:${p.color}"></span><span><b>${esc(p.name)}</b>${p.saving ? ' <span class="tag">saving</span>' : ''}</span><small>${p.page != null ? `page ${p.page + 1} · ` : ''}${ago(p.t)}</small></li>`).join('');
-  el.innerHTML = `<section class="psec"><h3>People</h3><div class="live-head"><span class="live-dot"></span><b>Live</b><span class="muted">${esc(d.name)}</span></div>
+  const codeSec = `<section class="psec"><h3>Session code</h3>${S.code ? `<div class="sess-code"><span class="code" aria-label="Session code">${esc(fmtCode(S.code))}</span><button class="btn sm" data-sa="copycode">${icon('copy')} Copy</button></div><p class="muted sm">Others need this code to join. It stops people joining by accident; it does not lock the PDF itself.</p>` : '<p class="muted sm">No code: anyone who opens this PDF in MeBulb can join.</p>'}
+    <div class="btn-row"><button class="btn sm" data-sa="newcode">New code</button>${S.code ? '<button class="btn sm" data-sa="nocode">Remove code</button>' : ''}</div></section>`;
+  el.innerHTML = `${codeSec}<section class="psec"><h3>People</h3><div class="live-head"><span class="live-dot"></span><b>Live</b><span class="muted">${esc(d.name)}</span></div>
     <ul class="people">${me}${peers || ''}</ul>${S.peers.size ? '' : '<p class="muted sm">Nobody else is here yet. Others join by opening this PDF in MeBulb.</p>'}</section>
     <section class="psec"><h3>Sync</h3><dl class="kv"><dt>Sent</dt><dd>${S.sent} change${S.sent === 1 ? '' : 's'}, ${ago(S.lastSent)}</dd><dt>Received</dt><dd>${S.recv} change${S.recv === 1 ? '' : 's'}, ${ago(S.lastRecv)}</dd><dt>Waiting</dt><dd>${S.queue.length ? `${S.queue.length} (will send when the folder is writable)` : 'nothing'}</dd>${S.lastError ? `<dt>Problem</dt><dd class="bad">${esc(S.lastError)}</dd>` : ''}</dl>
     <div class="btn-row"><button class="btn sm" data-sa="save">${icon('save')} Save PDF for everyone</button><button class="btn sm" data-sa="stop">Leave</button></div></section>`;
   applyCollapsed(el);
 }
 function bindSessionPanel() {
-  document.addEventListener('click', (e) => { const b = e.target.closest('[data-sa]'); if (!b) return; const a = b.dataset.sa; if (a === 'start') sessionStart(); else if (a === 'stop') sessionStop(); else if (a === 'save') saveDoc('save'); });
+  document.addEventListener('click', (e) => { const b = e.target.closest('[data-sa]'); if (!b) return; const a = b.dataset.sa; const d = activeDoc(); if (a === 'start') sessionStart(d, { fresh: true }); else if (a === 'stop') sessionStop(); else if (a === 'save') saveDoc('save');
+    else if (a === 'copycode' && d && d.sess && d.sess.code) { const t = fmtCode(d.sess.code); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast(`Copied ${t}`), () => toast(`The code is ${t}`)); }
+    else if (a === 'newcode' && d) sessSetCode(d, false); else if (a === 'nocode' && d) sessSetCode(d, true); });
 }
 function sessionStartDialog() { openPanel('session'); }

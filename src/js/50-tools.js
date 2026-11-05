@@ -71,16 +71,17 @@ function onPointerDown(e) {
   }
   if (e.button === 1 || (e.button === 0 && (I.space || state.tool === 'pan'))) { startPan(e); e.preventDefault(); return; }
   if (e.button === 2) return;
-  const i = pageAtClient(e.clientX, e.clientY);
+  const i0 = pageAtClient(e.clientX, e.clientY); const i = i0 >= 0 ? i0 : pageNearClient(e.clientX, e.clientY); // the grey area belongs to the nearest page
   if (state.placeItem && i >= 0) { e.preventDefault(); placeToolItem(state.placeItem, i, snapPoint(clientToPage(e, i), i)); return; }
   if (state.tool === 'select') { selectDown(e, i); return; }
-  if (i < 0 && !(state.draft && state.draft.mode !== 'drag')) return;
-  e.preventDefault(); drawDown(e, i < 0 ? state.draft.page : i);
+  if (i < 0) return;
+  e.preventDefault(); drawDown(e, i0 < 0 && state.draft ? state.draft.page : i);
 }
 function startPan(e) { I.pan = { x: e.clientX, y: e.clientY, sl: V.el.scrollLeft, st: V.el.scrollTop }; V.el.classList.add('panning'); try { V.el.setPointerCapture(e.pointerId); } catch { } }
 
 function selectDown(e, i) {
   const doc = activeDoc();
+  { const g0 = e.target.closest && e.target.closest('g.mk'); const m0 = g0 && getMarkup(g0.dataset.id); if (m0) i = m0.page; } // a markup parked in the grey area
   if (state.placeSection) { if (i >= 0) placeSectionAt(doc, i, clientToPage(e, i)); e.preventDefault(); return; }
   if (state.addLeaderFor) { const m = getMarkup(state.addLeaderFor); if (!m || m.type !== 'callout') { endAddLeader(); return; } if (i === m.page) { pushUndo(doc); m.leaders = [...(m.leaders || []), { tip: snapPoint(clientToPage(e, i), i), knee: null }]; touch(m); renderMarkupEl(m, doc); renderSel(doc, m.page); refreshPanels(); } else toast(`Click on page ${m.page + 1}, where the callout is`); e.preventDefault(); return; }
   const hEl = e.target.closest('.hdl');
@@ -208,10 +209,11 @@ function onPointerMove(e) {
   }
   if (I.pan) { V.el.scrollLeft = I.pan.sl - (e.clientX - I.pan.x); V.el.scrollTop = I.pan.st - (e.clientY - I.pan.y); return; }
   const pi = pageAtClient(e.clientX, e.clientY); updateCoords(e, pi);
-  if (I.drag) { dragMove(e); return; }
-  const d = state.draft;
-  if (!d && (state.placeEquip && state.tool === 'equip' || state.placeItem)) { state.ghost = pi >= 0 ? { page: pi, p: clientToPage(e, pi) } : null; renderDraft(); return; }
-  if (!d) { if (state.tool !== 'select' && state.tool !== 'pan' && pi >= 0) { const had = !!state.snapHint; snapPoint(clientToPage(e, pi), pi); if (had || state.snapHint) renderDraft(); } return; }
+  if (I.drag) { if (I.drag.kind !== 'pan') autoScrollCheck(e); dragMove(e); return; }
+  const d = state.draft; if (d && (e.buttons & 1)) autoScrollCheck(e);
+  const pn = pi >= 0 ? pi : (!d && state.tool !== 'select' && state.tool !== 'pan' ? pageNearClient(e.clientX, e.clientY) : -1);
+  if (!d && (state.placeEquip && state.tool === 'equip' || state.placeItem)) { state.ghost = pn >= 0 ? { page: pn, p: clientToPage(e, pn) } : null; renderDraft(); return; }
+  if (!d) { if (state.tool !== 'select' && state.tool !== 'pan' && pn >= 0) { const pi = pn; const had = !!state.snapHint; snapPoint(clientToPage(e, pi), pi); if (had || state.snapHint) renderDraft(); } return; }
   const i = d.page; let p = clientToPage(e, i);
   const moved = d.sx != null && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 5;
   switch (d.mode) {
@@ -254,7 +256,7 @@ function dragMove(e) {
     ms.forEach((m) => { const o = g.orig[m.id]; const f = (q) => [q[0] + dx, q[1] + dy]; m.pts = o.pts.map(f); if (o.holes) m.holes = o.holes.map((h) => h.map(f)); if (o.base) m.base = f(o.base); if (o.knee) m.knee = f(o.knee); if (o.leaders) m.leaders = o.leaders.map((l) => ({ tip: f(l.tip), knee: l.knee ? f(l.knee) : null })); renderMarkupEl(m, doc); });
     syncLinked(doc, ms.filter((m) => m.type === 'sketch')).forEach((x) => renderMarkupEl(x, doc));
     // a grille on a duct slides along it
-    ms.forEach((m) => { if (m.type !== 'grille' || !m.on || ms.some((x) => x.id === m.on)) return; const d = getMarkup(m.on, doc); if (!d) return; const pts = dedupePts(d.pts); const na = nearestAlong(pts, m.pts[0]); m.t = na.s / (G.len(pts) || 1); m.pts = [na.p]; renderMarkupEl(m, doc); });
+    ms.forEach((m) => { if (m.type !== 'grille' || !m.on || ms.some((x) => x.id === m.on)) return; slideGrille(doc, m, g.orig[m.id].pts[0], [dx, dy]); renderMarkupEl(m, doc); });
     new Set(ms.map((m) => m.page)).forEach((pg) => renderSel(doc, pg)); return;
   }
   if (g.kind === 'label') {
@@ -269,8 +271,17 @@ function dragMove(e) {
     renderSel(doc, m.page); renderDraft(); if (m.type === 'sketch') renderPropbar();
   }
 }
+// a grille on a duct slides along it (and across to the other side for a flush side grille); on a riser it
+// slides along the wall and round the corners to the next wall
+function slideGrille(doc, m, p0, dv) {
+  const host = getMarkup(m.on, doc); if (!host) return; const p = [p0[0] + dv[0], p0[1] + dv[1]];
+  if (host.type === 'duct') { const pts = dedupePts(host.pts); const na = nearestAlong(pts, p); m.t = na.s / (G.len(pts) || 1); if (grilleD(m).mount === 'side') { const a = alongPts(pts, na.s); const cr = Math.cos(a.ang) * (p[1] - a.p[1]) - Math.sin(a.ang) * (p[0] - a.p[0]); m.side = cr >= 0 ? 1 : -1; } }
+  else if (host.type === 'sketch') { let best = null; for (const f of riserFaces(doc, host)) { const u = [-f.n[1], f.n[0]]; const flen = f.wmm * ductK(doc, host); const v = [p[0] - f.p[0], p[1] - f.p[1]]; const al = clamp(v[0] * u[0] + v[1] * u[1], -flen / 2, flen / 2); const q = [f.p[0] + u[0] * al, f.p[1] + u[1] * al]; const d = G.dist(q, p); if (!best || d < best.d) best = { d, face: f.i, t: al / flen + 0.5 }; } if (best) { m.face = best.face; m.t = best.t; } }
+  m.pts = [grillePlace(doc, m).p];
+}
 function applyHandle(m, h, p, orig, shift, origHoles, alt, g) {
   if (m.type === 'sketch') { applySketchHandle(m, h, p, shift, alt, g && g.sk0); return; }
+  if (m.type === 'grille' && m.on) { slideGrille(activeDoc(), m, p, [0, 0]); return; } // on a duct or riser: slides along it
   if (h[0] === 'h') { const [hk, hi] = h.slice(1).split('.').map(Number); if (m.holes && m.holes[hk]) m.holes[hk][hi] = p; return; }
   const k = +h.slice(1);
   if (h === 'n') { m.knee = p; return; } // callout knee
@@ -305,7 +316,7 @@ function applyHandle(m, h, p, orig, shift, origHoles, alt, g) {
 }
 
 function onPointerUp(e) {
-  const doc = activeDoc(); if (!doc) return;
+  const doc = activeDoc(); if (!doc) return; if (AS.raf || AS.x || AS.y || V.extra.l || V.extra.r || V.extra.t || V.extra.b) autoScrollStop();
   if (e.pointerType === 'touch') { I.touches.delete(e.pointerId); if (I.touches.size < 2) I.pinch = null; }
   if (I.pan) { I.pan = null; V.el.classList.remove('panning'); scheduleRender(); return; }
   if (I.drag) {
@@ -341,7 +352,7 @@ function onPointerUp(e) {
 function markupElAt(x, y) {
   const els = document.elementsFromPoint(x, y); for (const el of els) { const g = el.closest && el.closest('g.mk'); if (g) return g; }
   // selected markups: the selection box sits on top; take the selected markup whose box holds the point
-  const doc = activeDoc(); const i = pageAtClient(x, y); if (!doc || i < 0) return null; const p = clientToPage({ clientX: x, clientY: y }, i);
+  const doc = activeDoc(); const i = pageNearClient(x, y); if (!doc || i < 0) return null; const p = clientToPage({ clientX: x, clientY: y }, i);
   const hit = selected(doc).filter((m) => m.page === i).find((m) => { const b = markupBBox(m, doc); return p[0] >= b.x && p[0] <= b.x2 && p[1] >= b.y && p[1] <= b.y2; });
   return hit ? doc.pageEls[i].querySelector(`g.mk[data-id="${CSS.escape(hit.id)}"]`) : null;
 }
@@ -492,8 +503,8 @@ function onContextMenu(e) {
   if (state.draft && state.draft.mode === 'multi') { finishDraft(); return; }
   if (state.draft) { cancelDraft(); return; }
   if (state.countId) { endCount(); return; }
-  const doc = activeDoc(); if (!doc) return; const i = pageAtClient(e.clientX, e.clientY);
-  const mEl = e.target.closest('g.mk'); const items = [];
+  const doc = activeDoc(); if (!doc) return; const mEl = e.target.closest('g.mk'); const items = [];
+  const i = mEl && getMarkup(mEl.dataset.id) ? getMarkup(mEl.dataset.id).page : pageNearClient(e.clientX, e.clientY);
   const hEl = e.target.closest('.hdl'); if (hEl) { const m = getMarkup(hEl.dataset.m); const its = m ? polyNodeMenu(m, hEl.dataset.h) : []; if (its.length) { showMenu(e.clientX, e.clientY, its); return; } }
   if (mEl) {
     const id = mEl.dataset.id; if (!state.sel.has(id)) { state.sel.clear(); state.sel.add(id); } if (state.tool !== 'select') setTool('select'); refreshSelection();
@@ -501,8 +512,9 @@ function onContextMenu(e) {
     if (TEXT_TYPES.has(m.type)) items.push(['Edit text', () => editText(m, false)]);
     if (m.type === 'callout') items.push(['Add leader', () => startAddLeader(m)]);
     if (m.type === 'duct') items.push(['Best route', () => rerouteDuct(m, 'best')], ['Route: straight', () => rerouteDuct(m, 'straight')], ['Route: across, then down', () => rerouteDuct(m, 'across')], ['Route: down, then across', () => rerouteDuct(m, 'down')], ['Add grille here', () => { pushUndo(doc); placeGrilleAt(doc, m.page, clientToPage(e, m.page)); }], ['Section view…', () => startSectionPlace(m)], ['Flip airflow', () => applyToSelection((x) => { if (x.type === 'duct') x.duct = { ...ductD(x), rev: !(x.duct && x.duct.rev) }; })], ['-']);
-    if (m.type === 'grille') items.push(['Section view…', () => startSectionPlace(m)], ['-']);
+    if (m.type === 'grille') { items.push(['Section view…', () => startSectionPlace(m)]); const h = m.on && getMarkup(m.on, doc); if (h && h.type === 'sketch' && h.link) items.push(['Put this grille on every floor', () => grilleEveryFloor(doc, m)]); items.push(['-']); }
     if (m.type === 'sketch') { const sel = selected(doc).filter((x) => x.type === 'sketch'); const nm = String(sketchName(doc, m) || '').trim().toUpperCase(); const twin = nm && doc.markups.some((x) => x !== m && x.type === 'sketch' && x.page === m.page && String(sketchName(doc, x) || '').trim().toUpperCase() === nm);
+      items.push(['Riser section through the floors…', () => startSectionPlace(m)]);
       if (sel.length === 2) items.push(['Connect these two risers with a duct', () => connectSelectedRisers()]); if (twin) items.push([`Connect the ${sketchName(doc, m)} risers with ducts`, () => connectSameNameRisers(m.page)]); }
     if (m.type === 'textedit') items.push(['Edit text', () => editPdfText(m)]);
     if (m.type === 'sketch') {

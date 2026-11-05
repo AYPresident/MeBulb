@@ -258,6 +258,7 @@ body.no-navbar #navbar { display: none; }
 .page svg.ov { position: absolute; left: 0; top: 0; z-index: 2; overflow: visible; }
 #viewer[data-tool="select"] .page svg.ov { cursor: default; }
 #viewer:not([data-tool="select"]):not([data-tool="pan"]) .page svg.ov { cursor: crosshair; }
+#viewer:not([data-tool="select"]):not([data-tool="pan"]):not(.space) #pages { cursor: crosshair; }
 #viewer[data-tool="edittext"] .page svg.ov { cursor: text; }
 #viewer[data-tool="pan"], #viewer.space { cursor: grab; }
 #viewer[data-tool="pan"] .page svg.ov, #viewer.space .page svg.ov { cursor: grab; }
@@ -641,3 +642,28 @@ body.painting #viewer g.mk, body.painting #viewer g.mk .hit { cursor: copy !impo
 #pop .sw.lt-row:hover { background: var(--hover, color-mix(in srgb, var(--fg) 8%, transparent)); }
 #pop .sw.lt-row.on { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .lt-svg-blank { display: inline-block; width: 110px; height: 10px; }
+
+/* autosave / recovery status and the recovery list */
+.save-badge { border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; padding: 2px 8px; border-radius: 10px; cursor: pointer; white-space: nowrap; }
+.save-badge:hover { background: color-mix(in srgb, var(--fg) 8%, transparent); color: var(--fg); }
+.save-badge.off { color: var(--faint); }
+.save-badge.warn { color: var(--warn); font-weight: 600; }
+.rec-list { display: flex; flex-direction: column; gap: 6px; max-height: 340px; overflow: auto; }
+.rec-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.rec-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rec-main .sm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sess-code { display: flex; align-items: center; gap: 10px; margin: 4px 0 6px; }
+.sess-code .code { font: 600 20px/1.2 ui-monospace, 'Cascadia Mono', Consolas, monospace; letter-spacing: .12em; padding: 4px 10px; border: 1px dashed var(--line-2); border-radius: 6px; user-select: all; }
+.code-in { font: 600 18px ui-monospace, 'Cascadia Mono', Consolas, monospace; letter-spacing: .14em; text-transform: uppercase; }
+.err { color: var(--bad); }
+/* ductulator */
+.dc-out { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--fg) 5%, transparent); }
+.dc-out b { font-size: 18px; font-variant-numeric: tabular-nums; }
+.dc-out .sm { flex-basis: 100%; }
+.dc-out.warn { background: color-mix(in srgb, var(--bad) 10%, transparent); }
+.dc-warn { display: flex; gap: 6px; align-items: flex-start; color: var(--bad); font-size: 12px; margin: 6px 0; flex-basis: 100%; }
+.dc-warn svg { width: 16px; height: 16px; flex: none; }
+.dc-mini { height: 30px; display: flex; align-items: center; font-variant-numeric: tabular-nums; font-size: 13px; }
+.dc-mini.warn { color: var(--bad); font-weight: 600; }
+.dc-sugg { display: flex; flex-wrap: wrap; gap: 6px; }
+.eq-pl.over b { color: var(--bad); }

@@ -27,6 +27,7 @@ function layoutPages(doc = activeDoc()) {
     const c = el.querySelector('canvas.base'); c.style.width = w + 'px'; c.style.height = h + 'px';
     el.querySelector('canvas.detail').hidden = true;
   });
+  applyWorkMargin(doc);
 }
 
 function visiblePages(doc, margin = 0.4) {
@@ -135,12 +136,63 @@ function zoomToBox(page, b) {
 }
 function clientToPage(e, i) { const d = activeDoc(); const r = d.pageEls[i].getBoundingClientRect(); return [(e.clientX - r.left) / d.zoom, (e.clientY - r.top) / d.zoom]; }
 function pageAtClient(x, y) { const d = activeDoc(); if (!d || !d.pageEls) return -1; for (let i = 0; i < d.pageEls.length; i++) { const r = d.pageEls[i].getBoundingClientRect(); if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return i; } return -1; }
+// the page under the pointer, or in the grey area the nearest page shown
+function pageNearClient(x, y) {
+  const i = pageAtClient(x, y); if (i >= 0) return i; const d = activeDoc(); if (!d || !d.pageEls) return -1;
+  let best = -1, bd = Infinity;
+  for (let k = 0; k < d.pageEls.length; k++) { const el = d.pageEls[k]; if (el.hidden) continue; const r = el.getBoundingClientRect(); if (!r.width) continue; const dd = Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom)); if (dd < bd) { bd = dd; best = k; } }
+  return best;
+}
+// ----- grey working area around the pages ------------------------------------------
+// The margin round the pages grows to hold markups parked off the sheet, and while dragging
+// towards the edge of the window the view scrolls (and the margin grows) so things can go there.
+V.extra = { l: 0, r: 0, t: 0, b: 0 };
+function contentOverflow(doc) {
+  const o = { l: 0, r: 0, t: 0, b: 0 }; if (!doc || !doc.pages) return o; const single = state.pageMode === 'single'; const last = doc.numPages - 1;
+  for (const m of doc.markups) {
+    const pg = doc.pages[m.page]; if (!pg || !m.pts || !m.pts.length) continue; if (single && m.page !== doc.singleCur) continue;
+    const ix = pg.w * 0.12, iy = pg.h * 0.12; let edge = false;
+    for (const q of m.pts) { if (q && (q[0] < ix || q[1] < iy || q[0] > pg.w - ix || q[1] > pg.h - iy)) { edge = true; break; } }
+    if (!edge) continue; let b; try { b = markupBBox(m, doc); } catch { continue; } if (!b || !isFinite(b.x)) continue;
+    o.l = Math.max(o.l, -b.x); o.r = Math.max(o.r, b.x2 - pg.w);
+    if (single || m.page === 0) o.t = Math.max(o.t, -b.y); if (single || m.page === last) o.b = Math.max(o.b, b.y2 - pg.h);
+  }
+  return o;
+}
+function applyWorkMargin(doc = activeDoc(), recount = true) {
+  if (!doc || !doc.pageEls || !V.pages) return; if (recount || !doc._over) doc._over = contentOverflow(doc);
+  const o = doc._over, z = doc.zoom, E = V.extra; const pad = (v, e) => Math.round(20 + (v > 0 ? v * z + 24 : 0) + e);
+  const P = { t: pad(o.t, E.t), r: pad(o.r, E.r), b: pad(o.b, E.b), l: pad(o.l, E.l) }; const old = V.pad || { t: 20, r: 20, b: 20, l: 20 };
+  if (P.t === old.t && P.r === old.r && P.b === old.b && P.l === old.l) return;
+  const st = V.el.scrollTop, sl = V.el.scrollLeft; const lx0 = doc.pageEls[0] ? doc.pageEls[0].offsetLeft : 0;
+  V.pages.style.padding = `${P.t}px ${P.r}px ${P.b}px ${P.l}px`; V.pad = P;
+  V.el.scrollTop = st + (P.t - old.t); const lx1 = doc.pageEls[0] ? doc.pageEls[0].offsetLeft : 0; V.el.scrollLeft = sl + (lx1 - lx0); // keep the drawing still on screen
+}
+const applyWorkMarginSoon = debounce(() => applyWorkMargin(), 200);
+// while a drag is held near (or past) the window edge, scroll that way; past the end, make room
+const AS = { raf: 0, x: 0, y: 0, ev: null };
+function autoScrollCheck(e) {
+  if (e.synthetic) return; const r =V.el.getBoundingClientRect(); const zone = 28; const sp = (d) => Math.sign(d) * Math.min(22, 3 + Math.abs(d) * 0.4);
+  const dx = e.clientX < r.left + zone ? sp(e.clientX - (r.left + zone)) : e.clientX > r.right - zone ? sp(e.clientX - (r.right - zone)) : 0;
+  const dy = e.clientY < r.top + zone ? sp(e.clientY - (r.top + zone)) : e.clientY > r.bottom - zone ? sp(e.clientY - (r.bottom - zone)) : 0;
+  AS.x = dx; AS.y = dy; AS.ev = { clientX: e.clientX, clientY: e.clientY, shiftKey: e.shiftKey, altKey: e.altKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, pointerId: e.pointerId, pointerType: e.pointerType, buttons: e.buttons, target: V.el, synthetic: true };
+  if ((dx || dy) && !AS.raf) AS.raf = requestAnimationFrame(autoScrollTick);
+}
+function autoScrollTick() {
+  const doc = activeDoc(); if (!doc || (!AS.x && !AS.y)) { AS.raf = 0; return; } const el = V.el; const MAXX = 4000;
+  const canX = el.scrollWidth > el.clientWidth + 1, canY = el.scrollHeight > el.clientHeight + 1; // all of it already on screen: nothing to make room for
+  if (AS.x) { const before = el.scrollLeft; el.scrollLeft += AS.x; if (el.scrollLeft === before && canX) { if (AS.x < 0 && V.extra.l < MAXX) { V.extra.l += Math.abs(AS.x); applyWorkMargin(doc, false); el.scrollLeft = 0; } else if (AS.x > 0 && V.extra.r < MAXX) { V.extra.r += AS.x; applyWorkMargin(doc, false); el.scrollLeft += AS.x; } } }
+  if (AS.y) { const before = el.scrollTop; el.scrollTop += AS.y; if (el.scrollTop === before && canY) { if (AS.y < 0 && V.extra.t < MAXX) { V.extra.t += Math.abs(AS.y); applyWorkMargin(doc, false); el.scrollTop = 0; } else if (AS.y > 0 && V.extra.b < MAXX) { V.extra.b += AS.y; applyWorkMargin(doc, false); el.scrollTop += AS.y; } } }
+  if (AS.ev) onPointerMove(AS.ev); scheduleRender();
+  AS.raf = requestAnimationFrame(autoScrollTick);
+}
+function autoScrollStop() { if (AS.raf) cancelAnimationFrame(AS.raf); AS.raf = 0; AS.x = AS.y = 0; AS.ev = null; if (V.extra.l || V.extra.r || V.extra.t || V.extra.b) { V.extra = { l: 0, r: 0, t: 0, b: 0 }; applyWorkMargin(); } else applyWorkMarginSoon(); }
 
 // ----- overlays -------------------------------------------------------------------
 function renderMarks(doc, i) {
   if (!doc || !doc.pageEls || !doc.pageEls[i] || doc !== activeDoc()) return;
   const g = doc.pageEls[i].querySelector('g.marks');
-  doc.markups.forEach((x) => { if (x.type === 'grille' && x.on && x.page === i) { const pl = grillePlace(doc, x); if (pl.duct) x.pts = [pl.p]; } }); // grilles ride on their duct
+  doc.markups.forEach((x) => { if (x.type === 'grille' && x.on && x.page === i) { const pl = grillePlace(doc, x); if (pl.host) x.pts = [pl.p]; } }); // grilles ride on their duct or riser
   g.innerHTML = doc.markups.filter((m) => m.page === i && layerVisible(doc, m.layer)).map((m) => markupSvg(m, doc, { hideText: state.editing && state.editing.id === m.id })).join('');
   renderSel(doc, i); renderPageExtras(doc, i); renderFlatLayer(doc, i);
 }
@@ -155,7 +207,7 @@ function renderPageExtras(doc, i) {
   const vg = el.querySelector('g.vports'); const vps = (doc.viewports && doc.viewports[i]) || [];
   vg.innerHTML = state.showViewports ? vps.map((v) => { const fs = 10 / Math.max(z, 0.3); return `<g class="vp" data-vp="${v.id}"><rect x="${v.x}" y="${v.y}" width="${v.w}" height="${v.h}" stroke-width="${num(1.2 / z, 3)}" stroke-dasharray="${num(6 / z, 2)} ${num(4 / z, 2)}"/><text x="${num(v.x + 4 / z, 2)}" y="${num(v.y + fs + 2 / z, 2)}" font-size="${num(fs, 2)}">${esc(v.name)} \u00b7 ${esc(v.scale.label || '')}</text></g>`; }).join('') : '';
 }
-function renderAllMarks(doc = activeDoc()) { if (!doc || !doc.pageEls) return; for (let i = 0; i < doc.numPages; i++) renderMarks(doc, i); }
+function renderAllMarks(doc = activeDoc()) { if (!doc || !doc.pageEls) return; for (let i = 0; i < doc.numPages; i++) renderMarks(doc, i); applyWorkMarginSoon(); }
 function renderMarkupEl(m, doc = activeDoc(), peer) {
   const el = doc.pageEls && doc.pageEls[m.page]; if (!el) return; const g = el.querySelector(`g.mk[data-id="${m.id}"]`);
   if (!g) { renderMarks(doc, m.page); return; }
@@ -164,6 +216,11 @@ function renderMarkupEl(m, doc = activeDoc(), peer) {
   // a unit's clearance warnings depend on its neighbours: redraw the others on the page when one changes
   if (m.type === 'equip' && !peer) doc.markups.forEach((x) => { if (x !== m && x.type === 'equip' && x.page === m.page) renderMarkupEl(x, doc, true); });
   // ductwork: grilles ride on their duct; section details and cut markers follow what they show
+  if (m.type === 'sketch' && !peer) { // grilles in its walls, and riser sections of it, follow it
+    syncGrilles(doc, m).forEach((x) => renderMarkupEl(x, doc, true));
+    const ids = new Set([m.id, ...(m.link ? doc.markups.filter((x) => x.link === m.link).map((x) => x.id) : [])]);
+    doc.markups.forEach((x) => { if (x.type === 'section' && ids.has(x.of)) renderMarkupEl(x, doc, true); });
+  }
   if (DUCT_TYPES.has(m.type) && !peer) {
     if (m.type === 'duct') syncGrilles(doc, m).forEach((x) => renderMarkupEl(x, doc, true));
     const rel = new Set(doc.markups.filter((x) => x.type === 'section' && (x.of === m.id || (m.type === 'duct' && doc.markups.some((gq) => gq.type === 'grille' && gq.on === m.id && gq.id === x.of)))).map((x) => x.id));

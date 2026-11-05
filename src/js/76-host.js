@@ -14,6 +14,7 @@ async function hostBoot() {
       const r = await openDialog({ title: 'Save changes?', body: `<p>${dirty.length === 1 ? `<b>${esc(dirty[0].name)}</b> has` : `${dirty.length} documents have`} unsaved markups.</p>`, buttons: [{ label: 'Cancel', value: false }, { label: "Don't save", value: 'discard', danger: true }, { label: dirty.length === 1 ? 'Save' : 'Save all', value: 'save', primary: true }] });
       if (!r || !r.value) return;
       if (r.value === 'save') { for (const d of dirty) { await switchDoc(d.id); await saveDoc('save'); if (d.dirty) return; } }
+      else for (const d of dirty) await recoveryClear(d); // Don't save: nothing to offer back next time
     }
     await sessionShutdown();
     H.closeOk();

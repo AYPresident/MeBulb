@@ -44,7 +44,7 @@ const state = {
   sketchNext: store.get('sketchNext', 'M1'), sketchAutoNum: store.get('sketchAutoNum', true), alignPick: null,
   theme: store.get('theme', 'system'), layout: null, layouts: store.get('layouts', {}), shortcuts: store.get('shortcuts', {}), collapsed: store.get('collapsed', {}), pageMode: store.get('pageMode', 'continuous'),
   painter: false, propClipboard: null, recent: store.get('recent', []), tbCustomize: false,
-  prefs: { linkLabelMode: 'ask', autosaveMins: 2, largeFileMB: 48, ...store.get('prefs', {}) },
+  prefs: { linkLabelMode: 'ask', autosavePdf: 5, recoveryMins: 0, largeFileMB: 48, ...store.get('prefs', {}) },
   list: { sort: 'page', dir: 1, q: '', type: 'all', status: 'all', pageOnly: false },
   search: { q: '', hits: [], idx: -1, caseSens: false, busy: false },
   thumbSel: 0,
@@ -67,13 +67,13 @@ function newDoc(name, src) {
 // ----- undo / redo (whole-state snapshots; bytes are shared references) -------
 function snapshot(doc) { return { markups: JSON.stringify(doc.markups), scales: JSON.stringify(doc.scales), layers: JSON.stringify(doc.layers), viewports: JSON.stringify(doc.viewports || {}), links: JSON.stringify(doc.links || {}), formValues: JSON.stringify(doc.formValues || {}), align: JSON.stringify(doc.align || null), colorAdj: JSON.stringify(doc.colorAdj || null), flat: JSON.stringify(doc.flat || []), unmelt: JSON.stringify([doc.unmelt || [], doc.unmeltKeep || {}]), src: doc.src, rc: doc.sess ? doc.sess.rc : 0 }; }
 function pushUndo(doc = activeDoc()) { if (!doc) return; doc.undo.push(snapshot(doc)); if (doc.undo.length > 150) doc.undo.shift(); doc.redo = []; markDirty(doc); }
-function markDirty(doc = activeDoc()) { if (!doc) return; SESS.hint = true; doc.dirty = true; renderTabs(); updateUndoUI(); }
+function markDirty(doc = activeDoc()) { if (!doc) return; SESS.hint = true; if (!doc.dirty) doc.dirtySince = Date.now(); doc.dirty = true; doc.rev = (doc.rev || 0) + 1; renderTabs(); updateUndoUI(); recoveryChanged(doc); }
 async function restoreSnap(doc, s) {
   const bytesChanged = s.src !== doc.src;
   const R = sessKeepRemote(doc, s.rc || 0, { markups: JSON.parse(s.markups), scales: JSON.parse(s.scales), layers: JSON.parse(s.layers), viewports: JSON.parse(s.viewports || '{}'), links: JSON.parse(s.links || '{}'), align: JSON.parse(s.align || 'null'), colorAdj: JSON.parse(s.colorAdj || 'null'), flat: JSON.parse(s.flat || '[]') });
   Object.assign(doc, R); doc.formValues = JSON.parse(s.formValues || '{}'); if (s.unmelt) { const [u, k] = JSON.parse(s.unmelt); doc.unmelt = u; doc.unmeltKeep = k; } SESS.hint = true; renderColorAdj(doc); renderFormLayers && renderFormLayers();
   if (bytesChanged) { setDocSource(doc, s.src); await loadPdfInto(doc); mountDoc(doc); }
-  state.sel.clear(); doc.dirty = true; refreshAll();
+  state.sel.clear(); markDirty(doc); refreshAll();
 }
 async function undo() { const d = activeDoc(); if (!d || !d.undo.length) return; cancelDraft(); d.redo.push(snapshot(d)); await restoreSnap(d, d.undo.pop()); toast('Undone'); }
 async function redo() { const d = activeDoc(); if (!d || !d.redo.length) return; cancelDraft(); d.undo.push(snapshot(d)); await restoreSnap(d, d.redo.pop()); toast('Redone'); }

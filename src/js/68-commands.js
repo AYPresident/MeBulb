@@ -26,6 +26,8 @@ function buildCommands() {
   add('file.sample', 'Open sample drawings', openSample, { ...G_FILE, icon: 'pages' });
   add('file.close', 'Close document', () => closeDoc(state.activeId), { ...G_FILE, icon: 'close', enabled: hasDoc });
   add('file.print', 'Print…', printDoc, { ...G_FILE, icon: 'print', enabled: hasDoc });
+  add('file.recover', 'Recover unsaved work…', () => recoveryDialog(), { ...G_FILE, icon: 'undo' });
+  add('file.autosave', 'Autosave and recovery…', () => prefsDialog(), { ...G_FILE, icon: 'save' });
   // edit
   add('edit.undo', 'Undo', undo, { ...G_EDIT, icon: 'undo', enabled: () => hasDoc() && activeDoc().undo.length });
   add('edit.redo', 'Redo', redo, { ...G_EDIT, icon: 'redo', enabled: () => hasDoc() && activeDoc().redo.length });
@@ -89,7 +91,8 @@ function buildCommands() {
   add('doc.alignGrid', 'Align pages…', autoAlignDialog, { ...G_DOC, icon: 'align', enabled: hasDoc });
   add('duct.connectSame', 'Connect same-name risers with ducts', () => connectSameNameRisers(), { group: 'Ductwork', icon: 'duct', enabled: hasDoc });
   add('duct.connectSel', 'Connect the two selected risers', () => connectSelectedRisers(), { group: 'Ductwork', icon: 'duct', enabled: hasDoc });
-  add('duct.section', 'Section view of the selected duct or grille', () => { const m = selected()[0]; if (m && (m.type === 'duct' || m.type === 'grille')) startSectionPlace(m); else toast('Select a duct or grille first'); }, { group: 'Ductwork', icon: 'section', enabled: hasDoc });
+  add('duct.section', 'Section view of the selected duct, grille or riser', () => { const m = selected()[0]; if (m && (m.type === 'duct' || m.type === 'grille' || m.type === 'sketch')) startSectionPlace(m); else toast('Select a duct, grille or riser first'); }, { group: 'Ductwork', icon: 'section', enabled: hasDoc });
+  add('duct.calc', 'Ductulator', () => { openPanel('ductwork'); setTimeout(() => { const i = $('#ductwork [data-dc="q"]'); if (i) { i.scrollIntoView({ block: 'center' }); i.focus(); i.select(); } }, 60); }, { group: 'Ductwork', icon: 'duct', enabled: hasDoc });
   add('doc.refCopy', 'Copy reference marks to pages…', copyRefMarksDialog, { ...G_DOC, icon: 'refpt', enabled: hasDoc });
   add('doc.alignPoints', 'Align this page by points', () => startAlignPick(currentPage()), { ...G_DOC, icon: 'alignpts', enabled: hasDoc });
   add('doc.scale', 'Set page scale…', () => scaleDialog(currentPage()), { ...G_DOC, icon: 'scale', enabled: hasDoc });

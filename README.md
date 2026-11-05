@@ -23,7 +23,7 @@ there open here.
 
 - `00-core` utilities, geometry, font metrics · `10-units` units and scales
 - `20-markup` markup types and drawing (screen SVG and PDF use the same primitives)
-- `22-richtext` rich text runs and editor · `25-sketch` sketch-to-scale risers · `26-equip` equipment top views to scale with clearances and clash checks · `27-align` page alignment by grid bubbles or hand-placed reference points and grid lines · `28-duct` ductwork: sized ducts with insulation and end caps, routing between risers, grilles with free area, section views
+- `22-richtext` rich text runs and editor · `25-sketch` sketch-to-scale risers · `26-equip` equipment top views to scale with clearances and clash checks · `27-align` page alignment by grid bubbles or hand-placed reference points and grid lines · `28-duct` ductwork: sized ducts with insulation, end caps and transitions, routing out of riser faces, grilles on ducts and in riser walls, section views (ducts, grilles, risers through every floor) · `29-ductulator` velocity and friction loss (Darcy-Colebrook), size suggestions
 - `30-state` application state, undo · `40-viewer` page rendering · `45-content` PDF content parsing (snapping, text)
 - `46-forms` form fields · `47-textedit` PDF text editing · `48-ocr` text recognition · `49-fonts` installed fonts and embedding
 - `50-tools`, `51-editops` drawing tools and editing commands
@@ -33,7 +33,7 @@ there open here.
 - `72-dialogs` dialogs · `73-owned` colour processing and flatten/unflatten page content
 - `74-revu` Bluebeam Revu compatibility (measurements, captions, counts, layers, viewports, importing other apps' markups)
 - `75-btx` Bluebeam tool sets (.btx) import/export, tool previews, recent tools
-- `76-host` desktop bridge · `78-session` live sessions over the Egnyte drive · `80-sample` sample drawing
+- `76-host` desktop bridge · `78-session` live sessions over the Egnyte drive (join codes) · `79-autosave` autosave and crash recovery · `80-sample` sample drawing
 - `vendor/ocr` offline text recognition (Tesseract compiled to WebAssembly, English model) and its worker
 
 ## Building
@@ -60,9 +60,9 @@ official Electron GitHub release).
 counts and Revu-flattened markups, using sample files in `test/fixtures`), `stamps`, `btx` (tool sets),
 `equip` (equipment and clearances), `r7` (curves and nodes, area rectangles, linked sketches and their
 Revu output, callout knees and leaders, reference-mark alignment, same-spot page flipping), `r8` (linked-page picking, text spacing, line types, resizing,
-ductwork: routing, insulation, caps, grilles, section views, PDF parts), `ocr`, and `igs` (client drawings, skipped unless `IGS_DIR` has them). The tests need
+ductwork: routing, insulation, caps, grilles, section views, PDF parts), `r9` (working in the grey area, recovery copies and autosave settings, riser exits and transitions, flush and riser grilles, riser sections, the ductulator), `ocr`, and `igs` (client drawings, skipped unless `IGS_DIR` has them). The tests need
 `qpdf` and `pdftotext`/`pdftoppm` (poppler-utils). `test/desktop.js` runs the Linux Electron build under
-`xvfb-run`, including a two-person live session.
+`xvfb-run`, including a two-person live session with a join code, a crash (killed process) and recovery, and autosave.
 
 GitHub Actions (`.github/workflows/ci.yml`) builds and runs the browser suites on every push and
 pull request, and keeps the web build and the test screenshots.
@@ -87,4 +87,11 @@ pull request, and keeps the web build and the test screenshots.
 - **Flatten / unflatten** keeps the markups as JSON inside the flattened drawing, so unflatten brings
   back real, editable annotations (text boxes stay text boxes).
 - **Live sessions** write small change files into a hidden `.mebulb` folder beside the PDF; Egnyte
-  syncs them and every copy merges them (newest change per markup wins).
+  syncs them and every copy merges them (newest change per markup wins). The person who starts a session
+  gets a join code; `session.json` keeps only a salted SHA-256 of it. It is a gate, not encryption.
+- **Autosave and recovery**: autosave writes the PDF every few minutes (desktop, writable files, the session
+  holder only). Separately, a recovery copy of unsaved markups goes to AppData a few seconds after each
+  change and is removed on save or "Don't save"; File > Recover unsaved work lists what is kept.
+- **Ductulator**: Darcy-Weisbach with the Colebrook friction factor on the hydraulic diameter (4A/P) at the
+  real velocity; galvanised steel (ε 0.09 mm), air 1.2 kg/m³, ν 1.51×10⁻⁵ m²/s. Ducts and risers over the
+  friction limit (1 Pa/m by default) are flagged.

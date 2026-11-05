@@ -125,7 +125,13 @@ function bindLinkedPanel() {
     if (a.startsWith('tool-')) { setTool(a.slice(5)); return; }
     if (a === 'toggle') { state.linkOpen = state.linkOpen === card.dataset.link ? null : card.dataset.link; renderLinkedPanel(); return; }
     if (a === 'goto' && (e.ctrlKey || e.metaKey || e.shiftKey)) { // pick several pages
-      const pick = state.lkPick = state.lkPick || new Set(); const id = b.dataset.id;
+      const id = b.dataset.id; let pick = state.lkPick;
+      if (!pick || !pick.size) { // start from the page already clicked (or selected) so it counts too
+        pick = state.lkPick = new Set();
+        const cur = card ? [...card.querySelectorAll('[data-lk="goto"]')].map((x) => x.dataset.id).filter((x) => state.sel.has(x)) : [];
+        cur.forEach((x) => { if (x !== id) pick.add(x); });
+        if (cur.length && !cur.includes(state.lkPickLast)) state.lkPickLast = cur[0];
+      }
       if (e.shiftKey && state.lkPickLast && card) { const ids = [...card.querySelectorAll('[data-lk="goto"]')].map((x) => x.dataset.id); const i0 = ids.indexOf(state.lkPickLast), i1 = ids.indexOf(id); if (i0 >= 0 && i1 >= 0) ids.slice(Math.min(i0, i1), Math.max(i0, i1) + 1).forEach((x) => pick.add(x)); }
       else if (pick.has(id)) pick.delete(id); else pick.add(id);
       state.lkPickLast = id; renderLinkedPanel(); return;
@@ -133,7 +139,7 @@ function bindLinkedPanel() {
     if (a === 'clearpick') { state.lkPick = null; renderLinkedPanel(); return; }
     if (a === 'unlinkpick' || a === 'rmpick') { const ms = [...(state.lkPick || [])].map((id) => getMarkup(id)).filter((m) => m && m.link === card.dataset.link); state.lkPick = null; linkedPagesAction(doc, ms, a === 'rmpick' ? 'remove' : 'unlink'); return; }
     if (a === 'choose') { const m = getMarkup(b.dataset.id); if (m) chooseLinkedPagesDialog(m); return; }
-    if (a === 'goto') { state.lkPick = null; const m = getMarkup(b.dataset.id); if (!m) return; setTool('select'); state.sel.clear(); state.sel.add(m.id); goToPage(m.page, m.pts[0]); refreshSelection(); renderLinkedPanel(); return; }
+    if (a === 'goto') { state.lkPick = null; state.lkPickLast = b.dataset.id; const m = getMarkup(b.dataset.id); if (!m) return; setTool('select'); state.sel.clear(); state.sel.add(m.id); goToPage(m.page, m.pts[0]); refreshSelection(); renderLinkedPanel(); return; }
     if (a === 'place') { const m = getMarkup(b.dataset.id); if (m) placeOnPagesDialog(m); return; }
     if (a === 'selall') { const p = currentPage(); const ids = doc.markups.filter((x) => x.link === card.dataset.link && x.page === p).map((x) => x.id); if (!ids.length) { toast('This set is not on the current page'); return; } setTool('select'); state.sel = new Set(ids); refreshSelection(); }
   });

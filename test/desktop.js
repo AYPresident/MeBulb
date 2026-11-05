@@ -6,8 +6,8 @@ const OUT = '/home/claude/planmark/test/out'; const EXE = '/home/claude/planmark
 const PDF = '/tmp/claude-0/egnyte/Project/L1 Big Plan.pdf';
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-async function start(user) {
-  const data = `/tmp/claude-0/mb-${user}`; fs.rmSync(data, { recursive: true, force: true });
+async function start(user, keep) {
+  const data = `/tmp/claude-0/mb-${user}`; if (!keep) fs.rmSync(data, { recursive: true, force: true });
   const app = await _electron.launch({ executablePath: EXE, args: ['--no-sandbox', '--disable-gpu'], env: { ...process.env, MEBULB_USERDATA: data, MEBULB_USER: user, MEBULB_HOST: 'pc-' + user } });
   const win = await app.firstWindow(); const errors = [];
   win.on('pageerror', (e) => errors.push('pageerror: ' + e.message)); win.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
@@ -42,14 +42,21 @@ async function start(user) {
   ok(/No syntax or stream encoding errors/.test(execSync(`qpdf --check "${PDF}" 2>&1 || true`, { encoding: 'utf8' })), 'saved file passes qpdf');
   ok(/\+LiberationSans/.test(execSync(`pdffonts "${PDF}"`, { encoding: 'utf8' })), 'installed font embedded in the saved PDF');
   // second instance: Bob opens the same PDF; Alice starts a live session first
-  await A.ev(async () => { await mebulb.sessionStart(); });
+  await A.ev(async () => { await mebulb.sessionStart(mebulb.activeDoc(), { fresh: true }); });
   ok(fs.existsSync(path.join(path.dirname(PDF), '.mebulb')), 'hidden .mebulb folder created beside the PDF');
+  const code = await A.ev(() => mebulb.activeDoc().sess.code);
+  const sj = JSON.parse(fs.readFileSync(path.join(path.dirname(PDF), '.mebulb', 'L1 Big Plan', 'session.json'), 'utf8'));
+  const shown = await A.ev(() => (document.querySelector('#session-panel .sess-code .code') || {}).textContent || '');
+  ok(/^[A-Z2-9]{6}$/.test(code) && sj.hash && sj.salt && !JSON.stringify(sj).includes(code) && shown.replace('-', '') === code, `Alice gets a session code (${shown}); only a salted hash of it is in the shared folder`);
   const B = await start('bob');
   const joinP = B.ev(async (p) => { mebulb.openPath(p); return true; }, PDF);
-  await joinP; await B.win.waitForSelector('#modal-back:not([hidden])', { timeout: 15000 }).catch(() => {});
+  await joinP; await B.win.waitForSelector('#modal-back:not([hidden]) input[name=code]', { timeout: 15000 }).catch(() => {});
   const prompt = await B.ev(() => document.querySelector('#modal') && !document.querySelector('#modal-back').hidden ? document.querySelector('#modal').textContent : '');
-  ok(/alice/i.test(prompt) && /join/i.test(prompt), 'Bob is asked to join: ' + prompt.replace(/\s+/g, ' ').slice(0, 90));
-  await B.win.click('#modal footer button:has-text("Join")'); await sleep(1500);
+  ok(/alice/i.test(prompt) && /code/i.test(prompt), 'Bob is asked for the code to join: ' + prompt.replace(/\s+/g, ' ').slice(0, 90));
+  await B.win.fill('#modal input[name=code]', 'XYZ-234'); await B.win.click('#modal footer button:has-text("Join")'); await sleep(600);
+  const wrong = await B.ev(() => ({ msg: (document.querySelector('#modal .err') || {}).textContent || '', live: !!mebulb.activeDoc().sess }));
+  ok(/not the code/.test(wrong.msg) && !wrong.live, 'a wrong code is refused: ' + wrong.msg);
+  await B.win.fill('#modal input[name=code]', code.slice(0, 3).toLowerCase() + ' ' + code.slice(3)); await B.win.click('#modal footer button:has-text("Join")'); await sleep(1500);
   const bs = await B.ev(() => ({ live: !!mebulb.activeDoc().sess, n: mebulb.activeDoc().markups.length }));
   ok(bs.live && bs.n === 1, `Bob joined live with ${bs.n} markup`);
   // Alice adds a riser; Bob should see it within a few seconds
@@ -111,6 +118,25 @@ print(d.count(b'/MeBulbData'))
   ok(/unsaved/i.test(closeTxt), 'closing with unsaved work asks first');
   await B.win.click('#modal footer button:has-text("Don\'t save")').catch(() => {});
   await sleep(800);
-  console.log('A errors:', A.errors.join('\n') || 'none'); console.log('B errors:', B.errors.join('\n') || 'none');
-  await A.app.close().catch(() => {}); await B.app.close().catch(() => {});
+  // MeBulb stops without saving (killed): the recovery copy brings the work back; autosave writes the PDF
+  const CP = path.join(path.dirname(PDF), 'Carol plan.pdf'); fs.copyFileSync(path.join(__dirname, 'fixtures', fs.readdirSync(path.join(__dirname, 'fixtures')).find((f) => /\.pdf$/i.test(f))), CP);
+  let C = await start('carol');
+  const c1 = await C.ev(async (p) => { const d = await mebulb.openPath(p); await new Promise((r) => setTimeout(r, 800)); const now = new Date().toISOString(); mebulb.markDirty(d); d.markups.push({ id: 'PM-c1', type: 'rect', page: 0, pts: [[200, 200], [320, 280]], style: { stroke: '#c2255c', fill: 'none', width: 3, opacity: 1 }, author: 'Carol', created: now, modified: now, layer: '' }); mebulb.renderAllMarks(d); return d.markups.length; }, CP);
+  await sleep(3800);
+  const recDir = '/tmp/claude-0/mb-carol/outbox/recovery'; const recFiles = fs.existsSync(recDir) ? fs.readdirSync(recDir) : [];
+  ok(recFiles.length === 1, 'a recovery copy is written to AppData a few seconds after the change: ' + recFiles.join());
+  C.app.process().kill('SIGKILL'); await sleep(800);
+  C = await start('carol', true); await sleep(2200);
+  const st = await C.ev(() => ({ status: document.querySelector('#status-text').textContent, badge: document.querySelector('#save-badge').textContent }));
+  ok(/Unsaved work was kept for Carol plan\.pdf/.test(st.status) && /1 to recover/.test(st.badge), `after the crash MeBulb says so at start: "${st.status}" · ${st.badge}`);
+  await C.ev(() => mebulb.recoveryDialog()); await C.win.waitForSelector('#modal .rec-row');
+  await C.win.click('#modal [data-rec="open"]'); let back = false; for (let k = 0; k < 20 && !back; k++) { await sleep(300); back = await C.ev(() => { const d = mebulb.activeDoc(); return !!(d && d.markups.some((m) => m.id === 'PM-c1') && d.dirty); }); }
+  const dlgOpen = await C.ev(() => !document.querySelector('#modal-back').hidden);
+  ok(back && !dlgOpen, 'File ▸ Recover unsaved work opens the PDF and puts the unsaved markup back');
+  const csz = fs.statSync(CP).size;
+  await C.ev(async () => { const d = mebulb.activeDoc(); mebulb.state.prefs.autosavePdf = 1; d.dirtySince = Date.now() - 61000; await mebulb.autosaveTick(); });
+  const auto = await C.ev(() => ({ dirty: mebulb.activeDoc().dirty, badge: document.querySelector('#save-badge').textContent, status: document.querySelector('#status-text').textContent }));
+  ok(!auto.dirty && fs.statSync(CP).size > csz && /Autosaved/.test(auto.badge) && !fs.readdirSync(recDir).length, `autosave (every 1 min) wrote the PDF and removed the recovery copy: "${auto.status}" · ${auto.badge}`);
+  console.log('A errors:', A.errors.join('\n') || 'none'); console.log('B errors:', B.errors.join('\n') || 'none'); console.log('C errors:', C.errors.join('\n') || 'none');
+  await A.app.close().catch(() => {}); await B.app.close().catch(() => {}); await C.app.close().catch(() => {}); fs.rmSync(CP, { force: true });
 })();
