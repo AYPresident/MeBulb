@@ -1,24 +1,33 @@
-This is free and unencumbered software released into the public domain.
+MeBulb — Proprietary Software License
+Copyright (c) 2026 MeBulb. All rights reserved.
 
-Anyone is free to copy, modify, publish, use, compile, sell, or
-distribute this software, either in source code form or as a compiled
-binary, for any purpose, commercial or non-commercial, and by any
-means.
+This software and its source code (the "Software") are the confidential and
+proprietary property of the copyright holder. The Software is licensed, not
+sold.
 
-In jurisdictions that recognize copyright laws, the author or authors
-of this software dedicate any and all copyright interest in the
-software to the public domain. We make this dedication for the benefit
-of the public at large and to the detriment of our heirs and
-successors. We intend this dedication to be an overt act of
-relinquishment in perpetuity of all present and future rights to this
-software under copyright law.
+NO LICENSE IS GRANTED by the publication of this source code. Unless you have
+a separate written agreement signed by the copyright holder, you are NOT
+permitted to:
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-OTHER DEALINGS IN THE SOFTWARE.
+  1. use, run, or evaluate the Software;
+  2. copy, reproduce, or store the Software or any part of it;
+  3. modify, adapt, translate, or create derivative works from it;
+  4. distribute, publish, sublicense, sell, rent, lease, or lend it;
+  5. reverse engineer, decompile, or disassemble it, except to the extent
+     this restriction is expressly prohibited by applicable law; or
+  6. remove or alter any copyright, trademark, or other proprietary notice.
 
-For more information, please refer to <https://unlicense.org>
+Access to this repository is provided solely for the purposes authorized in
+writing by the copyright holder. Any other use is strictly prohibited and may
+violate copyright and other laws.
+
+"MeBulb" and its associated logos are trademarks of the copyright holder.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+For licensing enquiries, contact the copyright holder.
