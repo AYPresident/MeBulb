@@ -284,6 +284,20 @@ function fitTextBox(m) {
   const L = textLayout(m); const need = Math.max(L.lay.height + 2 * L.pad, L.size + 2 * L.pad); const cur = m.type === 'callout' ? boxRect(m.pts[1], m.pts[2]).h : boxRect(m.pts[0], m.pts[1]).h; const h = m.fixedH ? Math.max(need, cur) : need;
   if (m.type === 'text') m.pts = [[L.x, L.y], [L.x + L.w, L.y + h]]; else if (m.type === 'callout') m.pts = [m.pts[0], [L.x, L.y], [L.x + L.w, L.y + h]];
 }
+// a text box can be turned: m.rot in degrees, about the box centre. Rendering, hit testing, handles and the
+// PDF output all rotate the same way, so what you see is what prints.
+function textRot(m) { return ((m.rot || 0) * Math.PI) / 180; }
+function textCentre(m) { const b = textBox(m); return [b.x + b.w / 2, b.y + b.h / 2]; }
+// rotate a list of prims about (cx, cy): path points move, text keeps its anchor and gains the angle
+function rotatePrims(prims, cx, cy, ang) {
+  const cos = Math.cos(ang), sin = Math.sin(ang); const R = (x, y) => [cx + (x - cx) * cos - (y - cy) * sin, cy + (x - cx) * sin + (y - cy) * cos];
+  return prims.map((p) => {
+    if (p.k === 'path') { const d = p.d.map((seg) => { const o = [seg[0]]; for (let i = 1; i < seg.length; i += 2) { const [X, Y] = R(seg[i], seg[i + 1]); o.push(X, Y); } return o; }); return { ...p, d }; }
+    if (p.k === 'text') { const [X, Y] = R(p.x, p.y); return { ...p, x: X, y: Y, rot: (p.rot || 0) + ang }; }
+    if ((p.k === 'asset' || p.k === 'image') && p.w) { const [X, Y] = R(p.x, p.y); return { ...p, x: X, y: Y, prot: ang, px: p.x + p.w / 2, py: p.y + p.h / 2 }; }
+    return p;
+  });
+}
 function textPrims(L, s, hideText) {
   const out = [];
   const hasFill = s.fill && s.fill !== 'none'; const hasStroke = s.width > 0 && s.stroke && s.stroke !== 'none';
@@ -340,7 +354,7 @@ function dl(m, doc, opts = {}) {
         out.push(stroke(P.poly([L(tl, bl), L(tr, br)]), { dash: 'solid' }));
       }
       break;
-    case 'text': out.push(...textPrims(textLayout(m), s, opts.hideText)); break;
+    case 'text': { const tp = textPrims(textLayout(m), s, opts.hideText); const a = textRot(m); if (a) { const c = textCentre(m); out.push(...rotatePrims(tp, c[0], c[1], a)); } else out.push(...tp); break; }
     case 'sketch': out.push(...sketchPrims(m, doc, opts)); break;
     case 'equip': out.push(...equipPrims(m, doc, opts)); break;
     case 'textedit': {
@@ -451,7 +465,7 @@ function dl(m, doc, opts = {}) {
 
 // bounding box of a markup in page units (for selection, marquee, hit)
 function markupBBox(m, doc) {
-  if (m.type === 'text' || m.type === 'callout') { const L = textLayout(m); const pts = [[L.x, L.y], [L.x + L.w, L.y + L.h]]; if (m.type === 'callout') calloutLeaders(m, L).forEach((ld) => pts.push(ld.tip, ld.knee)); return G.bbox(pts); }
+  if (m.type === 'text' || m.type === 'callout') { const L = textLayout(m); let pts = [[L.x, L.y], [L.x + L.w, L.y], [L.x + L.w, L.y + L.h], [L.x, L.y + L.h]]; const a = m.type === 'text' ? textRot(m) : 0; if (a) { const c = [L.x + L.w / 2, L.y + L.h / 2], cos = Math.cos(a), sin = Math.sin(a); pts = pts.map(([x, y]) => [c[0] + (x - c[0]) * cos - (y - c[1]) * sin, c[1] + (x - c[0]) * sin + (y - c[1]) * cos]); } if (m.type === 'callout') calloutLeaders(m, L).forEach((ld) => pts.push(ld.tip, ld.knee)); return G.bbox(pts); }
   if (m.type === 'note') return { x: m.pts[0][0], y: m.pts[0][1], w: 18, h: 18, x2: m.pts[0][0] + 18, y2: m.pts[0][1] + 18 };
   if (REF_TYPES.has(m.type) || DUCT_TYPES.has(m.type)) { const b = primsBBox(dl(m, doc, { noCuts: true })); return b ? { ...b, w: b.x2 - b.x, h: b.y2 - b.y } : G.bbox(m.pts); }
   if (m.type === 'sketch') return sketchBBox(m, doc);

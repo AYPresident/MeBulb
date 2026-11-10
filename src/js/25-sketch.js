@@ -14,7 +14,7 @@ function sketchDefaultsFor(metric) { return deep(metric ? SKETCH_DEFAULTS_SI : S
 
 function isMetric(sc) { return ['m', 'cm', 'mm'].includes(sc.unit) || (!!sc.unset && typeof state !== 'undefined' && metricPref()); }
 function linkOf(doc, m) { return m.link && doc.links ? doc.links[m.link] || null : null; }
-function sketchSize(doc, m) { const L = linkOf(doc, m); if (L) return L.sizes[m.sizeKey] || Object.values(L.sizes)[0]; return m.sz || SKETCH_DEFAULTS.rect; }
+function sketchSize(doc, m) { const L = linkOf(doc, m); if (L) return L.sizes[m.sizeKey] || Object.values(L.sizes)[0] || m.sz || SKETCH_DEFAULTS.rect; return m.sz || SKETCH_DEFAULTS.rect; }
 function sketchTrans(doc, m) { const L = linkOf(doc, m); if (L) return m.transKey ? L.sizes[m.transKey] || null : null; return m.tsz || null; }
 // linked sets keep rotation in model (grid) orientation; unlinked sketches in page orientation
 function sketchRot(doc, m) { const L = linkOf(doc, m); return L ? ((L.rot || 0) * Math.PI) / 180 - alignAngle(doc, m.page) : ((m.rot || 0) * Math.PI) / 180; }
@@ -27,7 +27,7 @@ function nextName(name, used) {
 }
 function sketchNamesUsed(doc) { const u = new Set(); Object.values(doc.links || {}).forEach((L) => u.add(L.name)); doc.markups.forEach((m) => { if (m.type === 'sketch' && !m.link && (m.name || m.text)) u.add(m.name || m.text); }); return u; }
 function areaLabel(doc, m) {
-  const sc = scaleForMarkup(doc, m); const A = sketchSize(doc, m), B = sketchTrans(doc, m); const a = fmtRealArea(sizeAreaIn2(A), sc);
+  const sc = scaleForMarkup(doc, m); const A = sketchSize(doc, m), B = sketchTrans(doc, m); if (!A) return ''; const a = fmtRealArea(sizeAreaIn2(A), sc);
   if (!B) return a; const b = fmtRealArea(sizeAreaIn2(B), sc); return `${a.replace(/ (m²|sf)$/, '')} → ${b}`;
 }
 function fmtInch(v, sc) {
@@ -41,7 +41,7 @@ function sizeText(size, sc) {
   if (size.shape === 'circle') return isMetric(sc) ? `Ø${fmtInch(size.d, sc)}` : `${fmtInch(size.d, sc)}Ø`;
   return `${fmtInch(size.w, sc)}×${fmtInch(size.h, sc)}`;
 }
-function sizeLabel(doc, m) { const sc = scaleForMarkup(doc, m); const A = sketchSize(doc, m), B = sketchTrans(doc, m); return B ? `${sizeText(A, sc)} → ${sizeText(B, sc)}` : sizeText(A, sc); }
+function sizeLabel(doc, m) { const sc = scaleForMarkup(doc, m); const A = sketchSize(doc, m), B = sketchTrans(doc, m); if (!A) return ''; return B ? `${sizeText(A, sc)} → ${sizeText(B, sc)}` : sizeText(A, sc); }
 
 // geometry of one size at centre c, rotation rot (radians)
 function sizeGeom(size, sc, c, rot) {

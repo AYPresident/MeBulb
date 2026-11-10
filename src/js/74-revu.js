@@ -341,8 +341,11 @@ function cssDecl(s) { const o = {}; String(s || '').split(';').forEach((p) => { 
 function normColor(c) { c = String(c).trim(); if (/^#[0-9a-f]{6}$/i.test(c)) return c.toLowerCase(); if (/^#[0-9a-f]{3}$/i.test(c)) return '#' + c.slice(1).split('').map((x) => x + x).join('').toLowerCase(); const m = /rgb\((\d+)\D+(\d+)\D+(\d+)/.exec(c); return m ? '#' + m.slice(1, 4).map((v) => (+v).toString(16).padStart(2, '0')).join('') : null; }
 function fontKeyFromName(n) {
   const f = String(n || '').replace(/['"]/g, '').split(',')[0].trim(); const l = f.toLowerCase(); if (!f) return 'helv';
-  if (/^(helvetica|helv)$/.test(l)) return 'helv'; if (/^(times|times new roman|times-roman|tiro)$/.test(l) && !FONTS.families.has(f)) return 'times'; if (/^(courier|cour)$/.test(l)) return 'courier';
-  return FONTS.families.has(f) ? 'sys:' + f : l.includes('times') ? 'times' : l.includes('courier') ? 'courier' : FONTS.loaded ? 'helv' : 'sys:' + f;
+  if (FONTS.families.has(f)) return 'sys:' + f; // the real font is on this PC: use it
+  if (/^(helvetica|helv|arialmt)$/.test(l)) return 'helv'; // PDF base-14 equivalents
+  if (/^(times([ -]?new[ -]?roman)?|times-?roman|tiro|timesnewromanpsmt)$/.test(l)) return 'times';
+  if (/^(courier([ -]?new)?|cour|couriernewpsmt)$/.test(l)) return 'courier';
+  return 'sys:' + f; // any other named font keeps its name: rendered with it where available, helv metrics otherwise, and written back unchanged on save
 }
 // rich text (XHTML in /RC) -> MeBulb runs
 function parseRC(rc, base) {

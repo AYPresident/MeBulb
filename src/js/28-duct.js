@@ -365,11 +365,13 @@ function riserSectionPrims(m, doc, src, X) {
     labs.push({ y: yb - fs * 1.2, t: (B ? `${sizeTxt(A)} → ${sizeTxt(B)}` : sizeTxt(A)) + (cf ? ` · ${Math.round(qf)} L/s · ${num(cf.v, 1)} m/s · ${num(cf.pa, 2)} Pa/m${wf.length ? ' !' : ''}` : ''), bold: true, color: wf.length ? '#c92a2a' : null });
     // airflow arrow in the shaft
     if (m.flow === 'up' || m.flow === 'down') { const ya = (yb + yt) / 2, al = Math.min(fs * 2.4, (yb - yt) * 0.3); const a = [cx, m.flow === 'up' ? ya + al / 2 : ya - al / 2], b = [cx, m.flow === 'up' ? ya - al / 2 : ya + al / 2]; const ah = arrowHead(b, a, 'arrow', { width: 0.7 }); line([a, ah.cut], { width: 0.7 }); out.push(...ah.prims.map((q) => ({ ...q, stroke: col, fill: col }))); }
-    // grilles on this floor
-    gr.filter((g) => g.on === x.id).forEach((g) => {
-      const G0 = grilleD(g); const f = g.face & 3; const t = g.t == null ? 0.5 : g.t; const gw = G0.w * k, gh = G0.h * k; const zb = yb - (+G0.z || 0) * k; const zt = zb - gh; const ws = (B ? wb : wa);
+    // grilles on this floor. The section is schematic, so a grille on the wall we look at (or the far wall)
+    // is drawn centred on the shaft; several on the same wall are spread out, centred as a group.
+    const fgs = gr.filter((g) => g.on === x.id); const relOf = (g) => (((g.face & 3) - fv + 4) & 3); const wallGrp = {}; fgs.forEach((g) => { const r = relOf(g); if (r === 0 || r === 2) (wallGrp[r] = wallGrp[r] || []).push(g); });
+    fgs.forEach((g) => {
+      const G0 = grilleD(g); const f = g.face & 3; const gw = G0.w * k, gh = G0.h * k; const zb = yb - (+G0.z || 0) * k; const zt = zb - gh; const ws = (B ? wb : wa);
       const rel = (f - fv + 4) & 3; let gx1, gx2; let dash = null;
-      if (rel === 0 || rel === 2) { const xc = cx + (rel === 0 ? 1 : -1) * (t - 0.5) * ws; gx1 = xc - gw / 2; gx2 = xc + gw / 2; dash = rel === 2 ? 'dashshort' : null;
+      if (rel === 0 || rel === 2) { const peers = wallGrp[rel] || [g]; const nP = peers.length; const idx = Math.max(0, peers.indexOf(g)); const gap = Math.min(gw * 0.4, fs); const span = nP * gw + (nP - 1) * gap; let xc = nP <= 1 ? cx : cx - span / 2 + gw / 2 + idx * (gw + gap); xc = clamp(xc, cx - ws / 2 + gw / 2, cx + ws / 2 - gw / 2); gx1 = xc - gw / 2; gx2 = xc + gw / 2; dash = rel === 2 ? 'dashshort' : null;
         out.push({ k: 'path', d: P.poly([[gx1, zt], [gx2, zt], [gx2, zb], [gx1, zb]], true), stroke: col, width: 0.9, fill: '#ffffff', fillOpacity: rel === 0 ? 1 : 0, dash, opacity: op });
         const nb = Math.max(2, Math.min(10, Math.round(gh / 2.2))); for (let j = 1; j < nb; j++) { const yy = zt + (gh * j) / nb; line([[gx1, yy], [gx2, yy]], { width: 0.35, dash }); } }
       else { // in a side wall: seen edge on at the shaft side, air across
@@ -571,7 +573,7 @@ const numIn = (k, v, title, step = 5) => `<input type="number" class="num" data-
 // size and airflow of a duct (or of the next duct) in the shared card
 function ductAirCard(doc, D, ctx, pre, m) {
   const q0 = m ? ductQ(doc, m) : 0;
-  return airCardHtml({ ctx, q: D.q > 0 ? +D.q : 0, qFall: q0, qPh: q0 > 0 && !(D.q > 0) ? `${Math.round(q0)} from grilles` : 'L/s', qTitle: m ? 'Design airflow; leave blank to use the sum of the grilles on it' : 'Design airflow for the next duct', size: D.shape === 'round' ? { shape: 'round', d: D.d } : { shape: 'rect', w: D.w, h: D.h }, mat: D.mat || 'galv', wLabel: 'Width', hLabel: 'Depth', keys: { q: pre + '.q', shape: pre + '.shape', w: pre + '.w', h: pre + '.h', d: pre + '.d', mat: pre + '.mat' } });
+  return airCardHtml({ ctx, q: D.q > 0 ? +D.q : 0, qFall: q0, qPh: q0 > 0 && !(D.q > 0) ? `${Math.round(q0)} from grilles` : 'L/s', qTitle: m ? 'Design airflow; leave blank to use the sum of the grilles on it' : 'Design airflow for the next duct', size: D.shape === 'round' ? { shape: 'round', d: D.d } : { shape: 'rect', w: D.w, h: D.h }, mat: D.mat || 'galv', app: D.velApp || D.service || 'SA', wLabel: 'Width', hLabel: 'Depth', keys: { q: pre + '.q', shape: pre + '.shape', w: pre + '.w', h: pre + '.h', d: pre + '.d', mat: pre + '.mat' } });
 }
 function ductFields(D, pre, noSize) {
   return `${noSize ? `<div class="field"><label>Service</label><select data-k="${pre}.service">${DUCT_SERVICES.map(([k, l]) => `<option value="${k}"${D.service === k ? ' selected' : ''}>${k} · ${esc(l)}</option>`).join('')}</select></div>` : `<div class="field two"><div><label>Shape</label><select data-k="${pre}.shape"><option value="rect"${D.shape !== 'round' ? ' selected' : ''}>Rectangular</option><option value="round"${D.shape === 'round' ? ' selected' : ''}>Round</option></select></div><div><label>Service</label><select data-k="${pre}.service">${DUCT_SERVICES.map(([k, l]) => `<option value="${k}"${D.service === k ? ' selected' : ''}>${k} · ${esc(l)}</option>`).join('')}</select></div></div>

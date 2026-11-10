@@ -339,7 +339,9 @@ function baseSource(doc) { const b = doc.base; return b.appends.length ? new Con
 
 // Save. Normal saves append an incremental update (fast even for a 400 MB drawing).
 async function saveDoc(mode = 'save', opts = {}) {
-  const doc = opts.doc || activeDoc(); if (!doc) return; if (doc === activeDoc() && !opts.auto) { if (state.editing) commitEdit(); cancelDraft(); }
+  const doc = opts.doc || activeDoc(); if (!doc) return;
+  if (!licenseActive()) { if (!opts.auto) licenseBlock(mode === 'flatten' ? 'flatten and save' : mode === 'saveas' ? 'save a copy' : 'save'); return; } // unlicensed: viewing and markup still work, but nothing is written out (no files are ever altered)
+  if (doc === activeDoc() && !opts.auto) { if (state.editing) commitEdit(); cancelDraft(); }
   const auto = !!opts.auto; const rev0 = doc.rev || 0;
   if (HOST() && mode === 'save' && doc.path) {
     // in a live session only the person holding the file writes it (Egnyte has it locked for the others)

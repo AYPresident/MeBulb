@@ -233,7 +233,13 @@ function handlesFor(m) {
   const pts = m.pts;
   if (m.type === 'sketch') return sketchHandles(m, activeDoc());
   const sides = (b, tag) => [[b.x + b.w / 2, b.y], [b.x + b.w, b.y + b.h / 2], [b.x + b.w / 2, b.y + b.h], [b.x, b.y + b.h / 2]].forEach((p, k) => H.push({ h: tag + k, p, kind: 'side' }));
-  if (BOX_TYPES.has(m.type)) { const b = TEXT_TYPES.has(m.type) ? textBox(m) : boxRect(pts[0], pts[1]); [[b.x, b.y], [b.x + b.w, b.y], [b.x + b.w, b.y + b.h], [b.x, b.y + b.h]].forEach((p, k) => H.push({ h: 'c' + k, p })); sides(b, 'e'); }
+  if (BOX_TYPES.has(m.type)) {
+    const b = TEXT_TYPES.has(m.type) ? textBox(m) : boxRect(pts[0], pts[1]);
+    const a = m.type === 'text' ? textRot(m) : 0; const c = [b.x + b.w / 2, b.y + b.h / 2]; const cos = Math.cos(a), sin = Math.sin(a); const R = (p) => (a ? [c[0] + (p[0] - c[0]) * cos - (p[1] - c[1]) * sin, c[1] + (p[0] - c[0]) * sin + (p[1] - c[1]) * cos] : p);
+    [[b.x, b.y], [b.x + b.w, b.y], [b.x + b.w, b.y + b.h], [b.x, b.y + b.h]].forEach((p, k) => H.push({ h: 'c' + k, p: R(p) }));
+    [[b.x + b.w / 2, b.y], [b.x + b.w, b.y + b.h / 2], [b.x + b.w / 2, b.y + b.h], [b.x, b.y + b.h / 2]].forEach((p, k) => H.push({ h: 'e' + k, p: R(p), kind: 'side' }));
+    if (m.type === 'text') H.push({ h: 'rot', p: R([c[0], b.y - Math.max(16, b.h * 0.25)]), kind: 'rot', pivot: c });
+  }
   else if (m.type === 'callout') { H.push({ h: 'v0', p: pts[0], kind: 'tip' }); const lds = calloutLeaders(m); H.push({ h: 'n', p: lds[0].knee, kind: 'knee' }); (m.leaders || []).forEach((ld, k) => { H.push({ h: 'l' + k, p: ld.tip, kind: 'tip' }, { h: 'm' + k, p: lds[k + 1].knee, kind: 'knee' }); }); const b = textBox(m); [[b.x, b.y], [b.x + b.w, b.y], [b.x + b.w, b.y + b.h], [b.x, b.y + b.h]].forEach((p, k) => H.push({ h: 'b' + k, p })); sides(b, 'f'); }
   else if (m.type === 'pen' || m.type === 'highlight') { const b = G.bbox(pts); [[b.x, b.y], [b.x2, b.y], [b.x2, b.y2], [b.x, b.y2]].forEach((p, k) => H.push({ h: 's' + k, p })); }
   else if (m.type !== 'note' && m.type !== 'textedit' && !QUAD_TYPES.has(m.type)) pts.forEach((p, k) => H.push({ h: 'v' + k, p }));
@@ -248,7 +254,7 @@ function renderSel(doc, i) {
     if (m.page !== i || !state.sel.has(m.id)) continue; const b = markupBBox(m, doc); const pad = 4 / z;
     s += `<rect class="sel-box" x="${num(b.x - pad, 2)}" y="${num(b.y - pad, 2)}" width="${num(b.w + 2 * pad, 2)}" height="${num(b.h + 2 * pad, 2)}" stroke-width="${num(1 / z, 3)}" stroke-dasharray="${num(4 / z, 2)} ${num(3 / z, 2)}"/>`;
     if (state.sel.size <= 30 && !isLocked(m, doc)) for (const H of handlesFor(m)) {
-      if (H.kind === 'rot') { const c = m.pts[0]; s += `<line class="rotln" x1="${num(c[0], 2)}" y1="${num(c[1], 2)}" x2="${num(H.p[0], 2)}" y2="${num(H.p[1], 2)}" stroke-width="${num(1 / z, 3)}"/><circle class="hdl rot" data-m="${m.id}" data-h="rot" cx="${num(H.p[0], 2)}" cy="${num(H.p[1], 2)}" r="${num(hs * 0.6, 2)}" stroke-width="${num(1.2 / z, 3)}"/>`; continue; }
+      if (H.kind === 'rot') { const c = H.pivot || m.pts[0]; s += `<line class="rotln" x1="${num(c[0], 2)}" y1="${num(c[1], 2)}" x2="${num(H.p[0], 2)}" y2="${num(H.p[1], 2)}" stroke-width="${num(1 / z, 3)}"/><circle class="hdl rot" data-m="${m.id}" data-h="rot" cx="${num(H.p[0], 2)}" cy="${num(H.p[1], 2)}" r="${num(hs * 0.6, 2)}" stroke-width="${num(1.2 / z, 3)}"/>`; continue; }
       if (H.kind === 'curve') { s += `<circle class="hdl curve" data-m="${m.id}" data-h="${H.h}" cx="${num(H.p[0], 2)}" cy="${num(H.p[1], 2)}" r="${num(hs * 0.55, 2)}" stroke-width="${num(1.2 / z, 3)}"/>`; continue; }
       s += `<rect class="hdl${H.kind === 'tip' ? ' tip' : ''}${H.kind === 'hole' ? ' hole' : ''}${H.kind === 'side' ? ' side' : ''}${H.kind === 'knee' ? ' knee' : ''}" data-m="${m.id}" data-h="${H.h}" x="${num(H.p[0] - hs / 2, 2)}" y="${num(H.p[1] - hs / 2, 2)}" width="${num(hs, 2)}" height="${num(hs, 2)}" stroke-width="${num(1.2 / z, 3)}"/>`;
     }

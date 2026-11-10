@@ -110,6 +110,7 @@ function buildCommands() {
   add('win.themeDark', 'Theme: dark', () => setTheme('dark'), { ...G_WIN, checked: () => state.theme === 'dark' });
   add('help.shortcuts', 'Keyboard shortcuts', shortcutsDialog, { group: 'Help', icon: 'help' });
   add('help.about', 'About MeBulb', aboutDialog, { group: 'Help' });
+  add('help.activate', 'Activate MeBulb…', () => activateDialog(), { group: 'Help', icon: 'check' });
   COMMANDS = C;
 }
 function runCommand(id) {

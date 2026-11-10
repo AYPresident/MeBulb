@@ -23,7 +23,7 @@ there open here.
 
 - `00-core` utilities, geometry, font metrics · `10-units` units and scales
 - `20-markup` markup types and drawing (screen SVG and PDF use the same primitives)
-- `22-richtext` rich text runs and editor · `25-sketch` sketch-to-scale risers · `26-equip` equipment top views to scale with clearances and clash checks · `27-align` page alignment by grid bubbles or hand-placed reference points and grid lines · `28-duct` ductwork: sized ducts with insulation, end caps and transitions, routing out of riser faces, grilles on ducts and in riser walls, section views (ducts, grilles, risers through every floor) · `29-ductulator` velocity and friction loss (Darcy-Colebrook) and the one size-and-airflow card used by risers, ducts, the drawing tools and the stand-alone calculator
+- `22-richtext` rich text runs and editor · `25-sketch` sketch-to-scale risers · `26-equip` equipment top views to scale with clearances and clash checks · `27-align` page alignment by grid bubbles or hand-placed reference points and grid lines · `28-duct` ductwork: sized ducts with insulation, end caps and transitions, routing out of riser faces, grilles on ducts and in riser walls, section views (ducts, grilles, risers through every floor) · `29-ductulator` velocity and friction loss (Darcy-Colebrook), per-application velocity targets, and the one size-and-airflow card used by risers, ducts, the drawing tools and the stand-alone calculator
 - `30-state` application state, undo · `40-viewer` page rendering · `45-content` PDF content parsing (snapping, text)
 - `46-forms` form fields · `47-textedit` PDF text editing · `48-ocr` text recognition · `49-fonts` installed fonts and embedding
 - `50-tools`, `51-editops` drawing tools and editing commands
@@ -33,7 +33,7 @@ there open here.
 - `72-dialogs` dialogs · `73-owned` colour processing and flatten/unflatten page content
 - `74-revu` Bluebeam Revu compatibility (measurements, captions, counts, layers, viewports, importing other apps' markups)
 - `75-btx` Bluebeam tool sets (.btx) import/export, tool previews, recent tools
-- `76-host` desktop bridge · `78-session` live sessions over the Egnyte drive (join codes) · `79-autosave` autosave and crash recovery · `80-sample` sample drawing
+- `76-host` desktop bridge · `77-license` non-destructive licence lockdown · `78-session` live sessions over the Egnyte drive (join codes) · `79-autosave` autosave and crash recovery · `80-sample` sample drawing
 - `vendor/ocr` offline text recognition (Tesseract compiled to WebAssembly, English model) and its worker
 
 ## Building
@@ -95,6 +95,16 @@ pull request, and keeps the web build and the test screenshots.
 - **One place per job.** What a thing is (name, size, airflow) comes before how it looks, in the property
   bar and in Properties. Settings for a tool live in Properties while the tool is picked. The Mechanical panel
   is the workflow (Draw), the calculator (Ductulator) and the check (Schedule); the Mechanical menu mirrors it.
+- **Velocity targets by application**: the ductulator keeps a velocity limit per application — supply ~6 m/s,
+  exhaust 7, return 5, outside air 4.5, transfer 4, kitchen exhaust 8 (all editable, or "no limit"). A duct
+  checks against its service's target; risers and the calculator pick an application. Friction limit stays shared.
+- **Text boxes turn**: a text box has a rotation (a round handle above it, or a Rotation field; Shift snaps to
+  15°). It rotates about its centre on screen and in the PDF, and the angle round-trips.
+- **Callout leaders**: moving a callout's text box leaves the arrow tip where it points.
+- **Licence lockdown (never destructive)**: MeBulb never deletes or damages drawings. An unlicensed copy still
+  opens and marks up on screen but will not save or export until activated (`77-license`; wire `validateLicense`
+  to your server). Files on disk are never altered by the licence state.
+- **Closing a changed PDF** offers Save and close / Don't save / Cancel.
 - **Ductulator**: Darcy-Weisbach with the Colebrook friction factor on the hydraulic diameter (4A/P) at the
   real velocity; galvanised steel (ε 0.09 mm), air 1.2 kg/m³, ν 1.51×10⁻⁵ m²/s. Ducts and risers over the
   friction limit (1 Pa/m by default) are flagged.

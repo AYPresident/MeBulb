@@ -253,7 +253,13 @@ function dragMove(e) {
     if (e.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
     const ms = g.movers.map((id) => getMarkup(id)).filter(Boolean); if (!ms.length) return;
     if (!g.moved) { pushUndo(doc); g.moved = true; }
-    ms.forEach((m) => { const o = g.orig[m.id]; const f = (q) => [q[0] + dx, q[1] + dy]; m.pts = o.pts.map(f); if (o.holes) m.holes = o.holes.map((h) => h.map(f)); if (o.base) m.base = f(o.base); if (o.knee) m.knee = f(o.knee); if (o.leaders) m.leaders = o.leaders.map((l) => ({ tip: f(l.tip), knee: l.knee ? f(l.knee) : null })); renderMarkupEl(m, doc); });
+    ms.forEach((m) => {
+      const o = g.orig[m.id]; const f = (q) => [q[0] + dx, q[1] + dy];
+      if (m.type === 'callout') { // move the box and its text; the arrow tips (and their knees) stay where they point
+        m.pts = o.pts.map((q, i) => (i === 0 ? q.slice() : f(q))); if (o.knee) m.knee = o.knee.slice(); if (o.leaders) m.leaders = o.leaders.map((l) => ({ tip: l.tip.slice(), knee: l.knee ? l.knee.slice() : null })); renderMarkupEl(m, doc); return;
+      }
+      m.pts = o.pts.map(f); if (o.holes) m.holes = o.holes.map((h) => h.map(f)); if (o.base) m.base = f(o.base); if (o.knee) m.knee = f(o.knee); if (o.leaders) m.leaders = o.leaders.map((l) => ({ tip: f(l.tip), knee: l.knee ? f(l.knee) : null })); renderMarkupEl(m, doc);
+    });
     syncLinked(doc, ms.filter((m) => m.type === 'sketch')).forEach((x) => renderMarkupEl(x, doc));
     // a grille on a duct slides along it
     ms.forEach((m) => { if (m.type !== 'grille' || !m.on || ms.some((x) => x.id === m.on)) return; slideGrille(doc, m, g.orig[m.id].pts[0], [dx, dy]); renderMarkupEl(m, doc); });
@@ -294,6 +300,16 @@ function applyHandle(m, h, p, orig, shift, origHoles, alt, g) {
   if (h[0] === 'v') {
     if (shift && orig.length > 1) { const ref = orig[k > 0 ? k - 1 : 1]; p = G.snapAngle(ref, p); }
     m.pts[k] = p; return;
+  }
+  if (m.type === 'text' && h === 'rot') { // turn the text box about its centre; Shift snaps to 15°
+    const cen = textCentre({ ...m, pts: orig }); let deg = Math.atan2(p[1] - cen[1], p[0] - cen[0]) * 180 / Math.PI + 90; if (shift) deg = Math.round(deg / 15) * 15; m.rot = ((Math.round(deg * 10) / 10) % 360 + 360) % 360; return;
+  }
+  if (m.type === 'text' && textRot(m) && (h[0] === 'c' || h[0] === 'e')) { // resize a turned text box in its own axes, about its centre
+    const cen = textCentre({ ...m, pts: orig }); const a = textRot(m); const cs = Math.cos(-a), sn = Math.sin(-a); const toLocal = (q) => [cen[0] + (q[0] - cen[0]) * cs - (q[1] - cen[1]) * sn, cen[1] + (q[0] - cen[0]) * sn + (q[1] - cen[1]) * cs];
+    const pl = toLocal(p); const r = textBox({ ...m, pts: orig }); let hw = r.w / 2, hh = r.h / 2;
+    if (h[0] === 'c') { hw = Math.max(6, Math.abs(pl[0] - cen[0])); hh = Math.max(6, Math.abs(pl[1] - cen[1])); }
+    else if (k === 0 || k === 2) { hh = Math.max(6, Math.abs(pl[1] - cen[1])); m.fixedH = true; } else hw = Math.max(6, Math.abs(pl[0] - cen[0]));
+    m.pts = [[cen[0] - hw, cen[1] - hh], [cen[0] + hw, cen[1] + hh]]; return;
   }
   const boxCorners = (a, b) => { const r = boxRect(a, b); return [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]]; };
   if (h[0] === 'c' || h[0] === 'b') { // a corner: the opposite corner stays put; Alt sizes about the centre

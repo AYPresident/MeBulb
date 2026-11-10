@@ -64,7 +64,7 @@ function fmtArea(pts2, sc) { const u = UNITS[sc.unit] || UNITS.in; return `${are
 function volValue(pts2, depth, sc) { const u = UNITS[sc.unit] || UNITS.in; const in3 = pts2 * sc.inPerPt * sc.inPerPt * ((depth || 0) / u.perIn); return in3 * u.vIn3; }
 function defaultDepth(sc) { return { m: 0.15, mm: 150, cm: 15, ft: 0.5, in: 6, yd: 0.15, mi: 0.0001 }[sc.unit] || 0.15; }
 // real-world area of a sketch size given in inches, formatted for the scale's unit system
-function sizeAreaIn2(size) { return size.shape === 'circle' ? (Math.PI * size.d * size.d) / 4 : size.w * size.h; }
+function sizeAreaIn2(size) { if (!size) return 0; return size.shape === 'circle' ? (Math.PI * (+size.d || 0) * (+size.d || 0)) / 4 : (+size.w || 0) * (+size.h || 0); }
 function fmtRealArea(in2, sc) { if (['m', 'mm', 'cm'].includes(sc.unit) || (sc.unset && metricPref())) { const v = in2 * 0.00064516; return `${v.toFixed(v < 1 ? 3 : 2)} m²`; } const v = in2 / 144; return `${v.toFixed(v < 10 ? 2 : 1)} sf`; }
 function fmtVol(pts2, depth, sc) { const u = UNITS[sc.unit] || UNITS.in; return `${volValue(pts2, depth, sc).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${u.vol}`; }
 

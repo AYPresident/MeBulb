@@ -728,3 +728,7 @@ body.painting #viewer g.mk, body.painting #viewer g.mk .hit { cursor: copy !impo
 .mech-row .mr-sub { font-size: 11.5px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mech-row.over .mr-air { color: var(--bad); }
 .btn-row.pad, p.pad { padding: 10px 12px; margin: 0; }
+/* licence lockdown badge (never destructive) */
+.lic-badge { border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; padding: 2px 8px; border-radius: 10px; cursor: pointer; white-space: nowrap; }
+.lic-badge:hover { background: color-mix(in srgb, var(--fg) 8%, transparent); color: var(--fg); }
+.lic-badge.locked { color: var(--bad); font-weight: 600; }

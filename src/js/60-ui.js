@@ -39,7 +39,11 @@ async function switchDoc(id) {
 }
 async function closeDoc(id) {
   const d = state.docs.find((x) => x.id === id); if (!d) return;
-  if (d.dirty) { const ok = await confirmDialog('Close without saving?', `<b>${esc(d.name)}</b> has unsaved markups. Close it anyway?`, 'Close without saving', true); if (!ok) return; }
+  if (d.dirty) {
+    const r = await openDialog({ title: 'Save changes before closing?', body: `<p><b>${esc(d.name)}</b> has unsaved markups.</p>`, buttons: [{ label: 'Cancel', value: 'cancel' }, { label: "Don't save", value: 'discard', danger: true }, { label: 'Save and close', value: 'save', primary: true }] });
+    if (!r || r.value === 'cancel') return;
+    if (r.value === 'save') { if (state.activeId !== id) await switchDoc(id); await saveDoc('save', { doc: d }); if (d.dirty) return; } // save was cancelled or failed: leave it open
+  }
   const idx = state.docs.indexOf(d); state.docs.splice(idx, 1); try { d.pdf && d.pdf.loadingTask.destroy(); } catch { } if (d.fid && HOST()) HOST().close(d.fid); sessionClosed(d, d.dirty);
   if (state.activeId === id) { state.activeId = null; const next = state.docs[Math.min(idx, state.docs.length - 1)]; if (next) await switchDoc(next.id); else { mountDoc(null); refreshAll(); } }
   else renderTabs();

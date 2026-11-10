@@ -42,7 +42,7 @@ const state = {
   reuse: store.get('reuse', false), snapMarkup: store.get('snapMarkup', true), snapContent: store.get('snapContent', true), snapGrid: store.get('snapGrid', false), showGrid: store.get('showGrid', false), gridSize: store.get('gridSize2', _metric ? 5 / 25.4 : 0.25),
   sketchDefaults: store.get('sketchDefaults2', null) || sketchDefaultsFor(_metric), sketchStep: null, cutoutFor: null, showViewports: true,
   sketchNext: store.get('sketchNext', 'M1'), sketchAutoNum: store.get('sketchAutoNum', true), alignPick: null,
-  theme: store.get('theme', 'system'), layout: null, layouts: store.get('layouts', {}), shortcuts: store.get('shortcuts', {}), collapsed: store.get('collapsed', {}), sketchQ: store.get('sketchQ', 0), airMore: false, mechTab: store.get('mechTab', 'draw'), pageMode: store.get('pageMode', 'continuous'),
+  theme: store.get('theme', 'system'), layout: null, layouts: store.get('layouts', {}), shortcuts: store.get('shortcuts', {}), collapsed: store.get('collapsed', {}), sketchQ: store.get('sketchQ', 0), riserApp: store.get('riserApp', 'SA'), airMore: false, mechTab: store.get('mechTab', 'draw'), pageMode: store.get('pageMode', 'continuous'),
   painter: false, propClipboard: null, recent: store.get('recent', []), tbCustomize: false,
   prefs: { linkLabelMode: 'ask', autosavePdf: 5, recoveryMins: 0, largeFileMB: 48, ...store.get('prefs', {}) },
   list: { sort: 'page', dir: 1, q: '', type: 'all', status: 'all', pageOnly: false },
