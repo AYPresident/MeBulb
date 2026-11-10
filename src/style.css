@@ -667,3 +667,64 @@ body.painting #viewer g.mk, body.painting #viewer g.mk .hit { cursor: copy !impo
 .dc-mini.warn { color: var(--bad); font-weight: 600; }
 .dc-sugg { display: flex; flex-wrap: wrap; gap: 6px; }
 .eq-pl.over b { color: var(--bad); }
+
+/* ===== 0.10: one way to lay out a form, the size-and-airflow card, the Mechanical panel ===== */
+/* every control in a two- or three-column row fills its column; nothing is cut short */
+.field.two > div > input, .field.two > div > select, .field.three > div > input, .field.three > div > select, .field > input:not([type=checkbox]):not([type=radio]):not([type=range]), .field > select { width: 100%; min-width: 0; box-sizing: border-box; }
+.field.two > div > input.num, .field.three > div > input.num { width: 100%; }
+.psec > h3 + p.muted { margin-top: 0; }
+.btn .ic { width: 15px; height: 15px; vertical-align: -3px; margin-right: 2px; }
+.menu-pop .mgroup { padding: 8px 12px 3px; font-weight: 600; }
+.menu-pop .mgroup:not(:first-child) { border-top: 1px solid var(--line); margin-top: 4px; }
+.measure-readout.over { border-color: var(--bad); box-shadow: inset 3px 0 0 var(--bad); }
+/* size and airflow */
+.aircard { display: flex; flex-direction: column; gap: 9px; }
+.air-out { display: flex; flex-direction: column; gap: 8px; }
+.air-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.air-tile { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 8px 10px 7px; min-width: 0; }
+.air-val { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.air-val b { font: 600 20px/1.1 var(--mono); color: var(--fg); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.air-name { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+.air-st { display: flex; align-items: center; gap: 4px; font-size: 11.5px; margin-top: 4px; color: var(--ok); min-height: 16px; }
+.air-st .ic { width: 14px; height: 14px; flex: none; }
+.air-tile.over { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 7%, var(--surface)); }
+.air-tile.over .air-val b, .air-tile.over .air-st { color: var(--bad); }
+.air-tile.over .air-st { font-weight: 600; }
+.air-pick-h { font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+.air-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.air-chip { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 0; padding: 4px 9px 5px; border: 1px solid var(--line-2); border-radius: 7px; background: var(--surface); line-height: 1.2; }
+.air-chip b { font: 600 12.5px var(--mono); font-variant-numeric: tabular-nums; }
+.air-chip span { font-size: 10.5px; color: var(--muted); }
+.air-chip:hover { border-color: var(--accent); background: var(--accent-2); }
+.air-chip.cur { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.air-cap { margin: 0; }
+.air-more { border-top: 1px solid var(--line); padding-top: 6px; }
+.air-more > summary { cursor: pointer; font-size: 12px; color: var(--muted); padding: 2px 0; user-select: none; }
+.air-more > summary:hover { color: var(--fg); }
+.air-more[open] > summary { margin-bottom: 8px; }
+.air-more > * + * { margin-top: 8px; }
+.pb-air { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--muted); display: inline-flex; align-items: center; gap: 3px; }
+.pb-air .ic { width: 14px; height: 14px; }
+.pb-air.over { color: var(--bad); font-weight: 600; }
+/* Mechanical panel */
+.seg-tabs { display: flex; gap: 2px; padding: 8px 8px 0; position: sticky; top: 0; z-index: 2; background: var(--panel); border-bottom: 1px solid var(--line); }
+.seg-tab { flex: 1; border: 0; background: none; padding: 7px 4px 8px; font-size: 12.5px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.seg-tab:hover { color: var(--fg); }
+.seg-tab.on { color: var(--fg); font-weight: 600; border-bottom-color: var(--accent); }
+.mech-step { display: flex; gap: 10px; padding: 10px 12px 11px 10px; border-bottom: 1px solid var(--line); }
+.ms-n { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--sec); color: var(--sec-fg); font: 600 12px/22px var(--ui); text-align: center; }
+.ms-b { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.ms-b h4 { margin: 2px 0 0; font: 600 13px/1.2 var(--ui); }
+.ms-b p { margin: 0; }
+.btn.on { border-color: var(--accent); background: var(--accent-2); }
+.mech-note { display: flex; align-items: center; gap: 6px; margin: 10px 10px 2px; padding: 7px 10px; border-radius: 7px; font-size: 12px; background: color-mix(in srgb, var(--ok) 10%, transparent); color: var(--fg); }
+.mech-note .ic { width: 16px; height: 16px; flex: none; }
+.mech-note.over { background: color-mix(in srgb, var(--bad) 10%, transparent); color: var(--bad); font-weight: 600; }
+.mech-row { display: grid; grid-template-columns: auto 1fr; gap: 1px 8px; text-align: left; border: 0; background: none; padding: 6px 6px; border-radius: 5px; font-size: 12.5px; width: 100%; }
+.mech-row:hover { background: color-mix(in srgb, var(--fg) 7%, transparent); }
+.mech-row .mr-main { grid-column: 1 / -1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mech-row .mr-air { font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 12px; display: inline-flex; align-items: center; gap: 3px; }
+.mech-row .mr-air .ic { width: 14px; height: 14px; }
+.mech-row .mr-sub { font-size: 11.5px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mech-row.over .mr-air { color: var(--bad); }
+.btn-row.pad, p.pad { padding: 10px 12px; margin: 0; }

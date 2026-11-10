@@ -127,7 +127,7 @@ function sketchParts(m, doc) {
 // where the label goes: preset position, the centre, or wherever it was dragged (m.labelOff)
 function sketchLabelBox(m, doc, g) {
   const s = m.style; const lines = [];
-  if (s.showLabel !== false) { if (s.showName !== false) { const nm = sketchName(doc, m); if (nm) lines.push(nm); } if (s.showSize !== false) lines.push(sizeLabel(doc, m)); if (s.showArea) lines.push(areaLabel(doc, m)); }
+  if (s.showLabel !== false) { if (s.showName !== false) { const nm = sketchName(doc, m); if (nm) lines.push(nm); } if (s.showSize !== false) lines.push(sizeLabel(doc, m)); if (s.showArea) lines.push(areaLabel(doc, m)); if (s.showAir !== false) { const c = riserCalcFor(doc, m); if (c.q > 0 && c.A > 0) lines.push(`${Math.round(c.q)} L/s · ${num(c.v, 1)} m/s · ${num(c.pa, 2)} Pa/m${calcWarn(c).length ? ' !' : ''}`); } }
   if (!lines.length) return null;
   if (!g) { const sc = scaleForMarkup(doc, m); const c = m.pts[0]; const rot = sketchRot(doc, m); const A = sketchSize(doc, m), B = sketchTrans(doc, m); g = { ga: sizeGeom(A, sc, c, rot), gb: B ? sizeGeom(B, sc, c, rot) : null, sc, c, rot }; }
   const { ga, gb, c } = g; const ex = gb ? Math.max(ga.ext[0], gb.ext[0]) : ga.ext[0], ey = gb ? Math.max(ga.ext[1], gb.ext[1]) : ga.ext[1]; const fs = s.fontSize || 9;

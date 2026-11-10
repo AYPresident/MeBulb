@@ -23,7 +23,7 @@ there open here.
 
 - `00-core` utilities, geometry, font metrics · `10-units` units and scales
 - `20-markup` markup types and drawing (screen SVG and PDF use the same primitives)
-- `22-richtext` rich text runs and editor · `25-sketch` sketch-to-scale risers · `26-equip` equipment top views to scale with clearances and clash checks · `27-align` page alignment by grid bubbles or hand-placed reference points and grid lines · `28-duct` ductwork: sized ducts with insulation, end caps and transitions, routing out of riser faces, grilles on ducts and in riser walls, section views (ducts, grilles, risers through every floor) · `29-ductulator` velocity and friction loss (Darcy-Colebrook), size suggestions
+- `22-richtext` rich text runs and editor · `25-sketch` sketch-to-scale risers · `26-equip` equipment top views to scale with clearances and clash checks · `27-align` page alignment by grid bubbles or hand-placed reference points and grid lines · `28-duct` ductwork: sized ducts with insulation, end caps and transitions, routing out of riser faces, grilles on ducts and in riser walls, section views (ducts, grilles, risers through every floor) · `29-ductulator` velocity and friction loss (Darcy-Colebrook) and the one size-and-airflow card used by risers, ducts, the drawing tools and the stand-alone calculator
 - `30-state` application state, undo · `40-viewer` page rendering · `45-content` PDF content parsing (snapping, text)
 - `46-forms` form fields · `47-textedit` PDF text editing · `48-ocr` text recognition · `49-fonts` installed fonts and embedding
 - `50-tools`, `51-editops` drawing tools and editing commands
@@ -92,6 +92,9 @@ pull request, and keeps the web build and the test screenshots.
 - **Autosave and recovery**: autosave writes the PDF every few minutes (desktop, writable files, the session
   holder only). Separately, a recovery copy of unsaved markups goes to AppData a few seconds after each
   change and is removed on save or "Don't save"; File > Recover unsaved work lists what is kept.
+- **One place per job.** What a thing is (name, size, airflow) comes before how it looks, in the property
+  bar and in Properties. Settings for a tool live in Properties while the tool is picked. The Mechanical panel
+  is the workflow (Draw), the calculator (Ductulator) and the check (Schedule); the Mechanical menu mirrors it.
 - **Ductulator**: Darcy-Weisbach with the Colebrook friction factor on the hydraulic diameter (4A/P) at the
   real velocity; galvanised steel (ε 0.09 mm), air 1.2 kg/m³, ν 1.51×10⁻⁵ m²/s. Ducts and risers over the
   friction limit (1 Pa/m by default) are flagged.

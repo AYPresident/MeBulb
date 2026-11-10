@@ -44,7 +44,7 @@ function snapPoint(p, page, opts = {}) {
 
 function newDraftMarkup(tool, page, pts) {
   if (TOOLS[tool] && TOOLS[tool].mode === 'sketch') {
-    const sh = TOOLS[tool].shape; const m = newMarkup('sketch', page, pts, { sz: deep(state.sketchDefaults[sh]), tsz: null, rot: 0 });
+    const sh = TOOLS[tool].shape; const m = newMarkup('sketch', page, pts, { sz: deep(state.sketchDefaults[sh]), tsz: null, rot: 0 }); if (state.sketchQ > 0) m.q = state.sketchQ;
     m.style = toolStyle(tool); m.subject = state.toolSubjects[tool] || TOOLS[tool].subject; return m;
   }
   const m = newMarkup(tool, page, pts);

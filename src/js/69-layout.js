@@ -5,7 +5,7 @@ const PANELS = {
   layers: { title: 'Layers', icon: 'layers', render: () => renderLayers() },
   toolsets: { title: 'Tool sets', icon: 'toolset', render: () => renderToolsets() },
   equipment: { title: 'Equipment', icon: 'equip', render: () => renderEquipPanel() },
-  ductwork: { title: 'Ductwork', icon: 'duct', render: () => renderDuctPanel() },
+  ductwork: { title: 'Mechanical', icon: 'mech', render: () => renderDuctPanel() },
   props: { title: 'Properties', icon: 'props', render: () => renderProps() },
   measure: { title: 'Measurements', icon: 'scale', render: () => renderMeasurePanel() },
   linked: { title: 'Linked sketches', icon: 'link', render: () => renderLinkedPanel() },
@@ -18,8 +18,8 @@ const TOOLBAR_DEFS = [
   { id: 'markup', name: 'Markup', items: ['tool:text', 'tool:callout', 'tool:note', 'tool:pen', 'tool:highlight', 'tool:strikeout', 'tool:stamp', 'tool:image'] },
   { id: 'shapes', name: 'Shapes', items: ['tool:line', 'tool:arrow', 'tool:rect', 'tool:ellipse', 'tool:polygon', 'tool:polyline', 'tool:cloud'] },
   { id: 'measure', name: 'Measure', items: ['tool:calibrate', 'tool:viewport', 'sep', 'tool:length', 'tool:polylength', 'tool:area', 'tool:perimeter', 'tool:volume', 'tool:count', 'tool:angle', 'tool:radius'] },
-  { id: 'sketch', name: 'Sketch to scale', items: ['tool:sketchrect', 'tool:sketchcircle', 'cmd:sketch.place', 'cmd:sketch.transition', 'tool:equip'] },
-  { id: 'ductwork', name: 'Ductwork', items: ['tool:duct', 'tool:grille', 'cmd:duct.connectSame', 'cmd:duct.section'] },
+  { id: 'sketch', name: 'Risers and equipment', items: ['tool:sketchrect', 'tool:sketchcircle', 'cmd:sketch.place', 'cmd:sketch.transition', 'sep', 'tool:equip'] },
+  { id: 'ductwork', name: 'Ductwork', items: ['tool:duct', 'cmd:duct.connectSame', 'tool:grille', 'cmd:duct.section', 'sep', 'cmd:duct.calc'] },
   { id: 'edit', name: 'Edit', items: ['tool:edittext', 'cmd:doc.ocr'] },
   { id: 'arrange', name: 'Arrange', row: 1, items: ['cmd:arr.alignLeft', 'cmd:arr.alignCenter', 'cmd:arr.alignRight', 'cmd:arr.alignTop', 'cmd:arr.alignMiddle', 'cmd:arr.alignBottom', 'sep', 'cmd:arr.distH', 'cmd:arr.distV', 'sep', 'cmd:edit.front', 'cmd:edit.back'] },
   { id: 'properties', name: 'Properties', row: 1, items: ['cmd:edit.copyProps', 'cmd:edit.pasteProps', 'cmd:edit.fitText', 'cmd:edit.lock'] },
@@ -31,7 +31,7 @@ function defaultLayout() {
   return {
     v: 1, toolbars: TOOLBAR_DEFS.map((t) => ({ id: t.id, name: t.name, items: t.items.slice(), row: t.row || 0, hidden: !!t.hidden })),
     panels: { left: ['pages', 'bookmarks', 'layers', 'toolsets', 'equipment', 'ductwork'], right: ['props', 'measure', 'linked', 'search', 'session'] },
-    leftOpen: false, rightOpen: true, leftTab: 'pages', rightTab: 'props', listOpen: false, leftW: 250, rightW: 300, propbar: true, navbar: true,
+    calcBtn: 1, leftOpen: false, rightOpen: true, leftTab: 'pages', rightTab: 'props', listOpen: false, leftW: 250, rightW: 300, propbar: true, navbar: true,
   };
 }
 function loadLayout() {
@@ -40,6 +40,7 @@ function loadLayout() {
   const all = new Set([...L.panels.left, ...L.panels.right]); Object.keys(PANELS).forEach((p) => { if (!all.has(p)) (D.panels.left.includes(p) ? L.panels.left : L.panels.right).push(p); });
   L.panels.left = L.panels.left.filter((p) => PANELS[p]); L.panels.right = L.panels.right.filter((p) => PANELS[p]);
   // toolbars added since the layout was saved
+  if (Array.isArray(L.toolbars) && !L.calcBtn) { const t = L.toolbars.find((x) => x.id === 'ductwork'); if (t && !t.items.includes('cmd:duct.calc')) t.items.push('sep', 'cmd:duct.calc'); L.calcBtn = 1; } /* the Ductulator button, once, for layouts saved before it existed */
   if (Array.isArray(L.toolbars)) { const have = new Set(L.toolbars.map((t) => t.id)); D.toolbars.forEach((t, k) => { if (!have.has(t.id)) L.toolbars.splice(Math.min(k, L.toolbars.length), 0, t); }); }
   return { ...D, ...L };
 }

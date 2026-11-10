@@ -46,8 +46,8 @@ const TOOLS = {
   gridline: { label: 'Grid line (for lining pages up)', short: 'Grid line', icon: 'gridline', mode: 'line', subject: 'Grid line', style: { stroke: '#c2255c', width: 0.75, dash: 'dashdot', fontSize: 10, fontColor: '#c2255c', fill: 'none' } },
 };
   // ductwork (28-duct.js)
-TOOLS.duct = { label: 'Duct (sized, to scale): click the corners, double-click to finish', short: 'Duct', icon: 'duct', mode: 'multi', subject: 'Duct', style: { stroke: '#1c7ed6', width: 0.8, fill: '#1c7ed6', fillOpacity: 0.12, fontSize: 8, fontColor: '#1864ab' } };
-TOOLS.grille = { label: 'Grille or diffuser (click on a duct to put it on it)', short: 'Grille', icon: 'grille', mode: 'point', subject: 'Grille', style: { stroke: '#1c7ed6', width: 0.8, fill: '#ffffff', fillOpacity: 0.9, fontSize: 7, fontColor: '#1864ab' } };
+TOOLS.duct = { label: 'Duct to scale (click the corners, double-click to finish)', short: 'Duct', icon: 'duct', mode: 'multi', subject: 'Duct', style: { stroke: '#1c7ed6', width: 0.8, fill: '#1c7ed6', fillOpacity: 0.12, fontSize: 8, fontColor: '#1864ab' } };
+TOOLS.grille = { label: 'Grille or diffuser (click a duct or a riser wall)', short: 'Grille', icon: 'grille', mode: 'point', subject: 'Grille', style: { stroke: '#1c7ed6', width: 0.8, fill: '#ffffff', fillOpacity: 0.9, fontSize: 7, fontColor: '#1864ab' } };
 TOOLS.section = { label: 'Section view', icon: 'section', subject: 'Section view', style: { stroke: '#343a40', width: 1, fontSize: 8, fontColor: '#343a40', fill: '#ffffff', fillOpacity: 0.92 } };
 const REF_TYPES = new Set(['refpt', 'gridline']);
 const DUCT_TYPES = new Set(['duct', 'grille', 'section']);

@@ -4,7 +4,7 @@ const SUITES = ['flow', 'flow2', 'flow3', 'r4', 'r5', 'label', 'incr', 'textmark
 const only = process.argv.slice(2); let failed = 0; const t0 = Date.now();
 for (const s of only.length ? only : SUITES) {
   const r = spawnSync(process.execPath, [path.join(__dirname, s + '.js')], { encoding: 'utf8', timeout: 300000 });
-  const out = (r.stdout || '') + (r.stderr || ''); const pass = (out.match(/^PASS |\sPASS$/gm) || []).length; const fail = out.match(/^FAIL .*|^.*\sFAIL$/gm) || [];
+  const out = (r.stdout || '') + (r.stderr || ''); const pass = (out.match(/^PASS |\sPASS$/gm) || []).length; const fail = out.match(/^FAIL .*|^.*\sFAIL$|^ERROR .*|^FAILS: [1-9].*/gm) || []; /* a suite that stops early on an error is a failure too */
   const bad = r.status !== 0 || fail.length; if (bad) failed++;
   console.log(`${bad ? 'FAIL' : 'ok  '} ${s.padEnd(9)} ${pass} passed${fail.length ? ', ' + fail.length + ' failed' : ''}${r.status && !fail.length ? ' (exit ' + r.status + ')' : ''}`);
   for (const f of fail) console.log('       ' + f);

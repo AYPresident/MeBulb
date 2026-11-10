@@ -361,7 +361,7 @@ function riserSectionPrims(m, doc, src, X) {
     if (B && Math.abs(wb - wa) > 0.05) { const ym = (yb + yt) / 2, d = Math.min(300 * k, (yb - yt) * 0.2); [-1, 1].forEach((sg) => line([[cx + sg * wa / 2, yb], [cx + sg * wa / 2, ym + d], [cx + sg * wb / 2, ym - d], [cx + sg * wb / 2, yt]], { width: 1.2 })); }
     else [-1, 1].forEach((sg) => line([[cx + sg * wa / 2, yb], [cx + sg * wa / 2, yt]], { width: 1.2 }));
     // size, beside the shaft low on the floor, with the airflow it carries there
-    const qf = riserFloorQ(doc, src, floors, i, m.flow, gr); const cf = qf > 0 ? ductCalc(qf, sizeMm(B || A)) : null; const wf = cf ? calcWarn(cf) : [];
+    const qf = riserFloorQ(doc, src, floors, i, m.flow, gr); const cf = qf > 0 ? ductCalc(qf, sizeMm(B || A), { eps: matEps(riserMat(doc, src)) }) : null; const wf = cf ? calcWarn(cf) : [];
     labs.push({ y: yb - fs * 1.2, t: (B ? `${sizeTxt(A)} → ${sizeTxt(B)}` : sizeTxt(A)) + (cf ? ` · ${Math.round(qf)} L/s · ${num(cf.v, 1)} m/s · ${num(cf.pa, 2)} Pa/m${wf.length ? ' !' : ''}` : ''), bold: true, color: wf.length ? '#c92a2a' : null });
     // airflow arrow in the shaft
     if (m.flow === 'up' || m.flow === 'down') { const ya = (yb + yt) / 2, al = Math.min(fs * 2.4, (yb - yt) * 0.3); const a = [cx, m.flow === 'up' ? ya + al / 2 : ya - al / 2], b = [cx, m.flow === 'up' ? ya - al / 2 : ya + al / 2]; const ah = arrowHead(b, a, 'arrow', { width: 0.7 }); line([a, ah.cut], { width: 0.7 }); out.push(...ah.prims.map((q) => ({ ...q, stroke: col, fill: col }))); }
@@ -568,9 +568,14 @@ function finishDuctDraft(doc, m) {
 
 // ----- properties -------------------------------------------------------------------------------------------------
 const numIn = (k, v, title, step = 5) => `<input type="number" class="num" data-k="${k}" value="${v == null ? '' : num(+v, 1)}" min="0" step="${step}" title="${esc(title)}">`;
-function ductFields(D, pre) {
-  return `<div class="field two"><div><label>Shape</label><select data-k="${pre}.shape"><option value="rect"${D.shape !== 'round' ? ' selected' : ''}>Rectangular</option><option value="round"${D.shape === 'round' ? ' selected' : ''}>Round</option></select></div><div><label>Service</label><select data-k="${pre}.service">${DUCT_SERVICES.map(([k, l]) => `<option value="${k}"${D.service === k ? ' selected' : ''}>${k} · ${esc(l)}</option>`).join('')}</select></div></div>
-    ${D.shape === 'round' ? `<div class="field two"><div><label>Diameter (mm)</label>${numIn(pre + '.d', D.d, 'Diameter')}</div><div></div></div>` : `<div class="field two"><div><label>Width (mm)</label>${numIn(pre + '.w', D.w, 'Width (on plan)')}</div><div><label>Depth (mm)</label>${numIn(pre + '.h', D.h, 'Depth (height)')}</div></div>`}
+// size and airflow of a duct (or of the next duct) in the shared card
+function ductAirCard(doc, D, ctx, pre, m) {
+  const q0 = m ? ductQ(doc, m) : 0;
+  return airCardHtml({ ctx, q: D.q > 0 ? +D.q : 0, qFall: q0, qPh: q0 > 0 && !(D.q > 0) ? `${Math.round(q0)} from grilles` : 'L/s', qTitle: m ? 'Design airflow; leave blank to use the sum of the grilles on it' : 'Design airflow for the next duct', size: D.shape === 'round' ? { shape: 'round', d: D.d } : { shape: 'rect', w: D.w, h: D.h }, mat: D.mat || 'galv', wLabel: 'Width', hLabel: 'Depth', keys: { q: pre + '.q', shape: pre + '.shape', w: pre + '.w', h: pre + '.h', d: pre + '.d', mat: pre + '.mat' } });
+}
+function ductFields(D, pre, noSize) {
+  return `${noSize ? `<div class="field"><label>Service</label><select data-k="${pre}.service">${DUCT_SERVICES.map(([k, l]) => `<option value="${k}"${D.service === k ? ' selected' : ''}>${k} · ${esc(l)}</option>`).join('')}</select></div>` : `<div class="field two"><div><label>Shape</label><select data-k="${pre}.shape"><option value="rect"${D.shape !== 'round' ? ' selected' : ''}>Rectangular</option><option value="round"${D.shape === 'round' ? ' selected' : ''}>Round</option></select></div><div><label>Service</label><select data-k="${pre}.service">${DUCT_SERVICES.map(([k, l]) => `<option value="${k}"${D.service === k ? ' selected' : ''}>${k} · ${esc(l)}</option>`).join('')}</select></div></div>
+    ${D.shape === 'round' ? `<div class="field two"><div><label>Diameter (mm)</label>${numIn(pre + '.d', D.d, 'Diameter')}</div><div></div></div>` : `<div class="field two"><div><label>Width (mm)</label>${numIn(pre + '.w', D.w, 'Width (on plan)')}</div><div><label>Depth (mm)</label>${numIn(pre + '.h', D.h, 'Depth (height)')}</div></div>`}`}
     <div class="field two"><div><label>Insulation (mm)</label>${numIn(pre + '.ins', D.ins, 'Insulation thickness, 0 for none', 5)}</div><div><label>Insulation type</label><select data-k="${pre}.insKind"><option value="external"${D.insKind !== 'internal' ? ' selected' : ''}>External wrap</option><option value="internal"${D.insKind === 'internal' ? ' selected' : ''}>Internal lining</option></select></div></div>
     <div class="field two"><div><label>Start</label><select data-k="${pre}.end0">${DUCT_ENDS.map(([k, l]) => `<option value="${k}"${(D.ends || [])[0] === k ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></div><div><label>End</label><select data-k="${pre}.end1">${DUCT_ENDS.map(([k, l]) => `<option value="${k}"${(D.ends || [])[1] === k ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></div></div>`;
 }
@@ -586,14 +591,15 @@ function grilleFields(G0, pre, host) {
 }
 function ductPropsHtml(doc, m) {
   const D = ductD(m); const a = ductAreas(doc, m); const fr = m.from && getMarkup(m.from, doc), to = m.to && getMarkup(m.to, doc); const gr = doc.markups.filter((x) => x.type === 'grille' && x.on === m.id).length; const secs = doc.markups.filter((x) => x.type === 'section' && x.of === m.id);
-  return `<section class="psec"><h3>Duct</h3><div class="measure-readout"><div class="mr-val">${esc(ductSizeText(D))} ${esc(D.service || '')}</div><div class="mr-sub">${num(a.L, 2)} m · ${ductBends(m)} bend${ductBends(m) === 1 ? '' : 's'}${fr || to ? ` · ${esc([fr ? sketchName(doc, fr) : '…', to ? sketchName(doc, to) : '…'].join(' → '))}` : ''}</div></div>
-    ${ductFields(D, 'duct')}
-    ${(() => { const c = ductCalcFor(doc, m); const q0 = ductQ(doc, m); const w = c.q > 0 ? calcWarn(c) : []; const sg = w.length ? suggestSizes(c.q, { depths: [D.h, 200, 300, 400].filter((x, i, a) => x > 0 && a.indexOf(x) === i) }) : null;
-      return `<div class="field two"><div><label>Airflow (L/s)</label><input type="number" class="num" data-k="duct.q" value="${D.q > 0 ? num(D.q, 0) : ''}" min="0" step="10" placeholder="${q0 > 0 ? Math.round(q0) + ' from grilles' : 'L/s'}" title="Design airflow; blank uses the sum of the grilles on it"></div><div><label>Velocity · friction</label><div class="dc-mini${w.length ? ' warn' : ''}">${c.q > 0 ? `${num(c.v, 2)} m/s · ${num(c.pa, 2)} Pa/m` : '—'}</div></div></div>${w.length ? `<div class="dc-warn">${icon('warn')} ${esc(w.join('; '))}.${sg && (sg.rect.length || sg.round) ? ` Try ${[...sg.rect.slice(0, 3).map((r) => r.w + '×' + r.h), sg.round ? 'Ø' + sg.round.d : ''].filter(Boolean).join(', ')}.` : ''}</div>` : ''}`; })()}
-    <div class="field"><label>Name</label><input type="text" data-k="text" value="${esc(m.text || '')}" maxlength="60" placeholder="e.g. M1 duct"></div>
-    <div class="chk-row"><label class="check"><input type="checkbox" data-k="style.showLabel"${m.style.showLabel !== false ? ' checked' : ''}> Size label</label><label class="check"><input type="checkbox" data-k="style.showFlow"${m.style.showFlow !== false ? ' checked' : ''}> Airflow arrows</label><label class="check"><input type="checkbox" data-k="style.showIns"${m.style.showIns !== false ? ' checked' : ''}> Insulation</label><label class="check"><input type="checkbox" data-k="style.showQ"${m.style.showQ !== false ? ' checked' : ''}> Airflow and Pa/m</label></div>
-    <dl class="meta"><dt>Sheet metal</dt><dd>${num(a.metal, 2)} m²</dd>${D.ins > 0 ? `<dt>Insulation</dt><dd>${num(a.ins, 2)} m²</dd>` : ''}<dt>Grilles</dt><dd>${gr}</dd>${secs.length ? `<dt>Sections</dt><dd>${secs.map((x) => x.letter).join(', ')}</dd>` : ''}</dl>
-    <div class="btn-row"><button type="button" class="btn sm" data-act="duct-route">Best route</button><button type="button" class="btn sm" data-act="duct-flip">Flip airflow</button><button type="button" class="btn sm" data-act="duct-grilles">Add grilles…</button><button type="button" class="btn sm" data-act="duct-section">Section view</button></div></section>`;
+  const c = ductCalcFor(doc, m); const over = c.q > 0 && calcWarn(c).length;
+  return `<div class="measure-readout${over ? ' over' : ''}"><div class="mr-val">${esc(ductSizeText(D))} ${esc(D.service || '')}</div><div class="mr-sub">${c.q > 0 ? `${Math.round(c.q)} L/s · ${num(c.v, 2)} m/s · ${num(c.pa, 2)} Pa/m · ` : ''}${num(a.L, 2)} m · ${ductBends(m)} bend${ductBends(m) === 1 ? '' : 's'}${fr || to ? ` · ${esc([fr ? sketchName(doc, fr) : '…', to ? sketchName(doc, to) : '…'].join(' → '))}` : ''}</div></div>
+    <section class="psec"><div class="field"><label>Name</label><input type="text" data-k="text" value="${esc(m.text || '')}" maxlength="60" placeholder="e.g. M1 duct"></div></section>
+    <section class="psec"><h3>Size and airflow</h3>${ductAirCard(doc, D, 'duct', 'duct', m)}</section>
+    <section class="psec"><h3>Duct</h3>${ductFields(D, 'duct', true)}
+    <div class="btn-row"><button type="button" class="btn sm" data-act="duct-grilles">${icon('grille')} Add grilles…</button><button type="button" class="btn sm" data-act="duct-section">${icon('section')} Section view</button></div>
+    <div class="btn-row"><button type="button" class="btn sm" data-act="duct-route">Best route</button><button type="button" class="btn sm" data-act="duct-flip">Flip airflow</button></div></section>
+    <section class="psec"><h3>Shown on the plan</h3><div class="chk-row"><label class="check"><input type="checkbox" data-k="style.showLabel"${m.style.showLabel !== false ? ' checked' : ''}> Size label</label><label class="check"><input type="checkbox" data-k="style.showQ"${m.style.showQ !== false ? ' checked' : ''}> Airflow, m/s and Pa/m</label><label class="check"><input type="checkbox" data-k="style.showFlow"${m.style.showFlow !== false ? ' checked' : ''}> Airflow arrows</label><label class="check"><input type="checkbox" data-k="style.showIns"${m.style.showIns !== false ? ' checked' : ''}> Insulation</label></div></section>
+    <section class="psec"><h3>Quantities</h3><dl class="meta"><dt>Length</dt><dd>${num(a.L, 2)} m</dd><dt>Sheet metal</dt><dd>${num(a.metal, 2)} m²</dd>${D.ins > 0 ? `<dt>Insulation</dt><dd>${num(a.ins, 2)} m²</dd>` : ''}<dt>Grilles</dt><dd>${gr}</dd>${secs.length ? `<dt>Sections</dt><dd>${secs.map((x) => x.letter).join(', ')}</dd>` : ''}</dl></section>`;
 }
 function grillePropsHtml(doc, m) {
   const G0 = grilleD(m); const fa = grilleFA(G0); const v = grilleVel(G0); const h = m.on && getMarkup(m.on, doc); const d = h && h.type === 'duct' ? h : null; const r = h && h.type === 'sketch' ? h : null;
@@ -624,7 +630,7 @@ function sectionPropsHtml(doc, m) {
 }
 // property keys: duct.<f>, gr.<f>, sec.<f>; dd.* / gd.* change the defaults for new ones
 function setDuctField(m, k, v) {
-  const [g, f] = k.split('.'); const numish = !['shape', 'service', 'insKind', 'kind', 'end0', 'end1', 'mount'].includes(f); const val = numish ? (v === '' || v == null ? null : +v) : v;
+  const [g, f] = k.split('.'); const numish = !['shape', 'service', 'insKind', 'kind', 'end0', 'end1', 'mount', 'mat'].includes(f); const val = numish ? (v === '' || v == null ? null : +v) : v;
   if (g === 'duct') { const D = ductD(m); if (f === 'end0' || f === 'end1') { D.ends = D.ends.slice(); D.ends[f === 'end0' ? 0 : 1] = val; } else D[f] = val; m.duct = D; return true; }
   if (g === 'gr') { const G0 = grilleD(m); G0[f] = f === 'faM2' && !(val > 0) ? null : val; if (f === 'kind' && m.tag && /^[A-Z]{2}-\d+$/.test(m.tag)) m.tag = nextGrilleTag(activeDoc(), val); m.gr = G0; return true; }
   if (g === 'sec') {
@@ -635,7 +641,7 @@ function setDuctField(m, k, v) {
   }
   return false;
 }
-function applyDuctDefault(k, v) { const [g, f] = k.split('.'); const numish = !['shape', 'service', 'insKind', 'kind', 'end0', 'end1', 'mount'].includes(f); const val = numish ? (v === '' ? null : +v) : v; if (g === 'dd') { const D = ductDefaults(); if (f === 'end0' || f === 'end1') { D.ends = (D.ends || ['open', 'open']).slice(); D.ends[f === 'end0' ? 0 : 1] = val; } else D[f] = val; } else { const G0 = grilleDefaults(); G0[f] = f === 'faM2' && !(val > 0) ? null : val; } saveDuctDefaults(); }
+function applyDuctDefault(k, v) { const [g, f] = k.split('.'); const numish = !['shape', 'service', 'insKind', 'kind', 'end0', 'end1', 'mount', 'mat'].includes(f); const val = numish ? (v === '' ? null : +v) : v; if (g === 'dd') { const D = ductDefaults(); if (f === 'end0' || f === 'end1') { D.ends = (D.ends || ['open', 'open']).slice(); D.ends[f === 'end0' ? 0 : 1] = val; } else D[f] = val; } else { const G0 = grilleDefaults(); G0[f] = f === 'faM2' && !(val > 0) ? null : val; } saveDuctDefaults(); }
 
 async function addGrillesDialog(d) {
   const doc = activeDoc(); if (!d || d.type !== 'duct') return; const G0 = grilleDefaults(); const L = ductLengthMm(doc, d) / 1000;
@@ -646,26 +652,49 @@ async function addGrillesDialog(d) {
 }
 
 // ----- the Ductwork panel ------------------------------------------------------------------------------------------
-const renderDuctPanelSoon = debounce(() => { if (panelShown('ductwork')) renderDuctPanel(); }, 150);
+const renderDuctPanelSoon = debounce(() => { const f = document.activeElement; if (panelShown('ductwork') && !(f && f.closest && f.closest('#ductwork') && /INPUT|SELECT/.test(f.tagName))) renderDuctPanel(); }, 150);
+// The Mechanical panel has three views: Draw (the steps in the order you work), Ductulator, and Schedule
+// (every riser, duct and grille with its airflow, flagged when over the limits). Settings for new ducts and
+// grilles live in Properties while the tool is picked, like every other tool.
 function renderDuctPanel() {
-  const el = $('#ductwork'); if (!el) return; const doc = activeDoc(); const D = ductDefaults(), G0 = grilleDefaults(); const page = doc ? currentPage() : 0;
-  const ducts = doc ? doc.markups.filter((m) => m.type === 'duct') : []; const grs = doc ? doc.markups.filter((m) => m.type === 'grille') : [];
-  const same = doc ? (() => { const c = new Map(); doc.markups.forEach((m) => { if (m.type === 'sketch' && m.page === page) { const n = String(sketchName(doc, m) || '').trim().toUpperCase(); if (n) c.set(n, (c.get(n) || 0) + 1); } }); return [...c].filter(([, n]) => n > 1).map(([n]) => n); })() : [];
-  el.innerHTML = `<div class="ts-bar"><button class="btn sm" data-dw="draw">${icon('duct')} Draw duct</button><button class="btn sm" data-dw="grille">${icon('grille')} Grille</button><span class="grow"></span><button class="icon-btn sm" data-dw="more" aria-label="More ductwork options">${icon('more')}</button></div>
-    <section class="psec"><h3>Connect risers</h3><p class="muted sm">Routes a duct between risers: square runs, few bends, around walls, equipment and other risers. Edit the corners afterwards, or right-click the duct for other routes.</p>
-      <div class="btn-row"><button class="btn sm primary" data-dw="same"${same.length ? '' : ' disabled'} title="${same.length ? 'Risers sharing a name on this page: ' + esc(same.join(', ')) : 'No two risers on this page share a name'}">Connect same-name risers${same.length ? ` (${esc(same.join(', '))})` : ''}</button><button class="btn sm" data-dw="sel">Connect the two selected</button></div></section>
-    ${ductCalcHtml()}
-    <section class="psec"><h3>New ducts</h3>${ductFields(D, 'dd')}<p class="muted sm">Ducts connected to a riser take the riser's size.</p></section>
-    <section class="psec"><h3>New grilles</h3>${grilleFields(G0, 'gd')}<p class="muted sm">Click on a duct to put the grille on it, or anywhere for a free-standing one.</p></section>
-    ${ducts.length ? `<h4 class="eq-h">Ducts (${ducts.length})</h4><div class="eq-placed">${ducts.slice(0, 200).map((m) => { const d = ductD(m); const c = ductCalcFor(doc, m); const w = c.q > 0 ? calcWarn(c) : []; return `<button class="eq-pl${w.length ? ' over' : ''}" data-dm="${esc(m.id)}"${w.length ? ` title="${esc(w.join('; '))}"` : ''}><b>${esc(m.text || ductSizeText(d))}</b> ${esc(ductSizeText(d))} ${esc(d.service || '')}${d.ins > 0 ? ' · ' + esc(ductInsText(d)) : ''}${c.q > 0 ? ` · ${Math.round(c.q)} L/s · ${num(c.pa, 2)} Pa/m` : ''}<span class="muted"> · ${num(ductLengthMm(doc, m) / 1000, 1)} m · p${m.page + 1}</span>${d.ends.some((e) => e !== 'open') ? '<span class="muted"> · capped</span>' : ''}</button>`; }).join('')}</div>` : ''}
-    ${grs.length ? `<h4 class="eq-h">Grilles (${grs.length})</h4><div class="eq-placed">${grs.slice(0, 300).map((m) => { const g = grilleD(m); const v = grilleVel(g); return `<button class="eq-pl" data-dm="${esc(m.id)}"><b>${esc(m.tag || '')}</b> ${esc(grilleFaceText(g))} · FA ${num(grilleFA(g), 3)} m²${g.q ? ` · ${Math.round(g.q)} L/s` : ''}${v ? ` · ${num(v, 2)} m/s` : ''}<span class="muted"> · p${m.page + 1}</span></button>`; }).join('')}</div>` : ''}`;
+  const el = $('#ductwork'); if (!el) return; const doc = activeDoc(); const page = doc ? currentPage() : 0; const tab = state.mechTab || 'draw';
+  const tabs = `<div class="seg-tabs" role="tablist" aria-label="Mechanical">${[['draw', 'Draw'], ['calc', 'Ductulator'], ['list', 'Schedule']].map(([k, l]) => `<button role="tab" aria-selected="${tab === k}" class="seg-tab${tab === k ? ' on' : ''}" data-mt="${k}">${l}</button>`).join('')}</div>`;
+  if (!doc) { el.innerHTML = tabs + '<p class="muted pad">Open a PDF to start.</p>'; return; }
+  let body = '';
+  if (tab === 'calc') body = ductCalcHtml();
+  else if (tab === 'list') {
+    const seen = new Set(); const risers = doc.markups.filter((m) => { if (m.type !== 'sketch') return false; const k = m.link || m.id; if (seen.has(k)) return false; seen.add(k); return true; });
+    const ducts = doc.markups.filter((m) => m.type === 'duct'); const grs = doc.markups.filter((m) => m.type === 'grille');
+    const row = (m, main, sub, c) => { const w = c && c.q > 0 ? calcWarn(c) : []; return `<button class="mech-row${w.length ? ' over' : ''}" data-dm="${esc(m.id)}"${w.length ? ` title="${esc(w.join('; '))}"` : ''}><span class="mr-main">${main}</span><span class="mr-air">${c && c.q > 0 ? `${Math.round(c.q)} L/s · ${num(c.v, 1)} m/s · <b>${num(c.pa, 2)} Pa/m</b>${w.length ? ' ' + icon('warn') : ''}` : '<span class="muted">no airflow</span>'}</span><span class="mr-sub muted">${sub}</span></button>`; };
+    const nOver = [...risers.map((m) => riserCalcFor(doc, m)), ...ducts.map((m) => ductCalcFor(doc, m))].filter((c) => c.q > 0 && calcWarn(c).length).length;
+    body = `${nOver ? `<div class="mech-note over">${icon('warn')} ${nOver} over the limits (${num(fricLimit(), 2)} Pa/m${velLimit() ? `, ${num(velLimit(), 1)} m/s` : ''})</div>` : risers.length + ducts.length ? `<div class="mech-note">${icon('check')} Everything with an airflow is within ${num(fricLimit(), 2)} Pa/m${velLimit() ? ` and ${num(velLimit(), 1)} m/s` : ''}</div>` : ''}
+      <h4 class="eq-h">Risers (${risers.length})</h4><div class="eq-placed">${risers.length ? risers.slice(0, 300).map((m) => { const n = m.link ? doc.markups.filter((x) => x.link === m.link).length : 1; return row(m, `<b>${esc(sketchName(doc, m) || 'Riser')}</b> ${esc(sizeLabel(doc, m))}`, n > 1 ? `${n} pages` : `p${m.page + 1}`, riserCalcFor(doc, m)); }).join('') : '<p class="muted sm">None yet. Draw one with Riser on the Draw tab.</p>'}</div>
+      <h4 class="eq-h">Ducts (${ducts.length})</h4><div class="eq-placed">${ducts.length ? ducts.slice(0, 300).map((m) => { const d = ductD(m); return row(m, `<b>${esc(m.text || 'Duct')}</b> ${esc(ductSizeText(d))} ${esc(d.service || '')}`, `${num(ductLengthMm(doc, m) / 1000, 1)} m · p${m.page + 1}${d.ins > 0 ? ' · ' + esc(ductInsText(d)) : ''}`, ductCalcFor(doc, m)); }).join('') : '<p class="muted sm">None yet.</p>'}</div>
+      <h4 class="eq-h">Grilles (${grs.length})</h4><div class="eq-placed">${grs.length ? grs.slice(0, 400).map((m) => { const g = grilleD(m); const v = grilleVel(g); return `<button class="mech-row" data-dm="${esc(m.id)}"><span class="mr-main"><b>${esc(m.tag || '')}</b> ${esc(grilleFaceText(g))}</span><span class="mr-air">${g.q ? `${Math.round(g.q)} L/s${v ? ` · ${num(v, 2)} m/s` : ''}` : '<span class="muted">no airflow</span>'}</span><span class="mr-sub muted">FA ${num(grilleFA(g), 3)} m² · p${m.page + 1}</span></button>`; }).join('') : '<p class="muted sm">None yet.</p>'}</div>
+      <div class="btn-row pad"><button class="btn sm" data-dw="csv">${icon('csv')} Export schedule (CSV)</button></div>`;
+  } else {
+    const same = (() => { const c = new Map(); doc.markups.forEach((m) => { if (m.type === 'sketch' && m.page === page) { const n = String(sketchName(doc, m) || '').trim().toUpperCase(); if (n) c.set(n, (c.get(n) || 0) + 1); } }); return [...c].filter(([, n]) => n > 1).map(([n]) => n); })();
+    const sel = selected(doc); const two = sel.length === 2 && sel.every((m) => m.type === 'sketch'); const one = sel.length === 1 ? sel[0] : null; const canSec = one && ['duct', 'grille', 'sketch'].includes(one.type);
+    const step = (n, title, text, btns) => `<section class="mech-step"><div class="ms-n" aria-hidden="true">${n}</div><div class="ms-b"><h4>${title}</h4><p class="muted sm">${text}</p><div class="btn-row">${btns}</div></div></section>`;
+    const tb = (k, ic, label, on, dis, tip) => `<button class="btn sm${on ? ' on' : ''}" data-dw="${k}"${dis ? ' disabled' : ''}${tip ? ` title="${esc(tip)}"` : ''}>${icon(ic)} ${label}</button>`;
+    body = step(1, 'Risers', 'To scale, with an airflow. Place on every floor.', tb('riser', 'sketchrect', 'Riser', state.tool === 'sketchrect') + tb('riserc', 'sketchcircle', 'Round', state.tool === 'sketchcircle') + tb('place', 'pages2', 'Place on pages', false, !(one && one.type === 'sketch'), 'Select a riser first'))
+      + step(2, 'Ducts', 'Draw corner by corner, or route between risers.', tb('draw', 'duct', 'Draw duct', state.tool === 'duct') + tb('same', 'connect', `Connect ${same.length ? esc(same.slice(0, 3).join(', ')) : 'same names'}`, false, !same.length, same.length ? 'Risers sharing a name on this page' : 'No two risers on this page share a name') + tb('sel', 'connect', 'Connect selected', false, !two, 'Select two risers first'))
+      + step(3, 'Grilles', 'Click a duct or the wall of a riser.', tb('grille', 'grille', 'Grille', state.tool === 'grille') + tb('along', 'grille', 'Along a duct…', false, !(one && one.type === 'duct'), 'Select a duct first'))
+      + step(4, 'Sections', 'Of the selected duct, grille or riser (through all floors).', tb('section', 'section', 'Section view', false, !canSec, 'Select a duct, grille or riser first'))
+      + `<p class="muted sm pad">Sizes and airflow are in Properties when a riser or duct is selected. Check a size on the Ductulator tab.</p>`;
+  }
+  el.innerHTML = tabs + `<div class="mech-body" role="tabpanel">${body}</div>`;
 }
 function bindDuctPanel() {
   const el = $('#ductwork'); if (!el) return;
+  el.addEventListener('click', (e) => { const t = e.target.closest('[data-mt]'); if (t) { state.mechTab = t.dataset.mt; store.set('mechTab', state.mechTab); renderDuctPanel(); } });
   el.addEventListener('click', (e) => {
     const b = e.target.closest('[data-dw]'); const doc = activeDoc();
     if (b) { const k = b.dataset.dw;
+      const one = doc ? selected(doc)[0] : null;
       if (k === 'draw') setTool('duct'); else if (k === 'grille') setTool('grille'); else if (k === 'same') connectSameNameRisers(); else if (k === 'sel') connectSelectedRisers(); else if (k === 'calc-apply') ductCalcApply(); else if (k === 'calc-from') ductCalcFrom();
+      else if (k === 'riser') setTool('sketchrect'); else if (k === 'riserc') setTool('sketchcircle'); else if (k === 'place' && one) placeOnPagesDialog(one); else if (k === 'along' && one) addGrillesDialog(one); else if (k === 'section' && one) startSectionPlace(one); else if (k === 'csv') ductSchedule();
+      if (['draw', 'grille', 'riser', 'riserc'].includes(k)) renderDuctPanel();
       else if (k === 'more') { const r = b.getBoundingClientRect(); showMenu(r.left, r.bottom + 2, [['Duct and grille schedule (CSV)…', () => ductSchedule()]]); }
       return; }
     const p = e.target.closest('[data-dm]'); if (p && doc) { const m = getMarkup(p.dataset.dm); if (m) { setTool('select'); state.sel.clear(); state.sel.add(m.id); goToPage(m.page, m.pts[0]); refreshSelection(); } }

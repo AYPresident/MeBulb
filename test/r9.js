@@ -178,17 +178,35 @@ const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) pro
   const dc = await ev(() => { const c = mebulb.ductCalc(300, { shape: 'rect', w: 400, h: 200 }); const r = mebulb.ductCalc(300, { shape: 'round', d: 300 }); return { v: c.v, pa: c.pa, dh: c.dh, rv: r.v, rpa: r.pa }; });
   ok(Math.abs(dc.v - 3.75) < 1e-9 && dc.pa > 0.6 && dc.pa < 0.72 && Math.abs(dc.dh - 266.7) < 0.1, `300 L/s in 400×200: ${dc.v.toFixed(2)} m/s, ${dc.pa.toFixed(2)} Pa/m (Dh ${dc.dh.toFixed(0)} mm)`);
   ok(dc.rpa > 0.68 && dc.rpa < 0.76, `300 L/s in Ø300: ${dc.rv.toFixed(2)} m/s, ${dc.rpa.toFixed(2)} Pa/m`);
-  await ev(() => mebulb.openPanel('ductwork')); await page.waitForTimeout(250);
-  await page.fill('#ductwork input[data-dc="q"]', '900'); await page.press('#ductwork input[data-dc="q"]', 'Tab'); await page.waitForTimeout(150);
-  await page.fill('#ductwork input[data-dc="w"]', '400'); await page.press('#ductwork input[data-dc="w"]', 'Tab'); await page.fill('#ductwork input[data-dc="h"]', '200'); await page.press('#ductwork input[data-dc="h"]', 'Tab'); await page.waitForTimeout(150);
-  const calc = await ev(() => ({ out: document.querySelector('#ductwork .dc-out').textContent.replace(/\s+/g, ' '), warn: !!document.querySelector('#ductwork .dc-out.warn'), sugg: [...document.querySelectorAll('#ductwork [data-dcs]')].map((b) => b.textContent) }));
-  ok(calc.warn && /over 1(\.00)? Pa\/m/.test(calc.out) && calc.sugg.length >= 3, `Ductulator: 900 L/s in 400×200 is flagged (${calc.out.match(/[\d.]+ Pa\/m/)[0]}); smallest sizes under 1 Pa/m: ${calc.sugg.join(', ')}`);
-  const sgOk = await ev(() => { const pa = (w, h) => mebulb.ductCalc(900, { shape: 'rect', w, h }).pa; return mebulb.suggestSizes(900).rect.every((r) => pa(r.w, r.h) <= 1 && (pa(r.w - 50, r.h) > 1 || pa(r.w, r.h - 50) > 1)); });
-  ok(sgOk, 'each suggestion is the smallest width at its depth that meets the limit');
+  await ev(() => mebulb.runCommand('duct.calc')); await page.waitForTimeout(300);
+  ok(await ev(() => document.querySelector('#ductwork .seg-tab.on').textContent) === 'Ductulator', 'Mechanical ▸ Ductulator opens the calculator tab of the Mechanical panel');
+  const Q = '#ductwork .aircard';
+  await page.fill(`${Q} [data-air="w"]`, '400'); await page.press(`${Q} [data-air="w"]`, 'Tab'); await page.waitForTimeout(120); await page.fill(`${Q} [data-air="h"]`, '200'); await page.press(`${Q} [data-air="h"]`, 'Tab'); await page.waitForTimeout(120);
+  await page.fill(`${Q} [data-air="q"]`, '900'); await page.waitForTimeout(120); // live, before the value is committed
+  const calc = await ev(() => { const c = document.querySelector('#ductwork .aircard'); return { tiles: [...c.querySelectorAll('.air-tile')].map((t) => t.textContent.replace(/\s+/g, ' ').trim()), over: c.querySelectorAll('.air-tile.over').length, sugg: [...c.querySelectorAll('[data-air-set] b')].map((b) => b.textContent), cap: (c.querySelector('.air-cap') || {}).textContent || '' }; });
+  ok(calc.over === 1 && /Over 1 Pa\/m/.test(calc.tiles[1]) && /m\/s ?Velocity/.test(calc.tiles[0]) && calc.sugg.length >= 3 && /carries up to \d+ L\/s/.test(calc.cap), `Ductulator updates as you type: 900 L/s in 400×200 → ${calc.tiles.join(' | ')}; sizes that fit: ${calc.sugg.join(', ')}`);
+  const sgOk = await ev(() => { const pa = (z) => mebulb.ductCalc(900, z).pa; return mebulb.sizeChoices(900, { shape: 'rect', w: 400, h: 200 }, 0.09).every((x) => { const z = x.size; if (z.shape === 'round') return pa(z) <= 1 && pa({ shape: 'round', d: z.d - 50 }) > 1; return pa(z) <= 1 && (pa({ ...z, w: z.w - 50 }) > 1 || pa({ ...z, h: z.h - 50 }) > 1); }); });
+  ok(sgOk, 'each size offered is the smallest that meets the limit');
+  ok(await ev(() => { const a = mebulb.ductCalc(900, { shape: 'rect', w: 600, h: 400 }).pa, b = mebulb.ductCalc(900, { shape: 'rect', w: 600, h: 400 }, { eps: 3 }).pa; const q = mebulb.maxFlow({ shape: 'rect', w: 400, h: 200 }, 0.09); const c = mebulb.ductCalc(q, { shape: 'rect', w: 400, h: 200 }); return b > a * 1.5 && Math.abs(c.pa - 1) < 0.01; }), 'a rough concrete shaft loses more than galvanised duct; the capacity shown is the flow at exactly the limit');
+  await page.press(`${Q} [data-air="q"]`, 'Tab'); await page.waitForTimeout(150); await page.click(`${Q} [data-air-set]`); await page.waitForTimeout(200);
+  ok(await ev(() => !document.querySelector('#ductwork .air-tile.over') && !!document.querySelector('#ductwork .air-chip.cur')), 'picking an offered size puts it in the calculator and clears the warning');
+  // the same card sizes a riser: airflow beside width and height, velocity and Pa/m under them
+  await ev(() => { const d = mebulb.activeDoc(); const r = d.markups.find((x) => x.id === 'PM-ra9'); const S = mebulb.state; mebulb.setTool('select'); S.sel.clear(); S.sel.add(r.id); mebulb.refreshSelection(); mebulb.openPanel('props'); mebulb.goToPage(1, r.pts[0]); }); await page.waitForTimeout(300);
+  const RC = '#props .aircard[data-ctx="riser"]';
+  await page.fill(`${RC} [data-air="q"]`, '1500'); await page.waitForTimeout(120);
+  const live = await ev(() => [...document.querySelectorAll('#props .aircard .air-tile')].map((t) => t.textContent.replace(/\s+/g, ' ').trim()));
+  await page.press(`${RC} [data-air="q"]`, 'Enter'); await page.waitForTimeout(300);
+  const rz = await ev(() => { const d = mebulb.activeDoc(); const r = d.markups.find((x) => x.id === 'PM-ra9'); return { q: r.q, plan: document.querySelector('g.mk[data-id="PM-ra9"]').textContent, head: document.querySelector('#props .measure-readout').textContent, over: document.querySelectorAll('#props .aircard .air-tile.over').length, bar: document.querySelector('#propbar .pb-air').textContent, chips: [...document.querySelectorAll('#props .aircard [data-air-set]')].map((b) => b.textContent) }; });
+  ok(/8\.33 m\/s/.test(live[0]) && /Pa\/m/.test(live[1]) && rz.q === 1500 && rz.over === 1 && /1500 L\/s · 8\.3 m\/s · [\d.]+ Pa\/m !/.test(rz.plan) && /8\.3 m\/s · [\d.]+ Pa\/m/.test(rz.bar), `riser 600×300 with 1500 L/s: ${live.join(' | ')}; on the plan label and the property bar too`);
+  await page.click(`${RC} [data-air-set^="rect:600:"]`); await page.waitForTimeout(300);
+  const rz2 = await ev(() => { const d = mebulb.activeDoc(); const r = d.markups.find((x) => x.id === 'PM-ra9'); return { w: Math.round(r.sz.w * 25.4), h: Math.round(r.sz.h * 25.4), over: document.querySelectorAll('#props .aircard .air-tile.over').length, plan: document.querySelector('g.mk[data-id="PM-ra9"]').textContent }; });
+  ok(rz2.w === 600 && rz2.h > 300 && rz2.over === 0 && !/ !/.test(rz2.plan), `picking "keeps the 600 width" resizes the riser to ${rz2.w}×${rz2.h} and the warning goes`);
+  await page.keyboard.press('Control+z'); await page.waitForTimeout(200); ok(await ev(() => Math.round(mebulb.activeDoc().markups.find((x) => x.id === 'PM-ra9').sz.h * 25.4)) === 300, 'Ctrl+Z puts the size back');
+  await ev(() => { const d = mebulb.activeDoc(); const r = d.markups.find((x) => x.id === 'PM-ra9'); r.q = null; mebulb.renderAllMarks(d); });
   // a duct with too much air shows it on the plan and in its properties
   await ev((id) => { const d = mebulb.activeDoc(); const m = d.markups.find((x) => x.id === id); m.duct = { ...m.duct, q: 1400 }; mebulb.renderAllMarks(d); const S = mebulb.state; S.sel.clear(); S.sel.add(id); mebulb.refreshSelection(); mebulb.openPanel('props'); mebulb.goToPage(1, m.pts[1]); }, rt.ids[0]); await page.waitForTimeout(250);
-  const over = await ev((id) => ({ lab: document.querySelector(`g.mk[data-id="${id}"]`).textContent, warn: (document.querySelector('#props .dc-warn') || {}).textContent || '' }), rt.ids[0]);
-  ok(/1400 L\/s · [\d.]+ m\/s · [\d.]+ Pa\/m !/.test(over.lab) && /over 1(\.00)? Pa\/m/.test(over.warn) && /Try/.test(over.warn), 'a duct over the limit: flagged in its label and properties with sizes to try: ' + over.warn.trim());
+  const over = await ev((id) => ({ lab: document.querySelector(`g.mk[data-id="${id}"]`).textContent, warn: (document.querySelector('#props .aircard .air-tile.over') || {}).textContent || '', chips: [...document.querySelectorAll('#props .aircard [data-air-set] b')].map((b) => b.textContent), head: !!document.querySelector('#props .measure-readout.over') }), rt.ids[0]);
+  ok(/1400 L\/s · [\d.]+ m\/s · [\d.]+ Pa\/m !/.test(over.lab) && /Over 1 Pa\/m/.test(over.warn) && over.chips.length >= 2 && over.head, 'a duct over the limit: flagged in its label and properties with sizes to pick: ' + over.chips.join(', '));
   await page.screenshot({ path: OUT + '/r9-ductulator.png' });
 
   // ---- everything goes into the PDF and comes back

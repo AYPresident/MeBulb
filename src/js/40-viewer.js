@@ -265,7 +265,7 @@ function snapMarker(h, z) {
   if (k === 'center') return `<circle class="snap" cx="${num(x, 2)}" cy="${num(y, 2)}" r="${num(r, 2)}" stroke-width="${sw}"/>`;
   return `<rect class="snap" x="${num(x - r, 2)}" y="${num(y - r, 2)}" width="${num(2 * r, 2)}" height="${num(2 * r, 2)}" stroke-width="${sw}"/>`;
 }
-function refreshSelection() { const d = activeDoc(); if (!d || !d.pageEls) return; for (let i = 0; i < d.numPages; i++) renderSel(d, i); renderProps(); syncListSelection(); updateSelDims(); if (oneSketch() && rightShown('linked')) renderLinkedPanelSoon(); if (state.sel.size === 1 && oneSketch() && state.layout[panelSide('props') + 'Tab'] === 'props' && !document.body.classList.contains(panelSide('props') + '-open') && !narrow()) openPanel('props'); renderToolbarsState(); renderPropbar(); }
+function refreshSelection() { const d = activeDoc(); if (!d || !d.pageEls) return; for (let i = 0; i < d.numPages; i++) renderSel(d, i); renderProps(); renderDuctPanelSoon(); syncListSelection(); updateSelDims(); if (oneSketch() && rightShown('linked')) renderLinkedPanelSoon(); if (state.sel.size === 1 && oneSketch() && state.layout[panelSide('props') + 'Tab'] === 'props' && !document.body.classList.contains(panelSide('props') + '-open') && !narrow()) openPanel('props'); renderToolbarsState(); renderPropbar(); }
 function renderDraft() {
   const d = activeDoc(); if (!d || !d.pageEls) return;
   d.pageEls.forEach((el) => { const g = el.querySelector('g.draft'); if (g.childNodes.length) g.innerHTML = ''; });

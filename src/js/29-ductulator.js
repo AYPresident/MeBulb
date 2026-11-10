@@ -3,6 +3,10 @@
 // Galvanised sheet (roughness 0.09 mm), air at about 20 °C (1.2 kg/m³, ν 1.51e-5 m²/s). A duct or riser over
 // the friction limit (1 Pa/m unless changed) is flagged.
 const AIR = { rho: 1.2, nu: 1.51e-5, eps: 0.09 };
+// surface roughness by material, mm (the usual roughness categories for duct design)
+const DUCT_MATS = [['galv', 'Galvanised steel', 0.09], ['smooth', 'Aluminium, stainless or PVC', 0.03], ['lined', 'Duct board or lined duct', 0.9], ['flex', 'Flexible duct', 3], ['shaft', 'Concrete or masonry shaft', 3]];
+const matEps = (k) => (DUCT_MATS.find((x) => x[0] === k) || DUCT_MATS[0])[2];
+const matName = (k) => (DUCT_MATS.find((x) => x[0] === k) || DUCT_MATS[0])[1];
 const fricLimit = () => +(state.prefs.paLimit || 1);
 const velLimit = () => +(state.prefs.velLimit || 0); // 0: no velocity check
 function colebrook(Re, rel) {
@@ -33,44 +37,114 @@ function suggestSizes(q, opts = {}) {
 const calcLine = (c) => (c.q > 0 && c.A > 0 ? `${Math.round(c.q)} L/s · ${num(c.v, 2)} m/s · ${num(c.pa, 2)} Pa/m` : '');
 // a duct's airflow: set on it, or the sum of the grilles on it
 function ductQ(doc, m) { const D = ductD(m); if (D.q > 0) return +D.q; const s = doc.markups.reduce((a, g) => a + (g.type === 'grille' && g.on === m.id ? +(grilleD(g).q || 0) : 0), 0); return s > 0 ? s : 0; }
-function ductCalcFor(doc, m) { const D = ductD(m); const q = ductQ(doc, m); return ductCalc(q, D.shape === 'round' ? { shape: 'round', d: D.d } : { shape: 'rect', w: D.w, h: D.h }); }
+function ductCalcFor(doc, m) { const D = ductD(m); const q = ductQ(doc, m); return ductCalc(q, D.shape === 'round' ? { shape: 'round', d: D.d } : { shape: 'rect', w: D.w, h: D.h }, { eps: matEps(D.mat) }); }
+const riserMat = (doc, r) => { const L = linkOf(doc, r); return (L && L.mat) || r.mat || 'galv'; };
+function riserCalcFor(doc, r) { const q = riserQ(doc, r); return ductCalc(q, sizeMm(sketchSize(doc, r)), { eps: matEps(riserMat(doc, r)) }); }
+const sizeOk = (c) => c.pa <= fricLimit() + 1e-9 && (!velLimit() || c.v <= velLimit() + 1e-9);
+// the most air a size carries inside the limits (L/s)
+function maxFlow(size, eps) { let lo = 0, hi = 1e6; for (let i = 0; i < 60; i++) { const mid = (lo + hi) / 2; if (sizeOk(ductCalc(mid, size, { eps }))) lo = mid; else hi = mid; } return lo; }
+// sizes to offer for an airflow, in the shape's own terms: keep the width, keep the height, a 2:1, and round;
+// each is the smallest (50 mm steps) inside the limits
+function sizeChoices(q, size, eps) {
+  const out = []; if (!(q > 0)) return out; const ok = (z) => sizeOk(ductCalc(q, z, { eps })); const add = (z, why) => { const k = z.shape === 'round' ? 'round:' + z.d : `rect:${z.w}:${z.h}`; if (!out.some((x) => x.key === k)) out.push({ key: k, size: z, why, c: ductCalc(q, z, { eps }) }); };
+  const up = (v) => Math.max(50, Math.ceil(v / 50) * 50); const round = size.shape === 'round' || size.shape === 'circle';
+  if (!round && size.w > 0 && size.h > 0) {
+    const W = up(size.w), H = up(size.h);
+    for (let h = 100; h <= 4000; h += 50) if (ok({ shape: 'rect', w: W, h })) { if (h <= W * 4 && W <= h * 4) add({ shape: 'rect', w: W, h }, `keeps the ${W} width`); break; }
+    for (let w = 100; w <= 4000; w += 50) if (ok({ shape: 'rect', w, h: H })) { if (w <= H * 4 && H <= w * 4) add({ shape: 'rect', w, h: H }, `keeps the ${H} ${'height'}`); break; }
+    const land = size.w >= size.h; for (let b = 100; b <= 3000; b += 50) { const z = land ? { shape: 'rect', w: b * 2, h: b } : { shape: 'rect', w: b, h: b * 2 }; if (ok(z)) { add(z, '2 to 1'); break; } }
+    for (let b = 100; b <= 3000; b += 50) if (ok({ shape: 'rect', w: b, h: b })) { add({ shape: 'rect', w: b, h: b }, 'square'); break; }
+  } else { [200, 300, 400, 500].forEach((h) => { for (let w = h; w <= h * 4; w += 50) if (ok({ shape: 'rect', w, h })) { add({ shape: 'rect', w, h }, `${h} deep`); break; } }); }
+  for (let d = 100; d <= 3000; d += 50) if (ok({ shape: 'round', d })) { add({ shape: 'round', d }, 'round'); break; }
+  return out.slice(0, 5);
+}
+const sizeTxtMm = (z) => (z.shape === 'round' || z.shape === 'circle' ? `Ø${Math.round(z.d)}` : `${Math.round(z.w)}×${Math.round(z.h)}`);
 // a riser's airflow: set on the riser (or its linked set), or the sum of the grilles in its walls on every floor
 function riserQ(doc, r) { const L = linkOf(doc, r); const set = L && L.q > 0 ? +L.q : r.q > 0 ? +r.q : 0; if (set) return set; const ids = new Set(riserInstances(doc, r).map((x) => x.id)); return doc.markups.reduce((a, g) => a + (g.type === 'grille' && ids.has(g.on) ? +(grilleD(g).q || 0) : 0), 0); }
 function sizeMm(sz) { return sz.shape === 'circle' ? { shape: 'round', d: sz.d * 25.4 } : { shape: 'rect', w: sz.w * 25.4, h: sz.h * 25.4 }; }
 
-// ----- the calculator in the Ductwork panel ---------------------------------------------------------------------
-const DCALC = { q: 300, shape: 'rect', w: 400, h: 200, d: 250, ...store.get('ductCalc', {}) };
+// ----- one card for size and airflow ---------------------------------------------------------------------------
+// The same card sizes a riser, a duct, the next riser or duct to be drawn, and the stand-alone calculator:
+// airflow and size in, velocity and friction out (live as you type), sizes that fit to pick from.
+// o: { ctx, q, qPh, size (mm), mat, keys: { q, shape, w, h, d, mat }, roundVal, dims: 'mm' | 'sketch', sc, note }
+function airOutHtml(q, size, mat) {
+  const eps = matEps(mat); const c = ductCalc(q, size, { eps }); const has = c.q > 0 && c.A > 0; const lim = fricLimit(), vl = velLimit(); const overP = has && c.pa > lim + 1e-9, overV = has && vl > 0 && c.v > vl + 1e-9;
+  const cap = size && (size.d > 0 || (size.w > 0 && size.h > 0)) ? maxFlow(size, eps) : 0; const ch = has ? sizeChoices(q, size, eps) : []; const cur = sizeTxtMm(size);
+  const tile = (val, unit, name, over, limTxt) => `<div class="air-tile${has ? (over ? ' over' : ' ok') : ''}"><div class="air-val"><b>${has ? val : '—'}</b> ${unit}</div><div class="air-name">${name}</div>${has ? `<div class="air-st">${over ? icon('warn') + ' Over ' + limTxt : limTxt ? icon('check') + ' Within ' + limTxt : '<span class="muted">No limit set</span>'}</div>` : ''}</div>`;
+  return `<div class="air-tiles" role="status">${tile(num(c.v, 2), 'm/s', 'Velocity', overV, vl ? `${num(vl, 1)} m/s` : '')}${tile(num(c.pa, 2), 'Pa/m', 'Friction', overP, `${num(lim, 2)} Pa/m`)}</div>
+    ${has ? '' : `<p class="muted sm">Enter the airflow to see velocity and friction${cap > 0 ? `. ${cur} carries up to ${Math.floor(cap / 5) * 5} L/s at ${num(lim, 2)} Pa/m${vl ? ` and ${num(vl, 1)} m/s` : ''}` : ''}.</p>`}
+    ${ch.length ? `<div class="air-pick"><div class="air-pick-h">${overP || overV ? `Sizes that carry ${Math.round(q)} L/s within the limits` : `Smallest sizes for ${Math.round(q)} L/s`}</div><div class="air-chips">${ch.map((x) => `<button type="button" class="air-chip${sizeTxtMm(x.size) === cur ? ' cur' : ''}" data-air-set="${x.key}" title="${esc(`${x.why}: ${num(x.c.v, 2)} m/s, ${num(x.c.pa, 2)} Pa/m`)}"><b>${esc(sizeTxtMm(x.size))}</b><span>${esc(x.why)}</span></button>`).join('')}</div></div>` : ''}
+    ${has ? `<p class="muted sm air-cap">${cur} carries up to ${Math.floor(cap / 5) * 5} L/s within the limits. Dh ${Math.round(c.dh)} mm · equal-friction Ø${Math.round(c.de)} · velocity pressure ${num(c.vp || 0, 1)} Pa · Re ${Math.round(c.re).toLocaleString()}</p>` : ''}`;
+}
+function airCardHtml(o) {
+  const K = o.keys || {}; const z = o.size; const round = z.shape === 'round' || z.shape === 'circle'; const k = (name) => (K[name] ? ` data-k="${K[name]}"` : ''); const sk = o.dims === 'sketch';
+  const dim = (name, v, label) => `<div><label>${label}</label>${sk ? `<input type="text" inputmode="decimal" data-air="${name}"${k(name)} value="${esc(dimVal(v / 25.4, o.sc))}">` : `<input type="number" data-air="${name}"${k(name)} value="${v > 0 ? Math.round(v) : ''}" min="50" step="50">`}</div>`;
+  const u = sk && o.sc && !isMetric(o.sc) ? '' : ' (mm)';
+  return `<div class="aircard" data-ctx="${o.ctx}" data-dim="${sk ? 'sketch' : 'mm'}" data-qfall="${o.qFall > 0 ? o.qFall : 0}">
+    <div class="field two"><div><label>Airflow (L/s)</label><input type="number" data-air="q"${k('q')} value="${o.q > 0 ? Math.round(o.q) : ''}" min="0" step="10" placeholder="${esc(o.qPh || 'L/s')}"${o.qTitle ? ` title="${esc(o.qTitle)}"` : ''}></div>
+      <div><label>Shape</label><select data-air="shape"${k('shape')}><option value="rect"${round ? '' : ' selected'}>Rectangle</option><option value="${o.roundVal || 'round'}"${round ? ' selected' : ''}>Round</option></select></div></div>
+    ${round ? `<div class="field two">${dim('d', z.d, 'Diameter' + u)}<div></div></div>` : `<div class="field two">${dim('w', z.w, (o.wLabel || 'Width') + u)}${dim('h', z.h, (o.hLabel || 'Height') + u)}</div>`}
+    <div class="air-out">${airOutHtml(o.q > 0 ? o.q : o.qFall || 0, round ? { shape: 'round', d: z.d } : { shape: 'rect', w: z.w, h: z.h }, o.mat)}</div>
+    ${o.note ? `<p class="muted sm">${o.note}</p>` : ''}
+    <details class="air-more"${state.airMore ? ' open' : ''}><summary>Limits and material</summary>
+      <div class="field two"><div><label>Friction limit (Pa/m)</label><input type="number" data-air-pref="lim" value="${fricLimit()}" min="0.1" step="0.1"></div><div><label>Velocity limit (m/s)</label><input type="number" data-air-pref="vlim" value="${velLimit() || ''}" min="0" step="0.5" placeholder="none"></div></div>
+      <div class="field"><label>Material</label><select data-air="mat"${k('mat')}>${DUCT_MATS.map(([v, l, e]) => `<option value="${v}"${(o.mat || 'galv') === v ? ' selected' : ''}>${esc(l)} (${e} mm)</option>`).join('')}</select></div>
+      <p class="muted sm">The limits apply to every duct and riser. Friction is straight-run loss only; fittings are not included.</p></details>
+  </div>`;
+}
+// what the card says right now, in mm (also while typing)
+function airRead(card) {
+  const g = (n) => card.querySelector(`[data-air="${n}"]`); const sk = card.dataset.dim === 'sketch'; const sc = sk ? (() => { const T = propTarget(); const d = activeDoc(); return T.kind === 'sel' && T.ms[0] ? scaleForMarkup(d, T.ms[0]) : scaleFor(d, currentPage()); })() : null;
+  const mm = (el) => (el ? (sk ? parseSketchDim(el.value, sc) * 25.4 : +el.value) : 0) || 0; const sh = g('shape') ? g('shape').value : 'rect'; const round = sh === 'round' || sh === 'circle';
+  const qi = g('q'); const q = +qi.value > 0 ? +qi.value : +(card.dataset.qfall || 0);
+  return { q, size: round ? { shape: 'round', d: mm(g('d')) } : { shape: 'rect', w: mm(g('w')), h: mm(g('h')) }, mat: g('mat') ? g('mat').value : 'galv' };
+}
+function airLive(card) { const r = airRead(card); const out = card.querySelector('.air-out'); if (out) out.innerHTML = airOutHtml(r.q, r.size, r.mat); }
+// picking a size chip
+function airApplySize(card, key) {
+  const [sh, a, b] = key.split(':'); const z = sh === 'round' ? { shape: 'round', d: +a } : { shape: 'rect', w: +a, h: +b }; const ctx = card.dataset.ctx; const doc = activeDoc();
+  if (ctx === 'calc') { Object.assign(DCALC, z); store.set('ductCalc', DCALC); renderDuctPanel(); return; }
+  if (ctx === 'ducttool') { saveDuctDefaults({ ...ductDefaults(), ...z }); renderProps(); renderDuctPanelSoon(); return; }
+  if (ctx === 'risertool') { const sh2 = z.shape === 'round' ? 'circle' : 'rect'; state.sketchDefaults[sh2] = sh2 === 'circle' ? { shape: 'circle', d: z.d / 25.4 } : { shape: 'rect', w: z.w / 25.4, h: z.h / 25.4 }; store.set('sketchDefaults2', state.sketchDefaults); if ((TOOLS[state.tool] || {}).shape !== sh2) setTool(sh2 === 'circle' ? 'sketchcircle' : 'sketchrect'); renderProps(); return; }
+  const m = selected(doc)[0]; if (!m) return;
+  if (ctx === 'duct' && m.type === 'duct') { applyToSelection((x) => { if (x.type === 'duct') x.duct = { ...ductD(x), ...z }; }); toast(`Duct resized to ${sizeTxtMm(z)}`); return; }
+  if (ctx === 'riser' && m.type === 'sketch') { pushUndo(doc); setSketchSize(doc, m, z.shape === 'round' ? { shape: 'circle', d: z.d / 25.4 } : { shape: 'rect', w: z.w / 25.4, h: z.h / 25.4 }, 'size'); linkSiblings(doc, m).forEach(touch); touch(m); markDirty(doc); renderAllMarks(doc); refreshSelection(); refreshPanels(); renderLinkedPanelSoon(); toast(`${sketchName(doc, m) || 'Riser'} resized to ${sizeTxtMm(z)}${linkOf(doc, m) ? ' on every page that uses this size' : ''}`); }
+}
+function bindAirCards() {
+  document.addEventListener('input', (e) => { const c = e.target.closest && e.target.closest('.aircard'); if (c && e.target.matches('[data-air]')) airLive(c); });
+  document.addEventListener('change', (e) => {
+    const c = e.target.closest && e.target.closest('.aircard'); if (!c) return; const t = e.target;
+    if (t.dataset.airPref) { if (t.dataset.airPref === 'lim') state.prefs.paLimit = clamp(+t.value || 1, 0.05, 20); else state.prefs.velLimit = +t.value > 0 ? +t.value : 0; savePrefs(); state.airMore = true; renderAllMarks(); refreshPanels(); renderProps(); renderDuctPanelSoon(); return; }
+    if (c.dataset.ctx === 'calc' && t.dataset.air) { const k = t.dataset.air; DCALC[k] = k === 'shape' || k === 'mat' ? t.value : +t.value || 0; store.set('ductCalc', DCALC); renderDuctPanel(); }
+    else if (c.dataset.ctx === 'risertool' && t.dataset.air === 'q') { state.sketchQ = +t.value > 0 ? +t.value : 0; store.set('sketchQ', state.sketchQ); renderProps(); }
+  });
+  document.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('[data-air-set]'); if (b) { const c = b.closest('.aircard'); if (c) airApplySize(c, b.dataset.airSet); } });
+  document.addEventListener('toggle', (e) => { if (e.target.matches && e.target.matches('.air-more')) state.airMore = e.target.open; }, true);
+}
+
+// ----- the stand-alone calculator (Mechanical panel) -------------------------------------------------------------
+const DCALC = { q: 300, shape: 'rect', w: 400, h: 200, d: 250, mat: 'galv', ...store.get('ductCalc', {}) };
 function ductCalcHtml() {
-  const C = DCALC; const c = ductCalc(+C.q, C.shape === 'round' ? { shape: 'round', d: +C.d } : { shape: 'rect', w: +C.w, h: +C.h }); const w = calcWarn(c); const sg = +C.q > 0 ? suggestSizes(+C.q) : null;
-  return `<section class="psec dcalc"><h3>Ductulator</h3>
-    <div class="field two"><div><label>Airflow (L/s)</label><input type="number" class="num" data-dc="q" value="${C.q}" min="0" step="10"></div><div><label>Shape</label><select data-dc="shape"><option value="rect"${C.shape !== 'round' ? ' selected' : ''}>Rectangular</option><option value="round"${C.shape === 'round' ? ' selected' : ''}>Round</option></select></div></div>
-    ${C.shape === 'round' ? `<div class="field two"><div><label>Diameter (mm)</label><input type="number" class="num" data-dc="d" value="${C.d}" min="50" step="25"></div><div></div></div>` : `<div class="field two"><div><label>Width (mm)</label><input type="number" class="num" data-dc="w" value="${C.w}" min="50" step="50"></div><div><label>Depth (mm)</label><input type="number" class="num" data-dc="h" value="${C.h}" min="50" step="50"></div></div>`}
-    <div class="dc-out${w.length ? ' warn' : ''}" role="status"><div><b>${num(c.v, 2)}</b> m/s</div><div><b>${num(c.pa, 2)}</b> Pa/m</div><div class="muted sm">Dh ${Math.round(c.dh)} mm · equal-friction Ø${Math.round(c.de)} · Re ${Math.round(c.re).toLocaleString()} · ${num(c.vp || 0, 1)} Pa velocity pressure</div>${w.length ? `<div class="dc-warn">${icon('warn')} ${esc(w.join('; '))}</div>` : ''}</div>
-    ${sg ? `<p class="muted sm" style="margin:8px 0 4px">Smallest sizes at ${num(fricLimit(), 2)} Pa/m or less${velLimit() ? ` and ${num(velLimit(), 1)} m/s` : ''}:</p><div class="dc-sugg">${sg.round ? `<button class="chip" data-dcs="round:${sg.round.d}" title="${esc(calcLine(sg.round.c))}">Ø${sg.round.d}</button>` : ''}${sg.rect.map((r) => `<button class="chip" data-dcs="rect:${r.w}:${r.h}" title="${esc(calcLine(r.c))}">${r.w}×${r.h}</button>`).join('')}</div>` : ''}
-    <div class="field two" style="margin-top:8px"><div><label>Friction limit (Pa/m)</label><input type="number" class="num" data-dc="lim" value="${fricLimit()}" min="0.1" step="0.1"></div><div><label>Velocity limit (m/s)</label><input type="number" class="num" data-dc="vlim" value="${velLimit() || ''}" min="0" step="0.5" placeholder="none"></div></div>
-    <div class="btn-row"><button class="btn sm" data-dw="calc-apply" title="Give the selected ducts this airflow and size">Apply to selected duct</button><button class="btn sm" data-dw="calc-from" title="Read the airflow and size of the selected duct or riser">From selection</button></div></section>`;
+  const C = DCALC; const doc = activeDoc(); const s0 = doc ? selected(doc)[0] : null; const can = s0 && (s0.type === 'duct' || s0.type === 'sketch');
+  return `<section class="psec dcalc"><h3>Ductulator</h3>${airCardHtml({ ctx: 'calc', q: +C.q, size: C.shape === 'round' ? { shape: 'round', d: +C.d } : { shape: 'rect', w: +C.w, h: +C.h }, mat: C.mat, wLabel: 'Width', hLabel: 'Depth' })}
+    <div class="btn-row"><button class="btn sm" data-dw="calc-from"${can ? '' : ' disabled'} title="Read the airflow and size of the selected duct or riser">Read from selection</button><button class="btn sm primary" data-dw="calc-apply"${can ? '' : ' disabled'} title="Give the selected duct or riser this airflow and size">Apply to selection</button></div>
+    <p class="muted sm">${can ? 'A selected duct or riser has this same calculator in its properties.' : 'Select a duct or riser to size it here, or use the same calculator in its properties.'}</p></section>`;
 }
-function bindDuctCalc(el) {
-  el.addEventListener('change', (e) => {
-    const i = e.target.closest('[data-dc]'); if (!i) return; const k = i.dataset.dc; const v = i.value;
-    if (k === 'lim') { state.prefs.paLimit = clamp(+v || 1, 0.05, 20); savePrefs(); renderAllMarks(); refreshPanels(); }
-    else if (k === 'vlim') { state.prefs.velLimit = +v > 0 ? +v : 0; savePrefs(); renderAllMarks(); refreshPanels(); }
-    else { DCALC[k] = k === 'shape' ? v : +v || 0; store.set('ductCalc', DCALC); }
-    renderDuctPanel();
-  });
-  el.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-dcs]'); if (!b) return; const [sh, a, c] = b.dataset.dcs.split(':'); if (sh === 'round') { DCALC.shape = 'round'; DCALC.d = +a; } else { DCALC.shape = 'rect'; DCALC.w = +a; DCALC.h = +c; } store.set('ductCalc', DCALC); renderDuctPanel();
-  });
-}
+function bindDuctCalc() { /* the card binds itself: see bindAirCards */ }
 function ductCalcApply() {
-  const doc = activeDoc(); const ds = selected(doc).filter((m) => m.type === 'duct'); if (!ds.length) { toast('Select a duct first'); return; }
-  applyToSelection((x) => { if (x.type !== 'duct') return; const D = ductD(x); x.duct = DCALC.shape === 'round' ? { ...D, shape: 'round', d: +DCALC.d, q: +DCALC.q || null } : { ...D, shape: 'rect', w: +DCALC.w, h: +DCALC.h, q: +DCALC.q || null }; });
-  toast(`${ds.length} duct${ds.length === 1 ? '' : 's'} set to ${DCALC.shape === 'round' ? 'Ø' + DCALC.d : DCALC.w + '×' + DCALC.h}, ${DCALC.q} L/s`);
+  const doc = activeDoc(); const ms = selected(doc).filter((m) => m.type === 'duct' || m.type === 'sketch'); if (!ms.length) { toast('Select a duct or riser first'); return; }
+  const z = DCALC.shape === 'round' ? { shape: 'round', d: +DCALC.d } : { shape: 'rect', w: +DCALC.w, h: +DCALC.h }; pushUndo(doc);
+  ms.forEach((x) => {
+    if (x.type === 'duct') x.duct = { ...ductD(x), ...z, q: +DCALC.q || null, mat: DCALC.mat };
+    else { setSketchSize(doc, x, z.shape === 'round' ? { shape: 'circle', d: z.d / 25.4 } : { shape: 'rect', w: z.w / 25.4, h: z.h / 25.4 }, 'size'); const L = linkOf(doc, x); if (L) { L.q = +DCALC.q || null; L.mat = DCALC.mat; } else { x.q = +DCALC.q || null; x.mat = DCALC.mat; } linkSiblings(doc, x).forEach(touch); }
+    touch(x);
+  });
+  markDirty(doc); renderAllMarks(doc); refreshSelection(); refreshPanels(); toast(`${ms.length === 1 ? (ms[0].type === 'duct' ? 'Duct' : 'Riser') : ms.length + ' items'} set to ${sizeTxtMm(z)}, ${DCALC.q} L/s`);
 }
 function ductCalcFrom() {
   const doc = activeDoc(); const m = selected(doc)[0]; if (!m) { toast('Select a duct or riser first'); return; }
-  if (m.type === 'duct') { const D = ductD(m); Object.assign(DCALC, D.shape === 'round' ? { shape: 'round', d: D.d } : { shape: 'rect', w: D.w, h: D.h }); const q = ductQ(doc, m); if (q) DCALC.q = q; }
-  else if (m.type === 'sketch') { const z = sizeMm(sketchSize(doc, m)); Object.assign(DCALC, z.shape === 'round' ? { shape: 'round', d: Math.round(z.d) } : { shape: 'rect', w: Math.round(Math.max(z.w, z.h)), h: Math.round(Math.min(z.w, z.h)) }); const q = riserQ(doc, m); if (q) DCALC.q = q; }
+  if (m.type === 'duct') { const D = ductD(m); Object.assign(DCALC, D.shape === 'round' ? { shape: 'round', d: D.d } : { shape: 'rect', w: D.w, h: D.h }); DCALC.mat = D.mat || 'galv'; const q = ductQ(doc, m); if (q) DCALC.q = q; }
+  else if (m.type === 'sketch') { const z = sizeMm(sketchSize(doc, m)); Object.assign(DCALC, z.shape === 'round' ? { shape: 'round', d: Math.round(z.d) } : { shape: 'rect', w: Math.round(z.w), h: Math.round(z.h) }); DCALC.mat = riserMat(doc, m); const q = riserQ(doc, m); if (q) DCALC.q = q; }
   else { toast('Select a duct or riser'); return; }
   store.set('ductCalc', DCALC); renderDuctPanel();
 }
